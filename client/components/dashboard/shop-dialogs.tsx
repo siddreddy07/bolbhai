@@ -3,7 +3,7 @@
 import * as React from "react"
 import gsap from "gsap"
 import { useGSAP } from "@gsap/react"
-import { ArrowRight, Check, Coffee, LoaderCircle, Lock, ShoppingBasket } from "lucide-react"
+import { ArrowRight, Check, LoaderCircle, Lock } from "lucide-react"
 
 import { Logo } from "@/components/site/doodles"
 import { Button } from "@/components/ui/button"
@@ -13,12 +13,9 @@ import { Label } from "@/components/ui/label"
 import { api } from "@/lib/proxy"
 import { GSTIN_RE, type Shop, type ShopType } from "@/lib/shop"
 import { useShopStore } from "@/store/shop-store"
-import { cn } from "@/lib/utils"
 
-const TYPES: { value: ShopType; label: string; Icon: typeof Coffee }[] = [
-  { value: "GROCERY", label: "Grocery", Icon: ShoppingBasket },
-  { value: "CAFE", label: "Cafe", Icon: Coffee },
-]
+// The backend needs a type on every shop. Only the normal shopkeeper exists for now, so it is not asked.
+const DEFAULT_TYPE: ShopType = "GROCERY"
 
 const errorText = (error: unknown, fallback: string) =>
   (error as { response?: { data?: { message?: string } } }).response?.data?.message ?? fallback
@@ -105,7 +102,6 @@ function CreateShopCard({
 }) {
   const box = React.useRef<HTMLDivElement>(null)
   const [name, setName] = React.useState("")
-  const [type, setType] = React.useState<ShopType>("GROCERY")
   const [gstin, setGstin] = React.useState("")
   const [errs, setErrs] = React.useState<{ name?: string; gstin?: string; form?: string }>({})
   const [sending, setSending] = React.useState(false)
@@ -125,7 +121,7 @@ function CreateShopCard({
     setSending(true)
     setBusy(true)
     try {
-      const { data } = await api.post<Shop>("/api/shops", { name: name.trim(), type, gstin: g })
+      const { data } = await api.post<Shop>("/api/shops", { name: name.trim(), type: DEFAULT_TYPE, gstin: g })
       setCreated(data)
     } catch (error) {
       setErrs({ form: errorText(error, "Could not create your shop. Try again.") })
@@ -174,7 +170,7 @@ function CreateShopCard({
       </div>
       <div data-in>
         <DialogTitle>{first ? "Set up your shop" : "Add a new shop"}</DialogTitle>
-        <DialogDescription className="mt-1.5">{first ? "Three details and you are in." : "Each shop has its own GSTIN."}</DialogDescription>
+        <DialogDescription className="mt-1.5">{first ? "Two details and you are in." : "Each shop has its own GSTIN."}</DialogDescription>
       </div>
 
       <form onSubmit={submit} noValidate className="mt-5 grid gap-4">
@@ -191,28 +187,6 @@ function CreateShopCard({
             className="h-11"
           />
           <FieldError>{errs.name}</FieldError>
-        </div>
-
-        <div data-in className="grid gap-1.5">
-          <Label id="shop-type">Shop type</Label>
-          <div role="radiogroup" aria-labelledby="shop-type" className="grid grid-cols-2 gap-2">
-            {TYPES.map(({ value, label, Icon }) => (
-              <button
-                key={value}
-                type="button"
-                role="radio"
-                aria-checked={type === value}
-                onClick={() => setType(value)}
-                className={cn(
-                  "flex h-12 items-center justify-center gap-2 rounded-xl border text-sm font-semibold transition-[background-color,color,border-color,transform] outline-none focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-[0.97]",
-                  type === value ? "border-foreground bg-foreground text-background" : "border-input hover:bg-foreground/[0.06]"
-                )}
-              >
-                <Icon className="size-4.5" />
-                {label}
-              </button>
-            ))}
-          </div>
         </div>
 
         <div data-in className="grid gap-1.5">
