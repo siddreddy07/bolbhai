@@ -1,13 +1,24 @@
 import express from 'express';
+import cookieParser from 'cookie-parser';
+import morgan from 'morgan';
 import { connectDB } from './config/db.js';
 import { env } from './config/env.js';
+import userRoutes from './routes/user.routes.js';
+import shopRoutes from './routes/shop.routes.js';
 
 
 const app = express();
 
+app.use(morgan(':date[iso] :method :url :status :response-time ms'));
+app.use(express.json());
+app.use(cookieParser());
+
 app.get('/', (req, res) => {
   res.send('Hello, World!');
 });
+
+app.use('/api/users', userRoutes);
+app.use('/api/shops', shopRoutes);
 
 
 const PORT = env.PORT;

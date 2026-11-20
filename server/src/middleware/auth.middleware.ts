@@ -1,0 +1,27 @@
+import type { NextFunction, Request, Response } from "express";
+import { verifyAccessToken } from "../helper/jwt.helper.js";
+import { getUserById } from "../services/user.service.js";
+
+declare global {
+  namespace Express {
+    interface Request {
+      user?: { id: string; email: string; name: string | null };
+    }
+  }
+}
+
+export async function auth(req: Request, res: Response, next: NextFunction) {
+  try {
+    const token = req.cookies.accessToken;
+    if (!token) return res.status(401).json({ message: "Not logged in" });
+
+    const { id } = verifyAccessToken(token);
+    const user = await getUserById(id);
+    if (!user) return res.status(401).json({ message: "User not found" });
+
+    req.user = user;
+    next();
+  } catch {
+    res.status(401).json({ message: "Invalid or expired token" });
+  }
+}
