@@ -37,3 +37,13 @@ pnpm-debug.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# design references (images / videos)
+/references/
+
+# markdown: ignore all except README.md
+*.md
+!README.md
+
+# local tooling
+.taste-skill/
