@@ -8,6 +8,7 @@ enum ShopType {
 model users {
   id        Uuid               @id @onCreate(uuid())
   email     String             @unique
+  password  String
   name      String?
   shops     shops[]
   createdAt DateTime           @default(now()) @onCreate(now())
