@@ -22,7 +22,7 @@ export type Draft = {
   price: string
 }
 
-export const blank = (category: CatId = "grains"): Draft => ({ name: "", category, unit: "bags", qty: "10", max: "40", price: "" })
+export const blank = (category: CatId = "cereals"): Draft => ({ name: "", category, unit: "bags", qty: "10", max: "40", price: "" })
 export const fromItem = (i: StockItem): Draft => ({
   id: i.id,
   name: i.name,

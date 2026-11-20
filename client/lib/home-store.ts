@@ -1,6 +1,7 @@
 import { create } from "zustand"
 
-import { makeCustomers, makeInvoices, makeStock, type Customer, type Invoice, type StockItem } from "@/lib/mock-data"
+import { loadShopStock, saveShopStock } from "@/lib/shop-stock"
+import { makeCustomers, makeInvoices, type Customer, type Invoice, type StockItem } from "@/lib/mock-data"
 
 export type Phase = "idle" | "listening" | "thinking" | "confirm" | "done"
 export type SheetKey = "bills" | "stock" | "khata" | null
@@ -20,6 +21,9 @@ type HomeState = {
   invoices: Invoice[]
   customers: Customer[]
   stock: StockItem[]
+  /** the shop whose stock is loaded (stock lives in localStorage, per shop) */
+  stockShopId: string | null
+  loadStock: (shopId: string) => void
   /** stock came in by hand (no voice needed) */
   addStock: (id: string, qty: number) => void
   /** stock manager: type it, or snap a photo, both end up here */
@@ -52,7 +56,9 @@ export const useHomeStore = create<HomeState>((set, get) => ({
   bills: 23,
   invoices: makeInvoices(),
   customers: makeCustomers(),
-  stock: makeStock(),
+  stock: [],
+  stockShopId: null,
+  loadStock: (shopId) => set({ stockShopId: shopId, stock: loadShopStock(shopId) }),
   adjust: (id, delta) => set((s) => ({ stock: s.stock.map((i) => (i.id === id ? { ...i, qty: Math.max(0, i.qty + delta) } : i)) })),
   saveItem: (item) => {
     const id = item.id ?? `n${Date.now()}`
@@ -103,3 +109,8 @@ export const useHomeStore = create<HomeState>((set, get) => ({
     set({ phase: "idle" })
   },
 }))
+
+// Every stock change is saved for the shop that is on screen.
+useHomeStore.subscribe((state, prev) => {
+  if (state.stockShopId && state.stockShopId === prev.stockShopId && state.stock !== prev.stock) saveShopStock(state.stockShopId, state.stock)
+})

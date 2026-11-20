@@ -43,17 +43,14 @@ function Stepper({ item }: { item: StockItem }) {
     { dependencies: [item.qty] }
   )
 
-  const b = "grid size-10 shrink-0 place-items-center rounded-full border border-foreground/15 bg-card transition-transform active:scale-90 active:bg-foreground/10"
+  const b = "grid size-9 shrink-0 place-items-center rounded-full text-foreground transition-transform active:scale-90 active:bg-foreground/15 disabled:opacity-30"
   return (
-    <div className="flex items-center justify-between gap-1">
-      <button type="button" aria-label={`One less ${item.name}`} onClick={() => adjust(item.id, -1)} className={b}>
+    <div className="flex shrink-0 items-center rounded-full bg-foreground/[0.07] p-0.5">
+      <button type="button" aria-label={`One less ${item.name}`} disabled={item.qty === 0} onClick={() => adjust(item.id, -1)} className={b}>
         <Minus className="size-4" />
       </button>
-      <span className="min-w-0 text-center">
-        <span ref={num} className="block text-xl leading-none font-extrabold tabular-nums">
-          {item.qty}
-        </span>
-        <span className="block truncate text-[11px] text-muted-foreground">{item.unit}</span>
+      <span ref={num} className="min-w-9 text-center text-lg leading-none font-extrabold tabular-nums">
+        {item.qty}
       </span>
       <button type="button" aria-label={`One more ${item.name}`} onClick={() => adjust(item.id, 1)} className={b}>
         <Plus className="size-4" />
@@ -66,20 +63,22 @@ function Tile({ item, onEdit }: { item: StockItem; onEdit: () => void }) {
   const low = isLow(item)
   const out = item.qty === 0
   return (
-    <div data-card data-id={item.id} className="rounded-2xl border border-foreground/10 bg-card p-2.5">
-      <button type="button" onClick={onEdit} aria-label={`Edit ${item.name}`} className="flex w-full items-start gap-2.5 text-left">
+    <div data-card data-id={item.id} className="flex items-center gap-2 rounded-2xl border border-foreground/10 bg-card py-2 pr-2 pl-2.5">
+      <button type="button" onClick={onEdit} aria-label={`Edit ${item.name}`} className="flex min-w-0 flex-1 items-center gap-2.5 text-left">
         <CatChip category={item.category} className={cn("size-10 rounded-lg", out && "opacity-40 grayscale")} />
         <span className="min-w-0">
-          <span className="line-clamp-2 block text-[15px] leading-tight font-bold">{item.name}</span>
-          <span className={cn("mt-0.5 block truncate text-xs", out || low ? "font-semibold text-signal" : "text-muted-foreground")}>
-            {out ? "Out" : low ? "Low" : inr(item.price)}
-            {(out || low) && ` · ${inr(item.price)}`}
+          <span className="line-clamp-2 block text-sm leading-tight font-semibold">{item.name}</span>
+          <span className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+            {(out || low) && (
+              <span className="rounded-full bg-signal/15 px-1.5 py-px text-[11px] font-bold text-signal">{out ? "Out" : "Low"}</span>
+            )}
+            <span className="truncate">
+              {inr(item.price)} · {item.unit}
+            </span>
           </span>
         </span>
       </button>
-      <div className="mt-2">
-        <Stepper item={item} />
-      </div>
+      <Stepper item={item} />
     </div>
   )
 }
@@ -104,18 +103,20 @@ function FilterPanel({ cats, setCats, counts, status, setStatus, sort, setSort, 
         <h3 className="mb-2 text-sm font-bold">
           Category <span className="font-normal text-muted-foreground">· pick one or more</span>
         </h3>
-        <ToggleGroup multiple value={cats} onValueChange={(v) => setCats(v as CatId[])} spacing={8} aria-label="Categories" className="flex-wrap">
+        <ToggleGroup multiple value={cats} onValueChange={(v) => setCats(v as CatId[])} spacing={8} aria-label="Categories" className="mx-auto grid w-full max-w-md grid-cols-3 gap-2">
           {CATS.map((c) => (
             <ToggleGroupItem
               key={c.id}
               value={c.id}
               disabled={!counts[c.id] && !cats.includes(c.id)}
-              className="h-11 gap-2 rounded-full! border border-foreground/15 bg-card px-4 text-[15px] aria-pressed:border-transparent aria-pressed:bg-(--tone) aria-pressed:text-[#10301f] disabled:opacity-35"
+              className="h-auto flex-col gap-1 rounded-2xl! border border-foreground/15 bg-card px-1.5 py-2.5 aria-pressed:border-foreground/70 aria-pressed:bg-(--tone) aria-pressed:text-[#10301f] disabled:opacity-35"
               style={{ "--tone": c.tone } as React.CSSProperties}
             >
-              <c.icon className="size-4" />
-              {c.name}
-              <span className="text-xs font-semibold opacity-60">{counts[c.id] ?? 0}</span>
+              <span className="grid size-9 place-items-center rounded-xl text-[#10301f]" style={{ background: c.tone }}>
+                <c.icon className="size-[18px]" />
+              </span>
+              <span className="text-[13px] leading-tight font-semibold">{c.name}</span>
+              <span className="text-[11px] leading-none font-medium opacity-60">{counts[c.id] ?? 0}</span>
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
@@ -281,7 +282,7 @@ export function StockManager() {
         }
       >
         <div ref={scroller} className="mt-1 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 pb-28">
-          <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-2.5">
             {shown.map((i) => (
               <Tile key={i.id} item={i} onEdit={() => setDraft(fromItem(i))} />
             ))}
@@ -304,7 +305,7 @@ export function StockManager() {
           <div className="flex gap-2">
           <button
             type="button"
-            onClick={() => setDraft(blank(cats[0] ?? "grains"))}
+            onClick={() => setDraft(blank(cats[0] ?? "cereals"))}
             className="pointer-events-auto flex h-14 items-center gap-2 rounded-full bg-foreground px-7 text-base font-semibold text-background shadow-[0_16px_36px_-12px_rgb(0_0_0/0.6)] transition-transform active:scale-95"
           >
             <Plus className="size-5" /> Add item

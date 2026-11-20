@@ -4,6 +4,7 @@ import * as React from "react"
 import { useRouter } from "next/navigation"
 
 import { CreateShopDialog, EditShopDialog } from "@/components/dashboard/shop-dialogs"
+import { useHomeStore } from "@/lib/home-store"
 import { api } from "@/lib/proxy"
 import type { Shop } from "@/lib/shop"
 import { useShopStore } from "@/store/shop-store"
@@ -15,6 +16,12 @@ import { useShopStore } from "@/store/shop-store"
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const { shop, loaded, dialog, setShops, setLoaded, setDialog } = useShopStore()
+
+  const shopId = shop?.id
+  const loadStock = useHomeStore((s) => s.loadStock)
+  React.useEffect(() => {
+    if (shopId) loadStock(shopId)
+  }, [shopId, loadStock])
 
   React.useEffect(() => {
     api

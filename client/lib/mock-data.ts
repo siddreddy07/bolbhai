@@ -2,7 +2,8 @@
 
 export type Invoice = { id: number; who: string; amount: number; status: "Paid" | "Khata"; daysAgo: number }
 export type Customer = { id: string; name: string; due: number; days: number }
-export type CatId = "grains" | "pulses" | "oils" | "sugar" | "spices" | "tea" | "snacks" | "home"
+// Short names for the catalog's own groups (see CATS in components/dashboard/stock/kit.tsx)
+export type CatId = "cereals" | "dairy" | "drinks" | "snacks" | "cooking" | "fruits" | "meals" | "meat" | "other"
 export type StockItem = {
   id: string
   name: string
@@ -64,17 +65,23 @@ export function makeCustomers(): Customer[] {
 }
 
 const PRODUCTS: [string, CatId][] = [
-  ["Rice", "grains"], ["Atta", "grains"], ["Maida", "grains"], ["Poha", "grains"], ["Rava", "grains"],
-  ["Toor dal", "pulses"], ["Moong dal", "pulses"], ["Chana dal", "pulses"],
-  ["Sunflower oil", "oils"], ["Groundnut oil", "oils"], ["Ghee", "oils"],
-  ["Sugar", "sugar"], ["Salt", "sugar"], ["Jaggery", "sugar"],
-  ["Turmeric", "spices"], ["Chilli powder", "spices"], ["Jeera", "spices"], ["Pepper", "spices"], ["Mustard", "spices"],
-  ["Tea", "tea"], ["Coffee", "tea"],
-  ["Biscuits", "snacks"],
-  ["Soap", "home"], ["Detergent", "home"],
+  ["Rice", "cereals"], ["Atta", "cereals"], ["Maida", "cereals"], ["Poha", "cereals"], ["Rava", "cereals"],
+  ["Toor dal", "cereals"], ["Moong dal", "cereals"], ["Chana dal", "cereals"],
+  ["Milk", "dairy"], ["Curd", "dairy"], ["Paneer", "dairy"], ["Butter", "dairy"],
+  ["Tea", "drinks"], ["Coffee", "drinks"], ["Cold drink", "drinks"], ["Juice", "drinks"],
+  ["Biscuits", "snacks"], ["Chips", "snacks"], ["Namkeen", "snacks"], ["Chocolate", "snacks"],
+  ["Sunflower oil", "cooking"], ["Groundnut oil", "cooking"], ["Ghee", "cooking"], ["Sugar", "cooking"], ["Salt", "cooking"],
+  ["Turmeric", "cooking"], ["Chilli powder", "cooking"], ["Jeera", "cooking"], ["Pepper", "cooking"], ["Ketchup", "cooking"],
+  ["Onion", "fruits"], ["Tomato", "fruits"], ["Banana", "fruits"],
+  ["Instant noodles", "meals"], ["Pasta", "meals"],
+  ["Eggs", "meat"],
+  ["Soap", "other"], ["Detergent", "other"],
 ]
 const SIZES = ["500 g", "1 kg", "5 kg", "10 kg", "25 kg"]
-const UNIT: Record<CatId, string> = { grains: "bags", pulses: "bags", oils: "tins", sugar: "bags", spices: "packs", tea: "packs", snacks: "boxes", home: "pcs" }
+const UNIT: Record<CatId, string> = {
+  cereals: "bags", dairy: "packs", drinks: "packs", snacks: "boxes", cooking: "packs",
+  fruits: "kg", meals: "packs", meat: "pcs", other: "pcs",
+}
 
 /** ~120 stock lines. */
 export function makeStock(): StockItem[] {
