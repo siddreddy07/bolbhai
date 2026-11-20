@@ -2,17 +2,22 @@
 
 import * as React from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import gsap from "gsap"
 import { useGSAP } from "@gsap/react"
 import { ArrowLeft, ArrowRight, Eye, EyeOff, LoaderCircle } from "lucide-react"
 
+import { isAxiosError } from "axios"
+
 import { Logo, Sparkle, Squiggle } from "@/components/site/doodles"
 import { ThemeToggle } from "@/components/site/navbar"
 import { TAGLINE, langClass, useLang } from "@/lib/lang"
+import { api } from "@/lib/proxy"
+import { useUserStore } from "@/store/user-store"
 import { cn } from "@/lib/utils"
 
 type Mode = "up" | "in"
-type Field = "name" | "shop" | "phone" | "pw" | null
+type Field = "name" | "email" | "pw" | null
 
 const WEAK = /^(123456|1234567|12345678|password|qwerty|iloveyou|000000|111111|abc123)/i
 
@@ -39,16 +44,14 @@ const IDLE: Record<Mode, string> = {
   up: "Hi, I’m BolBhai. From now on, I do the typing. You do the talking.",
   in: "Back already? The rice didn’t count itself.",
 }
-const FOCUS: Record<Mode, Record<"name" | "shop" | "phone", string>> = {
+const FOCUS: Record<Mode, Record<"name" | "email", string>> = {
   up: {
     name: "Your name first. We’re not animals.",
-    shop: "Shop name. “Sri Lakshmi Traders” is taken. By everyone.",
-    phone: "Ten digits. We won’t call at 2 a.m. Your suppliers will.",
+    email: "A real one. We’ll only use it to log you in. Promise.",
   },
   in: {
     name: "",
-    shop: "",
-    phone: "Same number as last time. Not your ex’s.",
+    email: "Same email as last time. Not your ex’s.",
   },
 }
 
@@ -84,15 +87,16 @@ function Input({
 
 export function GetStarted() {
   const { lang } = useLang()
+  const router = useRouter()
+  const setUser = useUserStore((s) => s.setUser)
   const [mode, setMode] = React.useState<Mode>("up")
   const [name, setName] = React.useState("")
-  const [shop, setShop] = React.useState("")
-  const [phone, setPhone] = React.useState("")
+  const [email, setEmail] = React.useState("")
   const [pw, setPw] = React.useState("")
   const [show, setShow] = React.useState(false)
   const [focus, setFocus] = React.useState<Field>(null)
   const [errs, setErrs] = React.useState<Record<string, string>>({})
-  const [status, setStatus] = React.useState<"idle" | "busy" | "done">("idle")
+  const [status, setStatus] = React.useState<"idle" | "busy">("idle")
 
   const root = React.useRef<HTMLDivElement>(null)
   const firstMode = React.useRef(true)
@@ -173,37 +177,34 @@ export function GetStarted() {
     { dependencies: [say], scope: root }
   )
 
-  // success pop
-  useGSAP(
-    () => {
-      if (status !== "done") return
-      const q = gsap.utils.selector(root.current)
-      gsap.fromTo(q("[data-done]"), { y: 20, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: 0.6, stagger: 0.1, ease: "power3.out" })
-      gsap.fromTo(q("[data-stamp]"), { scale: 2.2, rotate: -24, autoAlpha: 0 }, { scale: 1, rotate: -8, autoAlpha: 1, duration: 0.5, delay: 0.35, ease: "back.out(2)" })
-    },
-    { dependencies: [status], scope: root }
-  )
-
   const shake = () => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
     gsap.fromTo("[data-card]", { x: -8 }, { x: 0, duration: 0.5, ease: "elastic.out(1.2, 0.25)" })
   }
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const digits = phone.replace(/\D/g, "")
     const next: Record<string, string> = {}
     if (mode === "up" && !name.trim()) next.name = "We need something to call you. “Boss” is taken."
-    if (digits.length !== 10) next.phone = `That’s ${digits.length} digit${digits.length === 1 ? "" : "s"}. India has 10.`
-    if (pw.length < 6) next.pw = "Six characters minimum. Your ATM PIN doesn’t count."
+    if (!/^\S+@\S+\.\S+$/.test(email.trim())) next.email = "That doesn’t look like an email."
+    if (pw.length < 8) next.pw = "Eight characters minimum. Your ATM PIN doesn’t count."
     setErrs(next)
     if (Object.keys(next).length) {
       shake()
       return
     }
     setStatus("busy")
-    // Frontend only for now: pretend the server thought about it.
-    window.setTimeout(() => setStatus("done"), 1100)
+    try {
+      const body = mode === "up" ? { email: email.trim(), password: pw, name: name.trim() } : { email: email.trim(), password: pw }
+      const { data } = await api.post(mode === "up" ? "/api/users/signup" : "/api/users/login", body)
+      setUser(data)
+      router.push("/dashboard") // stays "busy" until the dashboard takes over
+    } catch (error) {
+      const message = isAxiosError(error) ? error.response?.data?.message : undefined
+      setErrs({ form: message ?? "Couldn’t reach the server. Try again in a moment." })
+      setStatus("idle")
+      shake()
+    }
   }
 
   const switchMode = (m: Mode) => {
@@ -278,38 +279,6 @@ export function GetStarted() {
           </div>
 
           <div data-card className="mx-auto my-auto w-full max-w-[430px] sm:max-w-[520px] sm:my-auto md:max-w-[560px] lg:m-auto lg:max-w-[430px] lg:py-8">
-            {status === "done" ? (
-              <div className="relative text-center">
-                <div data-done className="relative mx-auto mb-5 w-fit">
-                  <div className="grid size-20 place-items-center rounded-full bg-[var(--mint)] text-[#10301f]">
-                    <Logo className="[&_span]:hidden [&_svg]:size-10" />
-                  </div>
-                  <span
-                    data-stamp
-                    className="absolute -right-12 -bottom-1 rounded-md border-[3px] border-signal px-2 py-0.5 text-sm font-extrabold tracking-wide text-signal"
-                  >
-                    {mode === "up" ? "REGISTERED" : "LOGGED IN"}
-                  </span>
-                </div>
-                <h2 data-done className="text-2xl font-extrabold sm:text-3xl">
-                  {mode === "up" ? `You’re in${first ? `, ${first}` : ""}.` : "Welcome back."}
-                </h2>
-                <p data-done className="mx-auto mt-2 max-w-[34ch] text-sm leading-snug text-foreground/70 sm:text-base">
-                  Your dashboard is ready. Practise saying “bill banao” on the way in.
-                </p>
-                <div data-done className="mt-6 flex flex-col gap-2.5 sm:flex-row sm:justify-center">
-                  <Link
-                    href="/dashboard"
-                    className="inline-flex h-12 items-center justify-center rounded-full bg-foreground px-6 text-base font-semibold text-background transition-all hover:-translate-y-px hover:shadow-lg active:scale-[.97]"
-                  >
-                    Open my dashboard
-                  </Link>
-                </div>
-                <p data-done className="mt-4 text-xs opacity-50">
-                  Frontend preview: nothing was actually saved.
-                </p>
-              </div>
-            ) : (
               <>
                 {/* mode switch */}
                 <div data-in role="radiogroup" aria-label="Sign up or log in" className="relative mb-3 grid grid-cols-2 rounded-full bg-foreground/[0.07] p-1 sm:mb-5 lg:mb-6">
@@ -332,7 +301,7 @@ export function GetStarted() {
                 </div>
 
                 <form data-in onSubmit={submit} noValidate>
-                  <div data-su className="grid overflow-hidden sm:grid-cols-2 sm:gap-x-3">
+                  <div data-su className="grid overflow-hidden">
                     <Input
                       label="Your name"
                       name="name"
@@ -345,48 +314,21 @@ export function GetStarted() {
                       onBlur={() => setFocus(null)}
                       className="p-1 pb-2.5 sm:pb-3 md:pb-4"
                     />
-                    <Input
-                      label="Shop name"
-                      hint="optional"
-                      name="shop"
-                      autoComplete="organization"
-                      placeholder="Sri Lakshmi Traders"
-                      value={shop}
-                      onChange={(e) => setShop(e.target.value)}
-                      onFocus={() => setFocus("shop")}
-                      onBlur={() => setFocus(null)}
-                      className="p-1 pb-2.5 max-sm:[@media(max-height:700px)]:hidden sm:pb-3 md:pb-4"
-                    />
                   </div>
 
-                  <label className="mb-2.5 block p-1 pb-0 sm:mb-3 md:mb-4">
-                    <span className="mb-1.5 block text-[13px] font-semibold sm:text-sm">Phone number</span>
-                    <span className="flex">
-                      <span className="grid h-11 place-items-center rounded-l-xl md:h-12 md:text-lg lg:text-base border border-r-0 border-foreground/20 bg-foreground/[0.05] px-3 text-sm font-semibold">
-                        +91
-                      </span>
-                      <input
-                        type="tel"
-                        inputMode="numeric"
-                        autoComplete="tel-national"
-                        placeholder="98765 43210"
-                        value={phone}
-                        aria-invalid={!!err("phone")}
-                        onChange={(e) => setPhone(e.target.value.replace(/[^\d ]/g, "").slice(0, 11))}
-                        onFocus={() => setFocus("phone")}
-                        onBlur={() => setFocus(null)}
-                        className={cn(
-                          "h-11 w-full min-w-0 rounded-r-xl border md:h-12 md:text-lg lg:text-base bg-background px-3.5 text-base outline-none transition-[border-color,box-shadow] placeholder:text-foreground/35 focus:border-foreground focus:shadow-[0_0_0_4px_color-mix(in_oklab,var(--hl)_55%,transparent)]",
-                          err("phone") ? "border-signal" : "border-foreground/20"
-                        )}
-                      />
-                    </span>
-                    {err("phone") && (
-                      <span role="alert" className="mt-1.5 block text-[13px] font-medium text-signal">
-                        {err("phone")}
-                      </span>
-                    )}
-                  </label>
+                  <Input
+                    label="Email"
+                    name="email"
+                    type="email"
+                    autoComplete="email"
+                    placeholder="ramesh@example.com"
+                    value={email}
+                    error={err("email")}
+                    onChange={(e) => setEmail(e.target.value)}
+                    onFocus={() => setFocus("email")}
+                    onBlur={() => setFocus(null)}
+                    className="mb-2.5 p-1 pb-0 sm:mb-3 md:mb-4"
+                  />
 
                   <div className="p-1">
                     <label className="block">
@@ -481,7 +423,6 @@ export function GetStarted() {
                   )}
                 </p>
               </>
-            )}
           </div>
         </section>
       </div>

@@ -23,6 +23,7 @@ import { DRAFT, useHomeStore, type Period, type SheetKey } from "@/lib/home-stor
 import { SPOKEN, langClass, useLang, type Lang } from "@/lib/lang"
 import { MOCK_USER } from "@/lib/shop"
 import { useShopStore } from "@/lib/shop-store"
+import { useUserStore } from "@/store/user-store"
 import { cn } from "@/lib/utils"
 
 const inr = (n: number) => "₹" + n.toLocaleString("en-IN")
@@ -204,6 +205,7 @@ function Register({ value }: { value: number }) {
 export function Home() {
   const { lang } = useLang()
   const shop = useShopStore((s) => s.shop)
+  const user = useUserStore((s) => s.user)
   const customers = useHomeStore((s) => s.customers)
   const invoices = useHomeStore((s) => s.invoices)
   const stock = useHomeStore((s) => s.stock)
@@ -361,8 +363,8 @@ export function Home() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" sideOffset={6} className="min-w-56">
             <div className="px-2 py-1.5 text-sm">
-              <p className="font-semibold">{MOCK_USER.name}</p>
-              <p className="text-xs text-muted-foreground">+91 {MOCK_USER.phone}</p>
+              <p className="font-semibold">{user ? user.name || user.email : MOCK_USER.name}</p>
+              <p className="text-xs text-muted-foreground">{user ? user.email : `+91 ${MOCK_USER.phone}`}</p>
               {shop && !shop.gstin && <p className="mt-1 text-xs text-signal">GST pending</p>}
             </div>
             <DropdownMenuSeparator />
