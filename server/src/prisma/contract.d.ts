@@ -23,7 +23,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'e51618840447456e1f9c6d0fa5b331ab6769af795e7333965e1e15559cdcdd40'>;
+  StorageHashBase<'0990da850079bd34c59839cc56c80f932576a1ac0054675ffaf85337320c43b7'>;
 export type ExecutionHash =
   ExecutionHashBase<'501e6b3102fdc8f88619ba52344cdce325f97999f97a29d7bbcaa62e758bc2cc'>;
 export type ProfileHash =
@@ -492,7 +492,7 @@ type ContractBase = Omit<
                 readonly name: {
                   readonly dataType: 'pg/text';
                   readonly codecId: 'pg/text@1';
-                  readonly nullable: false;
+                  readonly nullable: true;
                   readonly many: false;
                 };
                 readonly ownerId: {
@@ -697,7 +697,7 @@ type ContractBase = Omit<
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/uuid@1' };
               };
               readonly name: {
-                readonly nullable: false;
+                readonly nullable: true;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
               };
               readonly ownerId: {

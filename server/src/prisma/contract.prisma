@@ -16,7 +16,7 @@ model users {
 
 model shops {
   id        Uuid               @id @onCreate(uuid())
-  name      String
+  name      String?
   type      ShopType
   gstin     String             @unique
   owner     users              @relation(fields: [ownerId], references: [id])
