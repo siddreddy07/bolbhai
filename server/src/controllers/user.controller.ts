@@ -3,8 +3,8 @@ import { z } from "zod";
 import { idSchema } from "../schemas/id.schema.js";
 import { COOKIE_OPTIONS } from "../config/constant.js";
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from "../helper/jwt.helper.js";
-import { signupSchema, updateUserSchema } from "../schemas/user.schema.js";
-import { createUser, deleteUser, getUserByEmail, getUserById, getUsers, updateUser } from "../services/user.service.js";
+import { loginSchema, signupSchema, updateUserSchema } from "../schemas/user.schema.js";
+import { createUser, deleteUser, getUserByEmail, getUserById, getUsers, loginUser, updateUser } from "../services/user.service.js";
 
 export async function signup(req: Request, res: Response) {
   try {
@@ -20,6 +20,23 @@ export async function signup(req: Request, res: Response) {
   } catch (error) {
     console.error("Could not sign up:", error);
     res.status(500).json({ message: "Could not sign up" });
+  }
+}
+
+export async function login(req: Request, res: Response) {
+  try {
+    const body = loginSchema.safeParse(req.body);
+    if (!body.success) return res.status(400).json({ message: z.prettifyError(body.error) });
+
+    const user = await loginUser(body.data.email, body.data.password);
+    if (!user) return res.status(401).json({ message: "Invalid email or password" });
+
+    res.cookie("accessToken", signAccessToken(user.id), COOKIE_OPTIONS);
+    res.cookie("refreshToken", signRefreshToken(user.id), COOKIE_OPTIONS);
+    res.json(user);
+  } catch (error) {
+    console.error("Could not log in:", error);
+    res.status(500).json({ message: "Could not log in" });
   }
 }
 
