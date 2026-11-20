@@ -1,13 +1,13 @@
 services:
   app:
-    image: bolbhai
+    build:
+      context: ./server
     container_name: bolbhai-app
     env_file:
       - ./server/.env
     ports:
       - "8080:8080"
     environment:
-      - PORT=8080
       - DATABASE_URL=postgresql://bolbhai:bolbhai_dev@postgres:5432/bolbhai
     depends_on:
       postgres:
