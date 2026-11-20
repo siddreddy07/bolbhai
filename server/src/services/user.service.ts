@@ -5,26 +5,25 @@ import type { UpdateUserInput, UserInput } from "../schemas/user.schema.js";
 
 const users = db.orm.public.users;
 
-// Never send the password hash back to anyone.
-function withoutPassword<T extends { password: string }>(user: T) {
-  const { password, ...rest } = user;
-  return rest;
+// The only user fields that ever leave the server.
+function publicUser(user: { id: string; name: string | null; email: string }) {
+  return { id: user.id, name: user.name, email: user.email };
 }
 
 export async function createUser(data: UserInput) {
   const password = await bcrypt.hash(data.password, PASSWORD_SALT_ROUNDS);
-  return withoutPassword(await users.create({ ...data, password }));
+  return publicUser(await users.create({ ...data, password }));
 }
 
 export async function loginUser(email: string, password: string) {
   const user = await users.first({ email });
   if (!user || !(await bcrypt.compare(password, user.password))) return null;
-  return withoutPassword(user);
+  return publicUser(user);
 }
 
 export async function updateUser(id: string, data: UpdateUserInput) {
   const user = await users.where({ id }).update(data);
-  return user ? withoutPassword(user) : null;
+  return user ? publicUser(user) : null;
 }
 
 export function deleteUser(id: string) {
@@ -32,11 +31,11 @@ export function deleteUser(id: string) {
 }
 
 export function getUsers() {
-  return users.select("id", "email", "name", "createdAt", "updatedAt").all();
+  return users.select("id", "name", "email").all();
 }
 
 export function getUserById(id: string) {
-  return users.select("id", "email", "name", "createdAt", "updatedAt").first({ id });
+  return users.select("id", "name", "email").first({ id });
 }
 
 export function getUserByEmail(email: string) {

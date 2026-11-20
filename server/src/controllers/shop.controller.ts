@@ -30,8 +30,8 @@ export async function getShop(req: Request, res: Response) {
     const id = idSchema.safeParse(req.params.id);
     if (!id.success) return res.status(400).json({ message: "Invalid id" });
 
-    const shop = await getShopById(id.data);
-    if (!shop || shop.ownerId !== req.user!.id) return res.status(404).json({ message: "Shop not found" });
+    const shop = await getShopById(id.data, req.user!.id);
+    if (!shop) return res.status(404).json({ message: "Shop not found" });
     res.json(shop);
   } catch (error) {
     console.error("Could not get shop:", error);
@@ -47,8 +47,8 @@ export async function editShop(req: Request, res: Response) {
     const body = updateShopSchema.safeParse(req.body);
     if (!body.success) return res.status(400).json({ message: z.prettifyError(body.error) });
 
-    const shop = await getShopById(id.data);
-    if (!shop || shop.ownerId !== req.user!.id) return res.status(404).json({ message: "Shop not found" });
+    const shop = await getShopById(id.data, req.user!.id);
+    if (!shop) return res.status(404).json({ message: "Shop not found" });
     res.json(await updateShop(id.data, body.data));
   } catch (error) {
     console.error("Could not update shop:", error);
@@ -61,8 +61,8 @@ export async function removeShop(req: Request, res: Response) {
     const id = idSchema.safeParse(req.params.id);
     if (!id.success) return res.status(400).json({ message: "Invalid id" });
 
-    const shop = await getShopById(id.data);
-    if (!shop || shop.ownerId !== req.user!.id) return res.status(404).json({ message: "Shop not found" });
+    const shop = await getShopById(id.data, req.user!.id);
+    if (!shop) return res.status(404).json({ message: "Shop not found" });
     await deleteShop(id.data);
     res.json({ message: "Shop deleted" });
   } catch (error) {

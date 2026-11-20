@@ -3,12 +3,18 @@ import type { ShopInput, UpdateShopInput } from "../schemas/shop.schema.js";
 
 const shops = db.orm.public.shops;
 
-export function createShop(data: ShopInput & { ownerId: string }) {
-  return shops.create(data);
+// The only shop fields that ever leave the server.
+function publicShop(shop: { id: string; name: string | null; type: string; gstin: string }) {
+  return { id: shop.id, name: shop.name, type: shop.type, gstin: shop.gstin };
 }
 
-export function updateShop(id: string, data: UpdateShopInput) {
-  return shops.where({ id }).update(data);
+export async function createShop(data: ShopInput & { ownerId: string }) {
+  return publicShop(await shops.create(data));
+}
+
+export async function updateShop(id: string, data: UpdateShopInput) {
+  const shop = await shops.where({ id }).update(data);
+  return shop ? publicShop(shop) : null;
 }
 
 export function deleteShop(id: string) {
@@ -16,9 +22,10 @@ export function deleteShop(id: string) {
 }
 
 export function getShops(ownerId: string) {
-  return shops.where({ ownerId }).all();
+  return shops.select("id", "name", "type", "gstin").where({ ownerId }).all();
 }
 
-export function getShopById(id: string) {
-  return shops.first({ id });
+// Only finds the shop if it belongs to this owner.
+export function getShopById(id: string, ownerId: string) {
+  return shops.select("id", "name", "type", "gstin").first({ id, ownerId });
 }
