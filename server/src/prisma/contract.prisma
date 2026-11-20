@@ -1,0 +1,39 @@
+// use prisma-8
+
+enum ShopType {
+  GROCERY
+  CAFE
+}
+
+model users {
+  id        Uuid               @id @onCreate(uuid())
+  email     String             @unique
+  name      String?
+  shops     shops[]
+  createdAt DateTime           @default(now()) @onCreate(now())
+  updatedAt temporal.UpdatedAt
+}
+
+model shops {
+  id        Uuid               @id @onCreate(uuid())
+  name      String
+  type      ShopType
+  gstin     String             @unique
+  owner     users              @relation(fields: [ownerId], references: [id])
+  ownerId   Uuid
+  items     items[]
+  createdAt DateTime           @default(now()) @onCreate(now())
+  updatedAt temporal.UpdatedAt
+}
+
+model items {
+  id        Uuid               @id @onCreate(uuid())
+  name      String
+  unit      String?
+  price     Decimal
+  stock     Int                @default(0)
+  shop      shops              @relation(fields: [shopId], references: [id])
+  shopId    Uuid
+  createdAt DateTime           @default(now()) @onCreate(now())
+  updatedAt temporal.UpdatedAt
+}
