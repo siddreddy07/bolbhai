@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer"
 import { useHomeStore } from "@/lib/home-store"
 import type { Invoice } from "@/lib/mock-data"
-import { MOCK_SHOP } from "@/lib/shop"
+import { useShopStore } from "@/store/shop-store"
 
 const POOL = ["Rice 25 kg", "Toor dal 1 kg", "Sugar 5 kg", "Sunflower oil 1 L", "Atta 10 kg", "Tea 500 g", "Salt 1 kg", "Biscuits 500 g", "Chilli powder 1 kg", "Soap 100 g", "Ghee 500 g", "Moong dal 1 kg"]
 
@@ -45,6 +45,7 @@ function when(inv: Invoice) {
 }
 
 function Slip({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
+  const shopName = useShopStore((s) => s.shop?.name) ?? "Your shop"
   const box = React.useRef<HTMLDivElement>(null)
   const khata = inv.status === "Khata"
   const items = React.useMemo(() => lineItems(inv), [inv])
@@ -71,7 +72,7 @@ function Slip({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
         <div aria-hidden="true" className="zig-t paper h-3" />
         <div className="paper paper-grain relative px-5 pt-1 pb-5">
           <div className="text-center">
-            <p className="font-hand text-3xl leading-none">{MOCK_SHOP.name}</p>
+            <p className="font-hand text-3xl leading-none">{shopName}</p>
             <p className="mt-1 font-mono text-[11px] opacity-60">
               bill #{inv.id} · {when(inv)}
             </p>

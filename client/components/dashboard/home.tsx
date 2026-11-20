@@ -4,25 +4,17 @@ import * as React from "react"
 import Link from "next/link"
 import gsap from "gsap"
 import { useGSAP } from "@gsap/react"
-import { useTheme } from "next-themes"
-import { BookUser, Boxes, Check, ChevronDown, LogOut, Mic, Moon, ReceiptText, Sun, type LucideIcon } from "lucide-react"
+import { BookUser, Boxes, Check, Mic, ReceiptText, type LucideIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer"
 import { Logo } from "@/components/site/doodles"
+import { ShopMenu } from "@/components/dashboard/header-menus"
 import { InvoiceDrawer } from "@/components/dashboard/bills/invoice-slip"
 import { BillsPanel, KhataPanel, StockPanel } from "@/components/dashboard/panels"
 import { DRAFT, useHomeStore, type Period, type SheetKey } from "@/lib/home-store"
 import { SPOKEN, langClass, useLang, type Lang } from "@/lib/lang"
 import { MOCK_USER } from "@/lib/shop"
-import { useShopStore } from "@/lib/shop-store"
 import { useUserStore } from "@/store/user-store"
 import { cn } from "@/lib/utils"
 
@@ -204,7 +196,6 @@ function Register({ value }: { value: number }) {
 
 export function Home() {
   const { lang } = useLang()
-  const shop = useShopStore((s) => s.shop)
   const user = useUserStore((s) => s.user)
   const customers = useHomeStore((s) => s.customers)
   const invoices = useHomeStore((s) => s.invoices)
@@ -217,8 +208,6 @@ export function Home() {
   const extra = sales - 18450 // what the demo bill added
   const total = serie.total + extra - (period === "day" ? 0 : 0)
   const max = Math.max(...serie.bars)
-  const { resolvedTheme, setTheme } = useTheme()
-  const dark = resolvedTheme === "dark"
   const open = sheet ? SHEETS[sheet] : null
   const root = React.useRef<HTMLElement>(null)
   const phrase = SPOKEN[lang].split(" ")
@@ -353,29 +342,7 @@ export function Home() {
 
       {/* top: the shop, and a tiny menu */}
       <header data-top className="relative flex items-center justify-between">
-        <DropdownMenu>
-          <DropdownMenuTrigger className="flex h-11 min-w-0 items-center gap-2.5 rounded-full pr-3 pl-1 transition-colors hover:bg-foreground/[0.06]">
-            <span className="grid size-9 shrink-0 -rotate-6 place-items-center rounded-full bg-[#f7e33b] text-base font-extrabold text-[#10301f]">
-              {shop?.name.slice(0, 1)}
-            </span>
-            <span className="truncate text-base font-bold">{shop?.name}</span>
-            <ChevronDown className="size-4 shrink-0 opacity-60" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" sideOffset={6} className="min-w-56">
-            <div className="px-2 py-1.5 text-sm">
-              <p className="font-semibold">{user ? user.name || user.email : MOCK_USER.name}</p>
-              <p className="text-xs text-muted-foreground">{user ? user.email : `+91 ${MOCK_USER.phone}`}</p>
-              {shop && !shop.gstin && <p className="mt-1 text-xs text-signal">GST pending</p>}
-            </div>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => setTheme(dark ? "light" : "dark")}>
-              {dark ? <Sun /> : <Moon />} {dark ? "Light theme" : "Dark theme"}
-            </DropdownMenuItem>
-            <DropdownMenuItem render={<Link href="/get-started" />}>
-              <LogOut /> Log out
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <ShopMenu />
         <Link href="/" aria-label="BolBhai home" className="shrink-0 pl-2">
           <Logo className="[&_svg]:size-7" />
         </Link>
@@ -402,7 +369,7 @@ export function Home() {
         </div>
 
         <p data-hello className={cn("font-hand mt-3 text-[1.6rem] leading-none text-signal sm:text-3xl md:[@media(min-height:900px)]:text-5xl [@media(max-height:760px)]:hidden", langClass(lang))}>
-          {HELLO[lang]}, {MOCK_USER.name}. Total sales {serie.label}:
+          {HELLO[lang]}, {user?.name?.split(" ")[0] ?? MOCK_USER.name}. Total sales {serie.label}:
         </p>
         <p
           className="mt-1 text-[3.1rem] leading-[1.05] font-extrabold tabular-nums sm:text-[4.5rem] md:[@media(min-height:900px)]:text-[6.5rem] [@media(max-height:760px)]:text-[2.4rem]"
