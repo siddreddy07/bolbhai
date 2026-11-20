@@ -13,12 +13,15 @@
     "db:plan": "prisma migration plan",
     "db:migrate": "prisma db migrate --advance-ref db",
     "db:seed": "tsx --env-file=.env src/seed/products.seed.ts",
-    "db:categorize": "tsx --env-file=.env src/seed/categorize.ts"
+    "db:categorize": "tsx --env-file=.env src/seed/categorize.ts",
+    "ai:test": "tsx --env-file=.env src/ai/test.ts"
   },
   "keywords": [],
   "type": "module",
   "dependencies": {
+    "@ai-sdk/groq": "^4.0.86",
     "@prisma/orm-postgres": "^8.0.0-rc.24",
+    "ai": "^7.0.178",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
@@ -26,6 +29,7 @@
     "express": "^5.3.0",
     "jsonwebtoken": "^9.0.3",
     "morgan": "^1.12.1",
+    "ollama-ai-provider-v2": "^4.1.0",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "zod": "^4.6.7"
