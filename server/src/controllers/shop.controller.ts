@@ -2,12 +2,14 @@ import type { Request, Response } from "express";
 import { z } from "zod";
 import { idSchema } from "../schemas/id.schema.js";
 import { shopSchema, updateShopSchema } from "../schemas/shop.schema.js";
-import { createShop, deleteShop, getShopById, getShops, updateShop } from "../services/shop.service.js";
+import { createShop, deleteShop, getShopById, getShops, gstinTaken, updateShop } from "../services/shop.service.js";
 
 export async function addShop(req: Request, res: Response) {
   try {
     const body = shopSchema.safeParse(req.body);
     if (!body.success) return res.status(400).json({ message: z.prettifyError(body.error) });
+
+    if (await gstinTaken(body.data.gstin)) return res.status(409).json({ message: "That GSTIN is already registered" });
 
     res.status(201).json(await createShop({ ...body.data, ownerId: req.user!.id }));
   } catch (error) {

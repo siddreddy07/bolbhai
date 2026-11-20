@@ -40,6 +40,12 @@ export async function login(req: Request, res: Response) {
   }
 }
 
+export function logout(_req: Request, res: Response) {
+  res.clearCookie("accessToken", COOKIE_OPTIONS);
+  res.clearCookie("refreshToken", COOKIE_OPTIONS);
+  res.json({ message: "Logged out" });
+}
+
 // Returns the logged-in user (set by the auth middleware), so the client can restore its session on reload.
 export function me(req: Request, res: Response) {
   res.json(req.user);
