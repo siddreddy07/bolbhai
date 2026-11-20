@@ -38,3 +38,17 @@ model items {
   createdAt DateTime           @default(now()) @onCreate(now())
   updatedAt temporal.UpdatedAt
 }
+
+// Shared product catalog (barcode, name, pack size). Shops add their own price and stock elsewhere.
+model products {
+  id          Uuid               @id @onCreate(uuid())
+  barcode     String             @unique
+  name        String
+  brand       String?
+  quantity    Decimal?
+  unit        String?
+  category    String?
+  subcategory String?
+  createdAt   DateTime           @default(now()) @onCreate(now())
+  updatedAt   temporal.UpdatedAt
+}
