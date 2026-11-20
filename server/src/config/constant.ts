@@ -7,6 +7,9 @@ export const COOKIE_OPTIONS = {
   secure: env.NODE_ENV === "production",
 } as const;
 
+// Sent when the access token has expired, so the client knows to call /refresh.
+export const TOKEN_EXPIRED_STATUS = 498;
+
 export const ACCESS_TOKEN_EXPIRES = "15m";
 export const REFRESH_TOKEN_EXPIRES = "7d";
 

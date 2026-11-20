@@ -1,5 +1,6 @@
 import express from 'express';
 import cookieParser from 'cookie-parser';
+import cors from 'cors';
 import morgan from 'morgan';
 import { connectDB } from './config/db.js';
 import { env } from './config/env.js';
@@ -10,6 +11,7 @@ import shopRoutes from './routes/shop.routes.js';
 const app = express();
 
 app.use(morgan(':date[iso] :method :url :status :response-time ms'));
+app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
 

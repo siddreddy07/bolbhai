@@ -40,6 +40,11 @@ export async function login(req: Request, res: Response) {
   }
 }
 
+// Returns the logged-in user (set by the auth middleware), so the client can restore its session on reload.
+export function me(req: Request, res: Response) {
+  res.json(req.user);
+}
+
 export async function refresh(req: Request, res: Response) {
   try {
     const { id } = verifyRefreshToken(req.cookies.refreshToken);

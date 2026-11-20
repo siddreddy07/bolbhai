@@ -1,4 +1,6 @@
+import jwt from "jsonwebtoken";
 import type { NextFunction, Request, Response } from "express";
+import { TOKEN_EXPIRED_STATUS } from "../config/constant.js";
 import { verifyAccessToken } from "../helper/jwt.helper.js";
 import { getUserById } from "../services/user.service.js";
 
@@ -21,7 +23,8 @@ export async function auth(req: Request, res: Response, next: NextFunction) {
 
     req.user = user;
     next();
-  } catch {
-    res.status(401).json({ message: "Invalid or expired token" });
+  } catch (error) {
+    if (error instanceof jwt.TokenExpiredError) return res.status(TOKEN_EXPIRED_STATUS).json({ message: "Access token expired" });
+    res.status(401).json({ message: "Invalid token" });
   }
 }
