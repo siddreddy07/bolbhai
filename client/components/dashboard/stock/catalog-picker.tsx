@@ -5,7 +5,7 @@ import { Check, Minus, Plus, Search, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer"
-import { useHomeStore } from "@/lib/home-store"
+import { useHomeStore } from "@/store/home-store"
 import { searchKey, useInventoryStore, type CatalogProduct } from "@/store/inventory-store"
 
 const DEBOUNCE_MS = 350

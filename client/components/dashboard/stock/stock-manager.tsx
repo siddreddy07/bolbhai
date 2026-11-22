@@ -44,7 +44,7 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { syncStock, useHomeStore } from "@/lib/home-store"
+import { syncStock, useHomeStore } from "@/store/home-store"
 import type { CatId, StockItem } from "@/lib/types"
 import { cn } from "@/lib/utils"
 

@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/drawer"
 import { SearchBox } from "@/components/ui/search-box"
 import { billNumber, daysAgo, invoiceTotal, isPaid, lineInfo } from "@/lib/bill"
-import { flushBill, useHomeStore } from "@/lib/home-store"
+import { flushBill, useHomeStore } from "@/store/home-store"
 import type { Invoice, Payment, PaymentType } from "@/lib/types"
 import { useShopStore } from "@/store/shop-store"
 
@@ -76,8 +76,18 @@ function Slip({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
   const box = React.useRef<HTMLDivElement>(null)
   const [asking, setAsking] = React.useState(false) // "are you sure?" is open
   const [deleting, setDeleting] = React.useState(false)
-  const paid = isPaid(inv)
-  const stamp = STAMP[inv.payment]
+  // paid or not, and how: only a DRAFT until Done is pressed (closing any other way keeps the bill as it was)
+  const [payment, setPayment] = React.useState<Payment>(inv.payment)
+  const [paymentType, setPaymentType] = React.useState<PaymentType>(
+    inv.paymentType
+  )
+  const paid = payment === "PAID"
+  const stamp = STAMP[payment]
+  const changed = payment !== inv.payment || paymentType !== inv.paymentType
+  const done = () => {
+    if (changed) void setBillPayment(inv.id, payment, paymentType)
+    onClose()
+  }
 
   useGSAP(
     () => {
@@ -121,6 +131,30 @@ function Slip({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
     { scope: box }
   )
 
+  // the stamp comes down again each time the choice changes (not on the first show: the slip animation does that)
+  const firstStamp = React.useRef(true)
+  useGSAP(
+    () => {
+      if (firstStamp.current) {
+        firstStamp.current = false
+        return
+      }
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
+      gsap.fromTo(
+        "[data-stamp]",
+        { scale: 2.2, autoAlpha: 0, rotation: -24 },
+        {
+          scale: 1,
+          autoAlpha: 0.9,
+          rotation: -12,
+          duration: 0.35,
+          ease: "back.out(2.2)",
+        }
+      )
+    },
+    { scope: box, dependencies: [payment] }
+  )
+
   return (
     <div
       ref={box}
@@ -128,7 +162,7 @@ function Slip({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
     >
       <DrawerTitle className="sr-only">Bill #{billNumber(inv)}</DrawerTitle>
       <DrawerDescription className="sr-only">
-        {inr(invoiceTotal(inv, stock))}, {paid ? "paid" : "not paid"}
+        {inr(invoiceTotal(inv, stock))}, {isPaid(inv) ? "paid" : "not paid"}
       </DrawerDescription>
 
       <div className="mx-auto max-w-[420px]">
@@ -247,26 +281,26 @@ function Slip({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
 
             <p className="mt-4 text-center font-mono text-[11px] opacity-60">
               {paid
-                ? `paid by ${inv.paymentType === "UPI" ? "UPI" : "cash"} · thank you`
+                ? `paid by ${paymentType === "UPI" ? "UPI" : "cash"} · thank you`
                 : "in Khata"}
             </p>
           </div>
           <div aria-hidden="true" className="zig-b paper h-3" />
         </div>
 
-        {/* paid or not, and how: saved at once */}
+        {/* paid or not, and how: saved when Done is pressed */}
         <div className="mt-4 grid grid-cols-2 gap-2">
           <Segmented
             compact
-            value={inv.payment}
-            onChange={(p) => setBillPayment(inv.id, p, inv.paymentType)}
+            value={payment}
+            onChange={setPayment}
             options={PAYMENTS}
             label="Payment"
           />
           <Segmented
             compact
-            value={inv.paymentType}
-            onChange={(t) => setBillPayment(inv.id, inv.payment, t)}
+            value={paymentType}
+            onChange={setPaymentType}
             options={TYPES}
             label="Payment type"
           />
@@ -278,7 +312,7 @@ function Slip({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
         )}
 
         <div className="mt-4 grid grid-cols-2 gap-2">
-          <Button onClick={onClose} className="h-12 rounded-full text-base">
+          <Button onClick={done} className="h-12 rounded-full text-base">
             Done
           </Button>
           <Button
@@ -337,6 +371,10 @@ export function InvoiceDrawer() {
   const [last, setLast] = React.useState<Invoice | null>(null)
   if (inv && inv !== last) setLast(inv)
   const shown = inv ?? last
+  // each time the drawer opens it is a fresh slip, so a draft that was never saved with Done does not come back
+  const [session, setSession] = React.useState({ open: false, n: 0 })
+  if (!!inv !== session.open)
+    setSession({ open: !!inv, n: session.n + (inv ? 1 : 0) })
   const close = () => {
     if (id) void flushBill(id) // a change waiting to be saved goes now
     set(null)
@@ -345,11 +383,7 @@ export function InvoiceDrawer() {
     <Drawer open={!!inv} onOpenChange={(o) => !o && close()} showSwipeHandle>
       <DrawerContent className="mx-auto max-w-[520px]">
         {shown && (
-          <Slip
-            key={`${shown.id}-${shown.payment}`}
-            inv={shown}
-            onClose={close}
-          />
+          <Slip key={`${shown.id}-${session.n}`} inv={shown} onClose={close} />
         )}
       </DrawerContent>
     </Drawer>

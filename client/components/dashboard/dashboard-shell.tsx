@@ -8,7 +8,7 @@ import {
   EditShopDialog,
 } from "@/components/dashboard/shop-dialogs"
 import { Toaster } from "@/components/ui/sonner"
-import { syncStock, useHomeStore } from "@/lib/home-store"
+import { syncStock, useHomeStore } from "@/store/home-store"
 import { api } from "@/lib/proxy"
 import type { Shop } from "@/lib/shop"
 import { useShopStore } from "@/store/shop-store"

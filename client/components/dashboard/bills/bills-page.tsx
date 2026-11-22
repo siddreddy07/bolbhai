@@ -16,7 +16,7 @@ import {
   useBatches,
 } from "@/components/dashboard/list-kit"
 import { billNumber, daysAgo, invoiceTotal, isPaid, lineInfo } from "@/lib/bill"
-import { useHomeStore } from "@/lib/home-store"
+import { useHomeStore } from "@/store/home-store"
 import type { Invoice, StockItem } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { useShopStore } from "@/store/shop-store"

@@ -28,7 +28,6 @@ export type OrderLine = {
   /** which match is chosen */
   pick: number
 }
-export type Customer = { id: string; name: string; due: number; days: number }
 // Short names for the catalog's own groups (see CATS in components/dashboard/stock/kit.tsx)
 export type CatId =
   | "cereals"

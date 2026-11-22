@@ -1,5 +1,6 @@
 import { useShopStore } from "@/store/shop-store"
 import axios from "axios"
+import * as React from "react"
 import { toast } from "sonner"
 import { create } from "zustand"
 
@@ -15,7 +16,7 @@ import {
   useInventoryStore,
   writeStockCache,
 } from "@/store/inventory-store"
-import { packsFor } from "@/lib/bill"
+import { khataOf, packsFor } from "@/lib/bill"
 import {
   createInvoice,
   deleteInvoice,
@@ -24,7 +25,6 @@ import {
   type StockNow,
 } from "@/lib/invoice-api"
 import type {
-  Customer,
   Invoice,
   OrderLine,
   Payment,
@@ -92,7 +92,6 @@ type HomeState = {
   sales: number
   bills: number
   invoices: Invoice[]
-  customers: Customer[]
   stock: StockItem[]
   /** the shop whose stock is loaded */
   stockShopId: string | null
@@ -113,8 +112,6 @@ type HomeState = {
   /** the product being deleted right now (everything else is locked until it is done) */
   deletingId: string | null
   removeItem: (id: string) => Promise<void>
-  /** someone paid their khata by hand (no voice needed) */
-  payDue: (id: string, amount: number) => void
   setSheet: (s: SheetKey) => void
   setViewInvoice: (id: string | null) => void
   setPeriod: (p: Period) => void
@@ -154,7 +151,6 @@ export const useHomeStore = create<HomeState>((set, get) => ({
   draftPaymentType: "CASH",
   setDraftPayment: (draftPayment, draftPaymentType) =>
     set({ draftPayment, draftPaymentType }),
-  customers: [],
   stock: [],
   stockShopId: null,
   stockLoading: false,
@@ -269,12 +265,6 @@ export const useHomeStore = create<HomeState>((set, get) => ({
   addStock: (id, qty) =>
     set((s) => ({
       stock: s.stock.map((i) => (i.id === id ? { ...i, qty: i.qty + qty } : i)),
-    })),
-  payDue: (id, amount) =>
-    set((s) => ({
-      customers: s.customers.map((c) =>
-        c.id === id ? { ...c, due: Math.max(0, c.due - amount) } : c
-      ),
     })),
   setSheet: (sheet) => set({ sheet }),
   setViewInvoice: (viewInvoice) => set({ viewInvoice }),
@@ -643,3 +633,10 @@ useHomeStore.subscribe((state, prev) => {
       dirtyIds: state.dirtyIds,
     })
 })
+
+/** The khata (unpaid bills, how many, how much): worked out from the bills and the saved inventory in this store. No request. */
+export function useKhata() {
+  const invoices = useHomeStore((s) => s.invoices)
+  const stock = useHomeStore((s) => s.stock)
+  return React.useMemo(() => khataOf(invoices, stock), [invoices, stock])
+}
