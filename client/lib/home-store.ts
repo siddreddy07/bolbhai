@@ -14,12 +14,19 @@ import {
   useInventoryStore,
   writeStockCache,
 } from "@/store/inventory-store"
-import { billTotal, packsFor, readBills, writeBills } from "@/lib/bill"
+import { packsFor } from "@/lib/bill"
+import {
+  createInvoice,
+  deleteInvoice,
+  fetchInvoices,
+  updateInvoice,
+} from "@/lib/invoice-api"
 import type {
-  BillLine,
   Customer,
   Invoice,
   OrderLine,
+  Payment,
+  PaymentType,
   StockItem,
 } from "@/lib/types"
 
@@ -37,20 +44,36 @@ type HomeState = {
   order: OrderLine[] | null
   /** choose which shelf item a line of the order means */
   pickMatch: (query: string, index: number) => void
-  /** Done on the slip: the order becomes an open bill (not paid yet). Returns its number. */
-  saveOrderAsBill: () => number | null
+  /** Done on the slip: the order is saved on the server as a new bill (not paid yet). Gives its id, or null if it could not be saved. */
+  saveOrderAsBill: () => Promise<string | null>
+  /** the bill is being created right now */
+  savingBill: boolean
+  /** how the new bill was paid (chosen on the slip before Done) */
+  draftPayment: Payment
+  draftPaymentType: PaymentType
+  setDraftPayment: (payment: Payment, type: PaymentType) => void
   /** the bill just made, so the home page can offer to open it */
-  savedBill: number | null
+  savedBill: string | null
   /** close the slip and forget the order */
   dismiss: () => void
   /** the shop whose bills are loaded */
   billsShopId: string | null
-  loadBills: (shopId: string) => void
-  addBillItem: (billId: number, line: BillLine) => void
-  setBillQty: (billId: number, itemId: string, qty: number) => void
-  setBillWho: (billId: number, who: string) => void
-  setBillStatus: (billId: number, status: Invoice["status"]) => void
-  removeBill: (billId: number) => void
+  billsLoading: boolean
+  /** a bill change (add, quantity, pay, delete) that could not be saved */
+  billError: string | null
+  /** all of the shop's bills, newest first. Asked from the server unless this shop is already loaded (or `refresh`). */
+  loadBills: (shopId: string, refresh?: boolean) => Promise<void>
+  /** add one of the shop's products to a bill (+1 if it is already on it) */
+  addBillItem: (billId: string, pid: string) => void
+  /** change a line's quantity (0 removes it). Saved on the server a moment after the last change. */
+  setBillQty: (billId: string, pid: string, quantity: number) => void
+  /** paid or in the ledger, and cash or UPI. Saved at once. */
+  setBillPayment: (
+    billId: string,
+    payment: Payment,
+    type: PaymentType
+  ) => Promise<void>
+  removeBill: (billId: string) => Promise<void>
   /** Confirm was pressed and the graph is still working */
   finding: boolean
   orderError: string | null
@@ -64,7 +87,7 @@ type HomeState = {
   micError: string | null
   sheet: SheetKey
   /** the bill whose invoice is open (any screen) */
-  viewInvoice: number | null
+  viewInvoice: string | null
   period: Period
   sales: number
   bills: number
@@ -93,7 +116,7 @@ type HomeState = {
   /** someone paid their khata by hand (no voice needed) */
   payDue: (id: string, amount: number) => void
   setSheet: (s: SheetKey) => void
-  setViewInvoice: (id: number | null) => void
+  setViewInvoice: (id: string | null) => void
   setPeriod: (p: Period) => void
   /** idle -> listening -> thinking -> confirm */
   tapMic: () => void
@@ -124,6 +147,13 @@ export const useHomeStore = create<HomeState>((set, get) => ({
   bills: 0,
   invoices: [],
   billsShopId: null,
+  billsLoading: false,
+  billError: null,
+  savingBill: false,
+  draftPayment: "PAID",
+  draftPaymentType: "CASH",
+  setDraftPayment: (draftPayment, draftPaymentType) =>
+    set({ draftPayment, draftPaymentType }),
   savedBill: null,
   customers: [],
   stock: [],
@@ -354,88 +384,163 @@ export const useHomeStore = create<HomeState>((set, get) => ({
         s.order?.map((l) => (l.query === query ? { ...l, pick: index } : l)) ??
         null,
     })),
-  saveOrderAsBill: () => {
-    const { order, invoices, billsShopId } = get()
+  saveOrderAsBill: async () => {
+    const { order, savingBill, draftPayment, draftPaymentType } = get()
     const shopId = useShopStore.getState().shop?.id
-    if (!order || !shopId || billsShopId !== shopId) return null
-    const items: BillLine[] = order.flatMap((l) => {
+    if (!order || !shopId || savingBill) return null
+    // one line per product (the same product asked twice adds up). A shop's own item has no product id, so it cannot be on a bill yet.
+    const lines = new Map<string, number>()
+    for (const l of order) {
       const item = l.matches[l.pick]
-      if (!item) return []
-      return [
-        {
-          itemId: item.id,
-          name: item.name,
-          size: item.size ?? null,
-          qty: packsFor(l.quantity, l.unit, item.size),
-          price: item.price,
-        },
-      ]
-    })
-    if (!items.length) {
-      set({ orderError: "Nothing here is on your shelf yet" })
+      if (!item?.productId) continue
+      lines.set(
+        item.productId,
+        (lines.get(item.productId) ?? 0) +
+          packsFor(l.quantity, l.unit, item.size)
+      )
+    }
+    if (!lines.size) {
+      set({ orderError: "Nothing here can go on a bill yet" })
       return null
     }
-    const id = Math.max(0, ...invoices.map((i) => i.id)) + 1
-    const bill: Invoice = {
-      id,
-      who: "Walk-in",
-      amount: billTotal(items),
-      status: "Open",
-      createdAt: Date.now(),
-      items,
+    set({ savingBill: true, orderError: null })
+    try {
+      const bill = await createInvoice(
+        shopId,
+        [...lines].map(([pid, quantity]) => ({ pid, quantity })),
+        draftPayment,
+        draftPaymentType
+      )
+      set((s) => ({
+        invoices: [bill, ...s.invoices],
+        billsShopId: s.billsShopId ?? shopId,
+        savedBill: bill.id,
+        phase: "idle",
+        order: null,
+        transcript: "",
+      }))
+      return bill.id
+    } catch {
+      set({ orderError: "Could not save the bill. Try again" })
+      return null
+    } finally {
+      set({ savingBill: false })
     }
-    set({
-      invoices: [bill, ...invoices],
-      savedBill: id,
-      phase: "idle",
-      order: null,
-      orderError: null,
-      transcript: "",
-    })
-    return id
   },
-  loadBills: (shopId) => {
-    if (get().billsShopId === shopId) return
-    set({ billsShopId: shopId, invoices: readBills(shopId) })
+  loadBills: async (shopId, refresh = false) => {
+    if (!refresh && get().billsShopId === shopId) return
+    if (get().billsShopId !== shopId) set({ billsShopId: shopId, invoices: [] })
+    set({ billsLoading: true })
+    try {
+      const bills = await fetchInvoices(shopId)
+      if (get().billsShopId === shopId)
+        set({ invoices: bills, billError: null })
+    } catch {
+      if (get().billsShopId === shopId)
+        set({ billError: "Could not load the bills" })
+    } finally {
+      if (get().billsShopId === shopId) set({ billsLoading: false })
+    }
   },
-  addBillItem: (billId, line) =>
+  addBillItem: (billId, pid) => {
     set((s) => ({
       invoices: s.invoices.map((b) => {
-        if (b.id !== billId || b.status !== "Open") return b
-        const has = b.items.some((l) => l.itemId === line.itemId)
-        const items = has
-          ? b.items.map((l) =>
-              l.itemId === line.itemId ? { ...l, qty: l.qty + line.qty } : l
-            )
-          : [...b.items, line]
-        return { ...b, items, amount: billTotal(items) }
+        if (b.id !== billId) return b
+        const has = b.items.some((l) => l.pid === pid)
+        return {
+          ...b,
+          items: has
+            ? b.items.map((l) =>
+                l.pid === pid ? { ...l, quantity: l.quantity + 1 } : l
+              )
+            : [...b.items, { pid, quantity: 1 }],
+        }
       }),
-    })),
-  setBillQty: (billId, itemId, qty) =>
+    }))
+    scheduleBillSave(billId)
+  },
+  setBillQty: (billId, pid, quantity) => {
     set((s) => ({
       invoices: s.invoices.map((b) => {
-        if (b.id !== billId || b.status !== "Open") return b
-        const items =
-          qty > 0
-            ? b.items.map((l) => (l.itemId === itemId ? { ...l, qty } : l))
-            : b.items.filter((l) => l.itemId !== itemId)
-        return { ...b, items, amount: billTotal(items) }
+        if (b.id !== billId) return b
+        return {
+          ...b,
+          items:
+            quantity > 0
+              ? b.items.map((l) => (l.pid === pid ? { ...l, quantity } : l))
+              : b.items.filter((l) => l.pid !== pid),
+        }
       }),
-    })),
-  setBillWho: (billId, who) =>
+    }))
+    scheduleBillSave(billId)
+  },
+  setBillPayment: async (billId, payment, paymentType) => {
+    const before = get().invoices.find((b) => b.id === billId)
+    if (!before) return
     set((s) => ({
-      invoices: s.invoices.map((b) => (b.id === billId ? { ...b, who } : b)),
-    })),
-  setBillStatus: (billId, status) =>
-    set((s) => ({
-      invoices: s.invoices.map((b) => (b.id === billId ? { ...b, status } : b)),
-    })),
-  removeBill: (billId) =>
-    set((s) => ({
-      invoices: s.invoices.filter((b) => b.id !== billId),
-      viewInvoice: s.viewInvoice === billId ? null : s.viewInvoice,
-    })),
+      invoices: s.invoices.map((b) =>
+        b.id === billId ? { ...b, payment, paymentType } : b
+      ),
+    }))
+    try {
+      await updateInvoice(billId, { payment, paymentType })
+      set({ billError: null })
+    } catch {
+      // not saved: put it back
+      set((s) => ({
+        invoices: s.invoices.map((b) =>
+          b.id === billId
+            ? { ...b, payment: before.payment, paymentType: before.paymentType }
+            : b
+        ),
+        billError: "Could not change the payment. Try again",
+      }))
+    }
+  },
+  removeBill: async (billId) => {
+    clearTimeout(billTimers.get(billId))
+    billTimers.delete(billId)
+    try {
+      await deleteInvoice(billId)
+      set((s) => ({
+        invoices: s.invoices.filter((b) => b.id !== billId),
+        viewInvoice: s.viewInvoice === billId ? null : s.viewInvoice,
+        billError: null,
+      }))
+    } catch {
+      set({ billError: "Could not delete the bill. Try again" })
+    }
+  },
 }))
+
+// ---- saving a bill after +, - or an added product: one call, a moment after the last change ----
+const BILL_SAVE_AFTER = 600
+const billTimers = new Map<string, ReturnType<typeof setTimeout>>()
+
+function scheduleBillSave(billId: string) {
+  clearTimeout(billTimers.get(billId))
+  billTimers.set(
+    billId,
+    setTimeout(() => void flushBill(billId), BILL_SAVE_AFTER)
+  )
+}
+
+/** Sends a bill's items now (if a change is waiting). Called when the bill drawer closes. */
+export async function flushBill(billId: string) {
+  if (!billTimers.has(billId)) return
+  clearTimeout(billTimers.get(billId))
+  billTimers.delete(billId)
+  const bill = useHomeStore.getState().invoices.find((b) => b.id === billId)
+  if (!bill) return
+  // a bill must keep at least one line: with none left, the shopkeeper deletes the bill instead
+  if (!bill.items.length) return
+  try {
+    await updateInvoice(billId, { items: bill.items })
+    useHomeStore.setState({ billError: null })
+  } catch {
+    useHomeStore.setState({ billError: "Could not save the change. Try again" })
+  }
+}
 
 // ---- saving the + / - counts on the server ----
 const IS_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -495,14 +600,4 @@ useHomeStore.subscribe((state, prev) => {
       syncedAt: state.stockSyncedAt,
       dirtyIds: state.dirtyIds,
     })
-})
-
-// Every bill change is saved for the shop that is on screen.
-useHomeStore.subscribe((state, prev) => {
-  if (
-    state.billsShopId &&
-    state.billsShopId === prev.billsShopId &&
-    state.invoices !== prev.invoices
-  )
-    writeBills(state.billsShopId, state.invoices)
 })

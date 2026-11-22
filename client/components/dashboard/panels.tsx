@@ -7,7 +7,7 @@ import { ArrowRight, Check, ChevronRight } from "lucide-react"
 import { BillRow } from "@/components/dashboard/bills/bills-page"
 import { PayForm, inr } from "@/components/dashboard/list-kit"
 import { CatChip } from "@/components/dashboard/stock/kit"
-import { daysAgo } from "@/lib/bill"
+import { daysAgo, invoiceTotal } from "@/lib/bill"
 import { useHomeStore } from "@/lib/home-store"
 import { cn } from "@/lib/utils"
 
@@ -31,10 +31,11 @@ function ViewAll({ href, label }: { href: string; label: string }) {
 
 export function BillsPanel() {
   const invoices = useHomeStore((s) => s.invoices)
+  const stock = useHomeStore((s) => s.stock)
   const setView = useHomeStore((s) => s.setViewInvoice)
   const setSheet = useHomeStore((s) => s.setSheet)
-  const today = invoices.filter((i) => daysAgo(i.createdAt) === 0)
-  const total = today.reduce((a, i) => a + i.amount, 0)
+  const today = invoices.filter((i) => daysAgo(i.date) === 0)
+  const total = today.reduce((a, i) => a + invoiceTotal(i, stock), 0)
   return (
     <div>
       <p className="text-xs text-muted-foreground">
@@ -48,6 +49,7 @@ export function BillsPanel() {
           <BillRow
             key={i.id}
             i={i}
+            stock={stock}
             onOpen={() => {
               // swap the drawer for the invoice
               setSheet(null)
