@@ -6,6 +6,8 @@ import { connectDB } from './config/db.js';
 import { env } from './config/env.js';
 import userRoutes from './routes/user.routes.js';
 import shopRoutes from './routes/shop.routes.js';
+import sttRoutes from './routes/stt.routes.js';
+import orderRoutes from './routes/order.routes.js';
 
 
 const app = express();
@@ -21,6 +23,8 @@ app.get('/', (req, res) => {
 
 app.use('/api/users', userRoutes);
 app.use('/api/shops', shopRoutes);
+app.use('/api/stt', sttRoutes);
+app.use('/api/orders', orderRoutes);
 
 
 const PORT = env.PORT;
