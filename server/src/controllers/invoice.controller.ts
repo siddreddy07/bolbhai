@@ -55,7 +55,9 @@ export async function addInvoice(req: Request, res: Response) {
 
     if (!(await getShopById(shopId.data, req.user!.id)))
       return res.status(404).json({ message: "Shop not found" });
-    res.status(201).json(await createInvoice(shopId.data, body.data));
+    // the new bill, and the stock of its products now (the shelf moved with it)
+    const { invoice, stock } = await createInvoice(shopId.data, body.data);
+    res.status(201).json({ ...invoice, stock });
   } catch (error) {
     console.error("Could not create invoice:", error);
     res.status(500).json({ message: "Could not create the invoice" });
@@ -81,7 +83,10 @@ export async function editInvoice(req: Request, res: Response) {
       return res.status(400).json({ message: z.prettifyError(body.error) });
 
     const invoice = await ownInvoice(req, res);
-    if (invoice) res.json(await updateInvoice(invoice.id, body.data));
+    if (!invoice) return;
+    const saved = await updateInvoice(invoice.id, body.data);
+    if (!saved) return res.status(404).json({ message: "Invoice not found" });
+    res.json({ ...saved.invoice, stock: saved.stock });
   } catch (error) {
     console.error("Could not update invoice:", error);
     res.status(500).json({ message: "Could not update the invoice" });
@@ -93,8 +98,9 @@ export async function removeInvoice(req: Request, res: Response) {
   try {
     const invoice = await ownInvoice(req, res);
     if (!invoice) return;
-    await deleteInvoice(invoice.id);
-    res.json({ message: "Invoice deleted" });
+    const gone = await deleteInvoice(invoice.id);
+    if (!gone) return res.status(404).json({ message: "Invoice not found" });
+    res.json({ message: "Invoice deleted", stock: gone.stock });
   } catch (error) {
     console.error("Could not delete invoice:", error);
     res.status(500).json({ message: "Could not delete the invoice" });
