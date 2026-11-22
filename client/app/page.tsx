@@ -7,7 +7,7 @@ import { Footer } from "@/components/site/footer"
 import { Hero } from "@/components/site/hero"
 import { Navbar } from "@/components/site/navbar"
 import { Reveal } from "@/components/site/reveal"
-import { Cta, Faq, How, Jobs, Languages } from "@/components/site/sections"
+import { Cta, Faq, How, Jobs } from "@/components/site/sections"
 import { api } from "@/lib/proxy"
 import { useUserStore } from "@/store/user-store"
 
@@ -31,7 +31,6 @@ export default function Page() {
       <AnchorScroll />
       <main id="main">
         <Hero />
-        <Languages />
         <Jobs />
         <How />
         <Faq />

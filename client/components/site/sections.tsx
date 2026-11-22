@@ -4,96 +4,15 @@ import { Illo } from "@/components/site/illo"
 import * as React from "react"
 import Link from "next/link"
 import gsap from "gsap"
-import { ChartColumn, MessageSquareText, Mic, Package, Plus, Receipt, Truck, Users } from "lucide-react"
+import { ChartColumn, MessageSquareText, Package, Plus, Receipt, Truck, Users } from "lucide-react"
 
-import { CurlyArrow, Scribble } from "@/components/site/doodles"
 import { StepsStage } from "@/components/site/steps-stage"
 import { FeatureCarousel, type CarouselItem } from "@/components/ui/feature-carousel"
-import { JOB_SAY, LANGS, langClass, useLang, type Lang } from "@/lib/lang"
+import { JOB_SAY, langClass, useLang } from "@/lib/lang"
 import { cn } from "@/lib/utils"
 import { useUserStore } from "@/store/user-store"
 
 const wrap = "mx-auto w-full max-w-[1120px] px-5 sm:px-8"
-
-/* ---------------------------------- Languages --------------------------------- */
-
-const PAID: Record<Lang, string> = {
-  en: "Ramesh paid ₹2,000. Update his account.",
-  te: "రమేష్ ₹2,000 చెల్లించాడు. అతని ఖాతా అప్‌డేట్ చేయి.",
-  hi: "रमेश ने ₹2,000 दिए। उसका खाता अपडेट करो।",
-}
-
-export function Languages() {
-  const { lang, setLang } = useLang()
-  return (
-    <section
-      id="languages"
-      className="relative mx-2 mt-2 flex items-center overflow-hidden rounded-[1.5rem] bg-mint py-10 sm:mx-3 sm:mt-3 sm:rounded-[2rem] sm:py-14 lg:min-h-[min(100svh,820px)] lg:py-20"
-    >
-      <div aria-hidden="true" className="halftone pointer-events-none absolute -top-12 -right-12 size-60 text-foreground/20 [mask-image:radial-gradient(circle,#000,transparent_70%)]" />
-      <div aria-hidden="true" className="grain pointer-events-none absolute inset-0" />
-      <div className={cn(wrap, "relative grid items-center gap-6 lg:grid-cols-[0.8fr_1.2fr] lg:gap-16")}>
-        <div data-reveal>
-          <h2 className="text-[1.55rem] leading-[1.05] sm:text-[2rem] lg:text-[clamp(2.6rem,4.6vw,3.8rem)] lg:leading-[1] font-extrabold">
-            Speak the way you already speak.
-          </h2>
-          <p className="mt-3 max-w-[38ch] text-sm leading-relaxed text-foreground/75 sm:mt-4 sm:text-base lg:mt-5 lg:text-lg">
-            Switch between Telugu, Hindi and English mid-day, even mid-sentence. Your
-            records stay in one ledger.
-          </p>
-          <div className="relative mt-8 hidden w-fit lg:block">
-            <Scribble className="h-3 w-48 text-signal" />
-            <span className="font-hand mt-2 flex items-center gap-2 text-2xl text-foreground/80">
-              pick one, the demo above follows
-              <CurlyArrow className="h-10 w-12 -rotate-[100deg]" />
-            </span>
-          </div>
-        </div>
-
-        <div role="radiogroup" aria-label="Demo language" className="flex flex-col gap-2 sm:gap-3">
-          {LANGS.map((l) => {
-            const active = lang === l.id
-            return (
-              <button
-                key={l.id}
-                data-reveal
-                role="radio"
-                aria-checked={active}
-                onClick={() => setLang(l.id)}
-                className={cn(
-                  "group flex items-center gap-3 rounded-2xl p-3.5 text-left transition-all duration-300 hover:-translate-y-0.5 sm:gap-4 sm:rounded-3xl sm:p-5",
-                  active ? "bg-foreground text-background" : "bg-card/80 hover:bg-card"
-                )}
-              >
-                <span
-                  className={cn(
-                    "grid size-10 shrink-0 place-items-center rounded-full sm:size-12",
-                    active ? "bg-signal text-white" : "bg-foreground/10"
-                  )}
-                >
-                  <Mic className="size-5" />
-                </span>
-                <span className="min-w-0">
-                  <span className={cn("block text-xs font-semibold opacity-70 sm:text-sm", langClass(l.id))}>
-                    {l.name}
-                  </span>
-                  <span
-                    className={cn(
-                      "mt-0.5 block text-sm leading-snug font-semibold sm:mt-1 sm:text-lg lg:text-2xl",
-                      langClass(l.id)
-                    )}
-                  >
-                    “{PAID[l.id]}”
-                  </span>
-                </span>
-              </button>
-            )
-          })}
-        </div>
-      </div>
-    </section>
-  )
-}
 
 /* ------------------------------------ Jobs ------------------------------------ */
 
@@ -264,11 +183,11 @@ export function How() {
 /* ------------------------------------- FAQ ------------------------------------ */
 
 const QA = [
-  ["Do I have to type anything?", "No. Speak, check the card BolBhai shows you, and confirm. You can still edit any record by hand."],
-  ["Which languages does it understand?", "Telugu, Hindi and English, including a mix of them in one sentence."],
-  ["Is my shop’s data separate from other shops?", "Yes. Every shop gets its own workspace. Your stock, customers and bills are visible only to you."],
-  ["What if it hears me wrong?", "Nothing is saved until you confirm the card. Change a number or a name, or say it again."],
-  ["Where can I use it?", "In the browser, on a phone, tablet or computer. Nothing to install."],
+  ["Do I have to type anything?", "Not really. Talk, look at the slip, press Done. You can still type if you enjoy suffering."],
+  ["Which languages does it understand?", "English. Just English. Yes, only one. Others are coming, no dates, dont ask."],
+  ["Is my shop’s data separate from other shops?", "Yes. Every shop has its own stuff. The shop next door cant see your bills."],
+  ["What if it hears me wrong?", "Then the slip is wrong and you fix it. Nothing is saved till you press Done, so no drama."],
+  ["Where can I use it?", "In the browser. Phone, tablet, laptop. Nothing to install, your storage is safe."],
 ]
 
 function FaqItem({
