@@ -6,4 +6,7 @@ export const env = {
   JWT_ACCESS_SECRET: process.env.JWT_ACCESS_SECRET!,
   JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET!,
   GROQ_API_KEY: process.env.GROQ_API_KEY,
+  // Where Ollama is. Leave it out to use constant.ts. In Docker it is http://host.docker.internal:11434/api
+  OLLAMA_BASE_URL: process.env.OLLAMA_BASE_URL,
+  DEEPGRAM_API_KEY:process.env.DEEPGRAM_API_KEY,
 };

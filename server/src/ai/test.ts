@@ -1,16 +1,26 @@
-import { askAI, modelName } from "./model.js";
-import { AI_CONFIG } from "../config/constant.js";
+// Run: npm run ai:test -- "I need 1kg sugar"
+import { db } from "../prisma/db.js";
+import { extractOrder } from "./extract-order.js";
+import { modelName } from "./model.js";
+import { parseOrder } from "./order.js";
 
-const prompt = process.argv[2] ?? "Say hello to a shopkeeper in one short sentence.";
-
-console.log(`${AI_CONFIG.provider} / ${modelName}`);
-console.log(`> ${prompt}`);
+const sentence = process.argv[2] ?? "I need 2kg India Gate basmati rice and 5kg Ashirvad atta";
+console.log(`${modelName}: ${sentence}`);
 
 const started = Date.now();
 try {
-  console.log(await askAI(prompt));
-  console.log(`done in ${((Date.now() - started) / 1000).toFixed(1)}s`);
+  console.log(
+  JSON.stringify(
+    await extractOrder(
+      "I need 2kg basmati rice and 5kg atta"
+    ),
+    null,
+    2
+  )
+);
+  console.log(`Total time: ${((Date.now() - started) / 1000).toFixed(1)}s`);
 } catch (error) {
-  console.error("The AI call failed. Check the provider settings in constant.ts (Ollama running and the model pulled, or GROQ_API_KEY set).", error);
-  process.exit(1);
+  console.error("Failed:", error instanceof Error ? error.message : error);
+} finally {
+  await db.close();
 }

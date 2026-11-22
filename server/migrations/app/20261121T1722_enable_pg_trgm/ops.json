@@ -1,0 +1,33 @@
+[
+  {
+    "id": "install_pg_trgm",
+    "label": "Install pg_trgm (fuzzy text search)",
+    "operationClass": "data",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "dependency",
+        "name": "pg_trgm"
+      }
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "create extension \"pg_trgm\"",
+        "sql": "CREATE EXTENSION IF NOT EXISTS pg_trgm"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "confirm extension \"pg_trgm\" is enabled",
+        "sql": "SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_trgm') AS \"result\"",
+        "params": [],
+        "expectation": {
+          "expects": "present",
+          "object": "extension \"pg_trgm\""
+        }
+      }
+    ]
+  }
+]

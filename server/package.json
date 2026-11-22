@@ -20,6 +20,8 @@
   "type": "module",
   "dependencies": {
     "@ai-sdk/groq": "^4.0.86",
+    "@deepgram/sdk": "^5.20.0",
+    "@langchain/langgraph": "^1.7.5",
     "@prisma/orm-postgres": "^8.0.0-rc.24",
     "ai": "^7.0.178",
     "bcryptjs": "^3.0.3",
