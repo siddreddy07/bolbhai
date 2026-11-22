@@ -12,15 +12,15 @@ import { Logo } from "@/components/site/doodles"
 import { ShopMenu } from "@/components/dashboard/header-menus"
 import { InvoiceDrawer } from "@/components/dashboard/bills/invoice-slip"
 import { BillsPanel, KhataPanel, StockPanel } from "@/components/dashboard/panels"
+import { MicBars } from "@/components/dashboard/mic-bars"
 import { DRAFT, useHomeStore, type Period, type SheetKey } from "@/lib/home-store"
-import { SPOKEN, langClass, useLang, type Lang } from "@/lib/lang"
+import { LISTENING, langClass, useLang, type Lang } from "@/lib/lang"
 import { MOCK_USER } from "@/lib/shop"
 import { useUserStore } from "@/store/user-store"
 import { cn } from "@/lib/utils"
 
 const inr = (n: number) => "₹" + n.toLocaleString("en-IN")
 const HELLO: Record<Lang, string> = { en: "Hello", te: "నమస్తే", hi: "नमस्ते" }
-const BARS = 40
 
 // Mock sales series (₹). The last bar is "now".
 const SERIES: Record<Period, { label: string; total: number; bills: number; delta: string; up: boolean; vs: string; bars: number[]; names: string[] }> = {
@@ -200,7 +200,7 @@ export function Home() {
   const customers = useHomeStore((s) => s.customers)
   const invoices = useHomeStore((s) => s.invoices)
   const stock = useHomeStore((s) => s.stock)
-  const { phase, sheet, sales, bills, period, setSheet, setPeriod, tapMic, confirm, cancel } = useHomeStore()
+  const { phase, transcript, setTranscript, order, finding, orderError, findItems, caption, micError, sheet, sales, bills, period, setSheet, setPeriod, tapMic, cancel } = useHomeStore()
   const [pick, setPick] = React.useState<number | null>(null)
   const [hov, setHov] = React.useState<number | null>(null)
   const firstRun = React.useRef(true)
@@ -210,7 +210,7 @@ export function Home() {
   const max = Math.max(...serie.bars)
   const open = sheet ? SHEETS[sheet] : null
   const root = React.useRef<HTMLElement>(null)
-  const phrase = SPOKEN[lang].split(" ")
+  const phrase = LISTENING[lang].split(" ")
 
   // entrance: one orchestrated moment
   useGSAP(
@@ -274,28 +274,13 @@ export function Home() {
     { dependencies: [phase], scope: root }
   )
 
-  // the voice halo around the mic: 40 bars breathing, only while listening
+  // the mic changes shape: a circle while idle, a rounded square (the stop shape) while it records
   useGSAP(
     () => {
-      const bars = gsap.utils.toArray<HTMLElement>("[data-bar]", root.current)
-      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches
-      if (phase !== "listening") {
-        gsap.to(bars, { scaleY: 0, duration: 0.35, overwrite: true })
-        return
-      }
-      if (reduce) {
-        gsap.set(bars, { scaleY: 0.6 })
-        return
-      }
-      const tick = () => {
-        const t = gsap.ticker.time
-        bars.forEach((b, i) => {
-          const v = 0.22 + 0.78 * Math.abs(Math.sin(t * 5.2 + i * 0.7) * Math.cos(t * 2.3 + i * 0.31))
-          gsap.set(b, { scaleY: v })
-        })
-      }
-      gsap.ticker.add(tick)
-      return () => gsap.ticker.remove(tick)
+      const q = gsap.utils.selector(root.current)
+      const radius = phase === "listening" ? "26%" : "50%"
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) gsap.set(q("[data-mic]"), { borderRadius: radius })
+      else gsap.to(q("[data-mic]"), { borderRadius: radius, duration: 0.5, ease: "back.out(1.7)" })
     },
     { dependencies: [phase], scope: root }
   )
@@ -484,11 +469,11 @@ export function Home() {
       <section aria-live="polite" className={cn("relative flex items-center justify-center", phase === "idle" ? "h-0" : "min-h-0 flex-1 py-2")}>
         {phase === "listening" && (
           <p className={cn("max-w-[24ch] text-center text-xl leading-snug font-bold sm:text-2xl md:[@media(min-height:900px)]:text-4xl", langClass(lang))}>
-            “{phrase.map((w, i) => (
+            {caption ? `“${caption}”` : phrase.map((w, i) => (
               <span key={i} data-word className="inline-block">
                 {w}&nbsp;
               </span>
-            ))}”
+            ))}
           </p>
         )}
 
@@ -501,15 +486,44 @@ export function Home() {
             data-slip
             className="w-full max-w-[340px] bg-[#fffef8] px-5 pt-4 pb-6 text-[#10301f] shadow-[0_18px_40px_-18px_rgb(0_0_0/0.7)] [clip-path:inset(0)] [mask-image:conic-gradient(from_-45deg_at_bottom,#0000,#000_1deg_89deg,#0000_90deg)] [mask-position:50%] [mask-size:16px_100%]"
           >
+            <textarea
+              data-line
+              value={transcript}
+              onChange={(e) => setTranscript(e.target.value)}
+              rows={2}
+              placeholder="Type it here, like 1 kg sugar"
+              aria-label="What you said. Tap to fix it or type."
+              className="mb-2 w-full resize-none rounded-lg border border-dashed border-[#10301f]/30 bg-transparent px-2 py-1.5 text-base leading-snug outline-none focus:border-[#10301f] focus:bg-white/60"
+            />
             <p data-line className="font-hand text-2xl leading-none opacity-70">New bill for</p>
             <div data-line className="mt-1 flex items-baseline justify-between">
               <p className="text-2xl font-extrabold">{DRAFT.who}</p>
               <p className="text-2xl font-extrabold">{inr(DRAFT.amount)}</p>
             </div>
-            <p data-line className="border-b border-dashed border-[#10301f]/30 pb-2 text-sm opacity-70">{DRAFT.line}</p>
+            {order?.length ? (
+              <ul data-line className="border-b border-dashed border-[#10301f]/30 pb-2 text-sm">
+                {order.map((item) => (
+                  <li key={item.query} className="py-0.5">
+                    <span className="font-bold">
+                      {item.quantity} {item.unit} {item.query}
+                    </span>
+                    <span className="block text-xs opacity-60">
+                      {item.options.slice(0, 3).map((o) => `${o.brand ? o.brand + " " : ""}${o.size}`).join(" · ") || "nothing found"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p data-line className="border-b border-dashed border-[#10301f]/30 pb-2 text-sm opacity-70">{DRAFT.line}</p>
+            )}
+            {orderError && <p className="mt-2 text-sm font-semibold text-signal">{orderError}</p>}
             <div data-line className="mt-3 grid grid-cols-[1fr_auto] gap-2">
-              <Button onClick={confirm} className="h-12 rounded-full bg-[#10301f] text-base text-[#f8f8f3] hover:bg-[#10301f]/90">
-                <Check className="size-5" /> Confirm
+              <Button
+                onClick={order ? cancel : findItems}
+                disabled={finding || (!order && !transcript.trim())}
+                className="h-12 rounded-full bg-[#10301f] text-base text-[#f8f8f3] hover:bg-[#10301f]/90"
+              >
+                <Check className="size-5" /> {finding ? "Finding items…" : order ? "Done" : "Confirm"}
               </Button>
               <Button onClick={cancel} variant="ghost" className="h-12 rounded-full px-4 text-base text-[#10301f] hover:bg-[#10301f]/10">
                 Cancel
@@ -543,26 +557,19 @@ export function Home() {
       {/* the mic lives where the thumb already is */}
       <div data-micwrap className="relative flex shrink-0 flex-col items-center [--u:1rem] [@media(max-height:760px)]:[--u:0.78rem] sm:[@media(min-height:900px)]:[--u:1.1rem] md:[@media(min-height:1000px)]:[--u:1.3rem]">
         <div className="relative grid size-[calc(var(--u)*9.5)] place-items-center">
-          {/* voice halo */}
-          <div aria-hidden="true" className="absolute inset-0">
-            {Array.from({ length: BARS }, (_, i) => (
-              <span key={i} className="absolute top-1/2 left-1/2 h-0 w-0" style={{ transform: `rotate(${(i / BARS) * 360}deg)` }}>
-                <i data-bar className="absolute bottom-[calc(var(--u)*3.4)] left-0 h-[calc(var(--u)*1.25)] w-[3px] origin-bottom -translate-x-1/2 scale-y-0 rounded-full bg-signal" />
-              </span>
-            ))}
-          </div>
           <button
+            data-mic
             type="button"
-            onClick={tapMic}
+            onClick={() => tapMic()}
             disabled={phase === "thinking" || phase === "confirm" || phase === "done"}
-            aria-label={phase === "listening" ? "Done talking" : "Start talking"}
-            className="relative grid size-[calc(var(--u)*6.5)] place-items-center rounded-full bg-signal text-white shadow-[0_18px_40px_-10px_rgb(242_92_42/0.7)] transition-transform active:scale-90 disabled:opacity-40"
+            aria-label={phase === "listening" ? "Stop" : "Start talking"}
+            className="relative grid size-[calc(var(--u)*6.5)] place-items-center rounded-[50%] bg-signal text-white shadow-[0_18px_40px_-10px_rgb(242_92_42/0.7)] transition-transform active:scale-90 disabled:opacity-40"
           >
-            <Mic className="size-[calc(var(--u)*2.5)]" />
+            {phase === "listening" ? <MicBars /> : <Mic className="size-[calc(var(--u)*2.5)]" />}
           </button>
         </div>
         <p className="-mt-1 text-sm font-semibold text-muted-foreground">
-          {phase === "listening" ? "Listening. Tap when done." : "Tap and say it"}
+          {micError ?? (phase === "listening" ? "Tap to stop" : "Tap and say it")}
         </p>
       </div>
 

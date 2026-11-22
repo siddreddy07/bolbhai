@@ -1,5 +1,7 @@
+import axios from "axios"
 import { create } from "zustand"
 
+import { cancelRecording, confirmOrder, startRecording, stopRecording, transcribe, type OrderItem } from "@/lib/stt"
 import { loadShopStock, saveShopStock } from "@/lib/shop-stock"
 import { makeCustomers, makeInvoices, type Customer, type Invoice, type StockItem } from "@/lib/mock-data"
 
@@ -12,6 +14,21 @@ export const DRAFT = { who: "Ramesh", line: "Rice 25 kg × 5", amount: 6200 }
 
 type HomeState = {
   phase: Phase
+  /** what the shopkeeper said, written down by the speech-to-text on the server */
+  transcript: string
+  /** the items the order graph found, once the shopkeeper pressed Confirm */
+  order: OrderItem[] | null
+  /** Confirm was pressed and the graph is still working */
+  finding: boolean
+  orderError: string | null
+  /** Confirm: the text on the slip goes to the order graph */
+  findItems: () => Promise<void>
+  /** live captions while the shopkeeper is still talking */
+  caption: string
+  /** the shopkeeper fixes the text, or types it instead of saying it */
+  setTranscript: (text: string) => void
+  /** why the mic could not work (no permission, server down...) */
+  micError: string | null
   sheet: SheetKey
   /** the bill whose invoice is open (any screen) */
   viewInvoice: number | null
@@ -49,6 +66,14 @@ const later = (fn: () => void, ms: number) => {
 
 export const useHomeStore = create<HomeState>((set, get) => ({
   phase: "idle",
+  transcript: "",
+  order: null,
+  finding: false,
+  orderError: null,
+  caption: "",
+  // typing changes the text, so the items found for the old text no longer apply
+  setTranscript: (transcript) => set({ transcript, order: null, orderError: null }),
+  micError: null,
   sheet: null,
   viewInvoice: null,
   period: "day",
@@ -79,21 +104,49 @@ export const useHomeStore = create<HomeState>((set, get) => ({
   setSheet: (sheet) => set({ sheet }),
   setViewInvoice: (viewInvoice) => set({ viewInvoice }),
   setPeriod: (period) => set({ period }),
-  tapMic: () => {
+  tapMic: async () => {
     const { phase } = get()
+
+    // second tap (or the 20 second limit) = "I'm done talking": send the recording to the server
     if (phase === "listening") {
-      // second tap = "I'm done talking"
+      clearTimeout(timer)
       set({ phase: "thinking" })
-      later(() => set({ phase: "confirm" }), 900)
+      try {
+        const text = await transcribe(await stopRecording())
+        if (!text) throw new Error("I did not hear anything")
+        set({ phase: "confirm", transcript: text })
+      } catch (error) {
+        set({ phase: "idle", micError: error instanceof Error && error.message === "I did not hear anything" ? error.message : "Could not hear that. Try again" })
+      }
       return
     }
+
     if (phase !== "idle") return
+    set({ micError: null, transcript: "", order: null, orderError: null, caption: "" })
+    try {
+      await startRecording(
+        (caption) => set({ caption }),
+        (why) => set({ micError: why })
+      )
+    } catch {
+      set({ micError: "Allow the microphone to talk" })
+      return
+    }
     set({ phase: "listening" })
-    // no second tap needed: it stops listening by itself
-    later(() => {
-      set({ phase: "thinking" })
-      later(() => set({ phase: "confirm" }), 900)
-    }, 2600)
+    later(() => get().tapMic(), 20000) // never record forever
+  },
+  findItems: async () => {
+    const { transcript, finding } = get()
+    if (finding || !transcript.trim()) return
+    set({ finding: true, orderError: null })
+    try {
+      set({ order: await confirmOrder(transcript) })
+    } catch (error) {
+      const aiDown = axios.isAxiosError(error) && error.response?.status === 503
+      set({ orderError: aiDown ? "The AI is not available right now" : "Could not find the items. Try again" })
+    } finally {
+      set({ finding: false })
+    }
   },
   confirm: () => {
     set((s) => ({
@@ -106,6 +159,7 @@ export const useHomeStore = create<HomeState>((set, get) => ({
   },
   cancel: () => {
     clearTimeout(timer)
+    cancelRecording()
     set({ phase: "idle" })
   },
 }))
