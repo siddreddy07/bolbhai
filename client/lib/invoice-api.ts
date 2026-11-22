@@ -12,6 +12,9 @@ type InvoiceRow = {
   transactionId: string | null
 }
 
+/** The stock of the products a bill change touched, as the server has it now (the shelf moves with the bill, on the server). */
+export type StockNow = { productId: string; stock: number }[]
+
 const toInvoice = (r: InvoiceRow): Invoice => ({
   id: r.id,
   shopId: r.shopId,
@@ -35,12 +38,11 @@ export async function createInvoice(
   payment: Payment,
   paymentType: PaymentType
 ) {
-  const { data } = await api.post<InvoiceRow>(`/api/invoices/shop/${shopId}`, {
-    items,
-    payment,
-    paymentType,
-  })
-  return toInvoice(data)
+  const { data } = await api.post<InvoiceRow & { stock: StockNow }>(
+    `/api/invoices/shop/${shopId}`,
+    { items, payment, paymentType }
+  )
+  return { invoice: toInvoice(data), stock: data.stock }
 }
 
 /** PUT /api/invoices/:id: only what changed. */
@@ -48,11 +50,15 @@ export async function updateInvoice(
   id: string,
   changes: { items?: BillLine[]; payment?: Payment; paymentType?: PaymentType }
 ) {
-  const { data } = await api.put<InvoiceRow>(`/api/invoices/${id}`, changes)
-  return toInvoice(data)
+  const { data } = await api.put<InvoiceRow & { stock: StockNow }>(
+    `/api/invoices/${id}`,
+    changes
+  )
+  return { invoice: toInvoice(data), stock: data.stock }
 }
 
 /** DELETE /api/invoices/:id */
 export async function deleteInvoice(id: string) {
-  await api.delete(`/api/invoices/${id}`)
+  const { data } = await api.delete<{ stock: StockNow }>(`/api/invoices/${id}`)
+  return data.stock
 }

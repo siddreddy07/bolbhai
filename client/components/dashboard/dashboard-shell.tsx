@@ -7,7 +7,8 @@ import {
   CreateShopDialog,
   EditShopDialog,
 } from "@/components/dashboard/shop-dialogs"
-import { useHomeStore } from "@/lib/home-store"
+import { Toaster } from "@/components/ui/sonner"
+import { syncStock, useHomeStore } from "@/lib/home-store"
 import { api } from "@/lib/proxy"
 import type { Shop } from "@/lib/shop"
 import { useShopStore } from "@/store/shop-store"
@@ -31,6 +32,19 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     }
   }, [shopId, loadStock, loadBills])
 
+  // stock counts (changed by bills too) are saved when the tab is hidden or closed, on any dashboard page
+  React.useEffect(() => {
+    const hidden = () =>
+      document.visibilityState === "hidden" && void syncStock()
+    const closing = () => void syncStock()
+    document.addEventListener("visibilitychange", hidden)
+    window.addEventListener("pagehide", closing)
+    return () => {
+      document.removeEventListener("visibilitychange", hidden)
+      window.removeEventListener("pagehide", closing)
+    }
+  }, [])
+
   React.useEffect(() => {
     api
       .get<Shop[]>("/api/shops")
@@ -45,6 +59,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     <>
       <div aria-hidden="true" className="dash-bg" />
       {children}
+      <Toaster />
       {loaded && !shop && <CreateShopDialog first />}
       {dialog === "add" && <CreateShopDialog onClose={() => setDialog(null)} />}
       {dialog === "edit" && shop && (

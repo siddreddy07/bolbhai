@@ -1,5 +1,6 @@
 import { useShopStore } from "@/store/shop-store"
 import axios from "axios"
+import { toast } from "sonner"
 import { create } from "zustand"
 
 import {
@@ -20,6 +21,7 @@ import {
   deleteInvoice,
   fetchInvoices,
   updateInvoice,
+  type StockNow,
 } from "@/lib/invoice-api"
 import type {
   Customer,
@@ -52,8 +54,6 @@ type HomeState = {
   draftPayment: Payment
   draftPaymentType: PaymentType
   setDraftPayment: (payment: Payment, type: PaymentType) => void
-  /** the bill just made, so the home page can offer to open it */
-  savedBill: string | null
   /** close the slip and forget the order */
   dismiss: () => void
   /** the shop whose bills are loaded */
@@ -154,7 +154,6 @@ export const useHomeStore = create<HomeState>((set, get) => ({
   draftPaymentType: "CASH",
   setDraftPayment: (draftPayment, draftPaymentType) =>
     set({ draftPayment, draftPaymentType }),
-  savedBill: null,
   customers: [],
   stock: [],
   stockShopId: null,
@@ -307,7 +306,6 @@ export const useHomeStore = create<HomeState>((set, get) => ({
     if (phase !== "idle") return
     set({
       micError: null,
-      savedBill: null,
       transcript: "",
       order: null,
       orderError: null,
@@ -405,22 +403,35 @@ export const useHomeStore = create<HomeState>((set, get) => ({
     }
     set({ savingBill: true, orderError: null })
     try {
-      const bill = await createInvoice(
+      await syncStock() // counts pressed by hand go first, so the server's numbers below are the whole truth
+      const { invoice: bill, stock } = await createInvoice(
         shopId,
         [...lines].map(([pid, quantity]) => ({ pid, quantity })),
         draftPayment,
         draftPaymentType
       )
+      applyStock(stock) // the shelf already moved on the server
       set((s) => ({
         invoices: [bill, ...s.invoices],
         billsShopId: s.billsShopId ?? shopId,
-        savedBill: bill.id,
         phase: "idle",
         order: null,
         transcript: "",
       }))
+      const count = bill.items.reduce((n, l) => n + l.quantity, 0)
+      toast.success("Bill saved", {
+        description: `${count} ${count === 1 ? "item" : "items"} added to Bills`,
+        action: {
+          label: "Open",
+          onClick: () => get().setViewInvoice(bill.id),
+        },
+      })
       return bill.id
     } catch {
+      toast.error("Could not save the bill", {
+        description:
+          "Nothing was changed. Check your connection and try again.",
+      })
       set({ orderError: "Could not save the bill. Try again" })
       return null
     } finally {
@@ -443,6 +454,7 @@ export const useHomeStore = create<HomeState>((set, get) => ({
     }
   },
   addBillItem: (billId, pid) => {
+    if (!get().invoices.some((b) => b.id === billId)) return
     set((s) => ({
       invoices: s.invoices.map((b) => {
         if (b.id !== billId) return b
@@ -483,7 +495,7 @@ export const useHomeStore = create<HomeState>((set, get) => ({
       ),
     }))
     try {
-      await updateInvoice(billId, { payment, paymentType })
+      await updateInvoice(billId, { payment, paymentType }) // does not touch the stock
       set({ billError: null })
     } catch {
       // not saved: put it back
@@ -495,13 +507,20 @@ export const useHomeStore = create<HomeState>((set, get) => ({
         ),
         billError: "Could not change the payment. Try again",
       }))
+      toast.error("Could not change the payment", {
+        description: "It was put back as it was.",
+      })
     }
   },
   removeBill: async (billId) => {
     clearTimeout(billTimers.get(billId))
     billTimers.delete(billId)
     try {
-      await deleteInvoice(billId)
+      await syncStock()
+      applyStock(await deleteInvoice(billId)) // its items are back on the shelf, on the server
+      toast.success("Bill deleted", {
+        description: "Its items are back on your shelf.",
+      })
       set((s) => ({
         invoices: s.invoices.filter((b) => b.id !== billId),
         viewInvoice: s.viewInvoice === billId ? null : s.viewInvoice,
@@ -509,9 +528,27 @@ export const useHomeStore = create<HomeState>((set, get) => ({
       }))
     } catch {
       set({ billError: "Could not delete the bill. Try again" })
+      toast.error("Could not delete the bill", {
+        description: "It is still in your bills.",
+      })
     }
   },
 }))
+
+// ---- bills and the shelf: the SERVER moves the stock with every bill change (in the same statement) and sends the new counts back ----
+
+/** Puts the server's stock counts (by product id) into the saved inventory. Not marked as changed here: the server already has them. */
+function applyStock(rows: StockNow) {
+  if (!rows.length) return
+  const now = new Map(rows.map((r) => [r.productId, Math.max(0, r.stock)]))
+  useHomeStore.setState((s) => ({
+    stock: s.stock.map((i) =>
+      i.productId && now.has(i.productId)
+        ? { ...i, qty: now.get(i.productId)! }
+        : i
+    ),
+  }))
+}
 
 // ---- saving a bill after +, - or an added product: one call, a moment after the last change ----
 const BILL_SAVE_AFTER = 600
@@ -535,10 +572,15 @@ export async function flushBill(billId: string) {
   // a bill must keep at least one line: with none left, the shopkeeper deletes the bill instead
   if (!bill.items.length) return
   try {
-    await updateInvoice(billId, { items: bill.items })
+    await syncStock()
+    const { stock } = await updateInvoice(billId, { items: bill.items })
+    applyStock(stock)
     useHomeStore.setState({ billError: null })
   } catch {
     useHomeStore.setState({ billError: "Could not save the change. Try again" })
+    toast.error("Could not save the change", {
+      description: "Your last edit to the bill was not saved.",
+    })
   }
 }
 
