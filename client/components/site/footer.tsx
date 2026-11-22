@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import gsap from "gsap"
 import { useGSAP } from "@gsap/react"
 
@@ -8,10 +9,26 @@ import { Logo } from "@/components/site/doodles"
 import { Mascot } from "@/components/site/mascot"
 import { BRAND } from "@/lib/lang"
 
-const COLS: [string, string[]][] = [
-  ["Product", ["Assistant", "Stock", "Bills", "Khata", "Reports"]],
-  ["Languages", ["Telugu", "Hindi", "English"]],
-  ["Company", ["About", "Contact", "Privacy", "Terms"]],
+// Only pages that exist. English is the only language for now, so there is no Languages column.
+const COLS: [string, [string, string][]][] = [
+  [
+    "Product",
+    [
+      ["Assistant", "/dashboard"],
+      ["Stock", "/dashboard/stock"],
+      ["Bills", "/dashboard/bills"],
+      ["Khata", "/dashboard/khata"],
+    ],
+  ],
+  [
+    "Company",
+    [
+      ["About", "/about"],
+      ["Contact", "/contact"],
+      ["Privacy", "/privacy"],
+      ["Terms", "/terms"],
+    ],
+  ],
 ]
 
 export function Footer() {
@@ -71,19 +88,19 @@ export function Footer() {
             The voice assistant for shopkeepers and wholesalers.
           </p>
         </div>
-        <div className="grid grid-cols-3 gap-3 text-sm sm:gap-8 sm:text-base">
+        <div className="grid grid-cols-2 gap-3 text-sm sm:gap-8 sm:text-base">
           {COLS.map(([h, items]) => (
             <div key={h} data-reveal>
               <p className="font-semibold">{h}</p>
               <ul className="mt-2 space-y-1.5 opacity-70 sm:mt-3 sm:space-y-2">
-                {items.map((i) => (
-                  <li key={i}>
-                    <a
-                      href="#try"
+                {items.map(([label, href]) => (
+                  <li key={label}>
+                    <Link
+                      href={href}
                       className="underline-offset-4 hover:underline hover:opacity-100"
                     >
-                      {i}
-                    </a>
+                      {label}
+                    </Link>
                   </li>
                 ))}
               </ul>
