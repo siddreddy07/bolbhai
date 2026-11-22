@@ -2,6 +2,8 @@ import type { Request, Response } from "express";
 import { z } from "zod";
 import { idSchema } from "../schemas/id.schema.js";
 import { shopSchema, updateShopSchema } from "../schemas/shop.schema.js";
+import { addInventorySchema } from "../schemas/inventory.schema.js";
+import { addToInventory, getInventory, removeFromInventory } from "../services/inventory.service.js";
 import { createShop, deleteShop, getShopById, getShops, gstinTaken, updateShop } from "../services/shop.service.js";
 
 export async function addShop(req: Request, res: Response) {
@@ -70,5 +72,51 @@ export async function removeShop(req: Request, res: Response) {
   } catch (error) {
     console.error("Could not delete shop:", error);
     res.status(500).json({ message: "Could not delete shop" });
+  }
+}
+
+// GET /api/shops/:id/inventory   everything this shop sells
+export async function listInventory(req: Request, res: Response) {
+  try {
+    const id = idSchema.safeParse(req.params.id);
+    if (!id.success) return res.status(400).json({ message: "Invalid id" });
+
+    // only the owner may see a shop's inventory
+    if (!(await getShopById(id.data, req.user!.id))) return res.status(404).json({ message: "Shop not found" });
+    res.json(await getInventory(id.data));
+  } catch (error) {
+    console.error("Could not get inventory:", error);
+    res.status(500).json({ message: "Could not get inventory" });
+  }
+}
+
+// POST /api/shops/:id/inventory   body = { items: [{ productId, stock }] }   put catalog products on this shop's shelf
+export async function addInventory(req: Request, res: Response) {
+  try {
+    const id = idSchema.safeParse(req.params.id);
+    const body = addInventorySchema.safeParse(req.body);
+    if (!id.success || !body.success) return res.status(400).json({ message: "Pick at least one product" });
+
+    if (!(await getShopById(id.data, req.user!.id))) return res.status(404).json({ message: "Shop not found" });
+    res.status(201).json({ added: await addToInventory(id.data, body.data.items) });
+  } catch (error) {
+    console.error("Could not add to inventory:", error);
+    res.status(500).json({ message: "Could not add the products" });
+  }
+}
+
+// DELETE /api/shops/:id/inventory/:itemId   take one product off this shop's shelf
+export async function removeInventory(req: Request, res: Response) {
+  try {
+    const id = idSchema.safeParse(req.params.id);
+    const itemId = idSchema.safeParse(req.params.itemId);
+    if (!id.success || !itemId.success) return res.status(400).json({ message: "Invalid id" });
+
+    if (!(await getShopById(id.data, req.user!.id))) return res.status(404).json({ message: "Shop not found" });
+    if (!(await removeFromInventory(id.data, itemId.data))) return res.status(404).json({ message: "Product not found" });
+    res.status(204).end();
+  } catch (error) {
+    console.error("Could not remove from inventory:", error);
+    res.status(500).json({ message: "Could not remove the product" });
   }
 }

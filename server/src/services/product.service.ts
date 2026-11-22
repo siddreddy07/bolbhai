@@ -1,6 +1,6 @@
 import { db } from "../prisma/db.js";
 
-type Row = { name: string; brand: string | null; quantity: string; unit: string | null; category: string | null; barcode: string };
+type Row = { id: string; cost: string | null; name: string; brand: string | null; quantity: string; unit: string | null; category: string | null; barcode: string };
 
 // Letters and digits only, so a word can never carry anything odd into the SQL pattern.
 function words(text: string) {
@@ -32,11 +32,11 @@ export async function searchProducts(queries: string[], limit = 5): Promise<Row[
   //   0    = no match
   // Products with the highest hits come first, so a full match beats a partial one.
   const plan = db.raw.sql`
-    SELECT q.idx::int AS idx, p.name, p.brand, p.quantity::text AS quantity, p.unit, p.category, p.barcode, p.hits::text AS hits
+    SELECT q.idx::int AS idx, p.id::text AS id, p.cost::text AS cost, p.name, p.brand, p.quantity::text AS quantity, p.unit, p.category, p.barcode, p.hits::text AS hits
     FROM jsonb_array_elements(${JSON.stringify(wordLists)}::jsonb) WITH ORDINALITY AS q(wds, idx)
     CROSS JOIN LATERAL (
       SELECT * FROM (
-        SELECT name, brand, quantity, unit, category, barcode,
+        SELECT id, cost, name, brand, quantity, unit, category, barcode,
           (SELECT coalesce(sum(
               CASE
                 WHEN (products.name || ' ' || coalesce(products.brand, '')) ~* ('[[:<:]]' || w.word || '[[:>:]]') THEN 1
@@ -55,6 +55,8 @@ export async function searchProducts(queries: string[], limit = 5): Promise<Row[
   `
     .returnsRow({
       idx: "pg/int4@1",
+      id: "pg/text@1",
+      cost: { codecId: "pg/text@1", nullable: true },
       name: "pg/text@1",
       brand: { codecId: "pg/text@1", nullable: true },
       quantity: "pg/text@1",
