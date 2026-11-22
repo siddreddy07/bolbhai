@@ -29,3 +29,8 @@ export const updateInvoiceSchema = z.object({
 
 export type InvoiceInput = z.infer<typeof invoiceSchema>;
 export type UpdateInvoiceInput = z.infer<typeof updateInvoiceSchema>;
+
+// The khata list: how many of the newest unpaid bills to send (the totals always cover all of them).
+export const unpaidQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(200).default(100),
+});

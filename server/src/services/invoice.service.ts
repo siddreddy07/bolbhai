@@ -1,4 +1,5 @@
 import { db } from "../prisma/db.js";
+import { sizeLabel } from "./pack-size.js";
 import type {
   InvoiceInput,
   UpdateInvoiceInput,
@@ -135,6 +136,72 @@ export async function getInvoices(shopId: string) {
 
 // Edit a bill. New items: saved, and the shelf moves by the difference (old quantity - new quantity), in one statement.
 // The other fields (payment, type, date, transaction id) do not touch the stock.
+// The khata: one shop's unpaid bills (payment = LEDGER), newest first, with everything the page shows worked out here:
+// each line's name, pack and the shop's selling price, and each bill's total, in ONE query.
+// `count` and `totalDue` cover ALL unpaid bills, even when `limit` sends fewer.
+export async function getUnpaidInvoices(shopId: string, limit = 100) {
+  const plan = db.raw.sql`
+    SELECT id, date, payment_type, items, total, count(*) OVER ()::text AS all_count, sum(total) OVER ()::text AS all_total
+    FROM (
+      SELECT inv.id::text AS id, inv.date::text AS date, inv."paymentType" AS payment_type,
+        jsonb_agg(
+          jsonb_build_object(
+            'pid', l.pid, 'quantity', l.quantity,
+            'name', coalesce(p.name, 'Removed item'), 'brand', p.brand,
+            'packQuantity', p.quantity, 'packUnit', p.unit,
+            'price', coalesce(si."sellingPrice", 0)
+          )
+        )::text AS items,
+        sum(l.quantity * coalesce(si."sellingPrice", 0)) AS total,
+        inv.date AS sort_date
+      FROM invoices inv
+      CROSS JOIN LATERAL jsonb_to_recordset(inv.items::jsonb) AS l(pid uuid, quantity numeric)
+      LEFT JOIN shop_inventory si ON si."shopId" = inv."shopId" AND si."productId" = l.pid
+      LEFT JOIN products p ON p.id = l.pid
+      WHERE inv."shopId" = ${shopId}::uuid AND inv.payment = 'LEDGER'
+      GROUP BY inv.id
+    ) unpaid
+    ORDER BY sort_date DESC
+    LIMIT ${limit}
+  `
+    .returnsRow({
+      id: "pg/text@1",
+      date: "pg/text@1",
+      payment_type: "pg/text@1",
+      items: "pg/text@1",
+      total: "pg/text@1",
+      all_count: "pg/text@1",
+      all_total: "pg/text@1",
+    })
+    .build();
+
+  const rows = await db.query(plan);
+  type RawLine = { pid: string; quantity: number; name: string; brand: string | null; packQuantity: string | number | null; packUnit: string | null; price: number | string };
+  return {
+    // zero rows = no unpaid bill at all
+    count: Number(rows[0]?.all_count ?? 0),
+    totalDue: Number(rows[0]?.all_total ?? 0),
+    invoices: rows.map((r) => {
+      const items = (JSON.parse(r.items) as RawLine[]).map((l) => ({
+        pid: l.pid,
+        quantity: Number(l.quantity),
+        name: l.name,
+        brand: l.brand,
+        size: sizeLabel({ quantity: l.packQuantity === null ? null : String(l.packQuantity), unit: l.packUnit }),
+        price: Number(l.price),
+      }));
+      return {
+        id: r.id,
+        date: new Date(r.date),
+        paymentType: r.payment_type as "CASH" | "UPI",
+        itemCount: items.reduce((n, l) => n + l.quantity, 0),
+        total: Number(r.total),
+        items,
+      };
+    }),
+  };
+}
+
 export async function updateInvoice(id: string, data: UpdateInvoiceInput) {
   const before = await getInvoice(id);
   if (!before) return null;
