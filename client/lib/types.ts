@@ -1,23 +1,23 @@
 // Shapes shared by the dashboard (the data itself comes from the server).
 
-/** One line of a bill: a shelf item, how many, and its price when it was added. */
+/** One line of a bill, as the server keeps it: the product (its id in the products table) and how many. */
 export type BillLine = {
-  /** the shop_inventory id */
-  itemId: string
-  name: string
-  size?: string | null
-  qty: number
-  price: number
+  pid: string
+  quantity: number
 }
-/** A bill. "Open" = made, not paid yet: items can still be added. Kept in localStorage, one list per shop. */
+/** PAID = settled. LEDGER = not paid yet, written in the ledger (khata). */
+export type Payment = "PAID" | "LEDGER"
+export type PaymentType = "CASH" | "UPI"
+/** A bill. The names and prices come from the saved inventory. */
 export type Invoice = {
-  id: number
-  who: string
-  amount: number
-  status: "Open" | "Paid" | "Khata"
+  id: string
+  shopId: string
   /** when it was made (ms) */
-  createdAt: number
+  date: number
   items: BillLine[]
+  payment: Payment
+  paymentType: PaymentType
+  transactionId: string | null
 }
 /** One thing asked for in an order, with the shelf items that fit it (taken from the saved inventory). */
 export type OrderLine = {

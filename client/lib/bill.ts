@@ -1,4 +1,4 @@
-import type { BillLine, Invoice } from "@/lib/types"
+import type { BillLine, Invoice, StockItem } from "@/lib/types"
 
 const TO_BASE: Record<string, { kind: "weight" | "liquid"; k: number }> = {
   g: { kind: "weight", k: 1 },
@@ -32,31 +32,38 @@ export function packsFor(
   return Math.max(1, Math.round(quantity))
 }
 
-export const billTotal = (items: BillLine[]) =>
-  items.reduce((sum, l) => sum + l.qty * l.price, 0)
-
-/** Whole days between the day the bill was made and today (0 = today). */
-export function daysAgo(createdAt: number) {
+/** Whole days between the day a bill was made and today (0 = today). */
+export function daysAgo(date: number) {
   const day = (t: number) => new Date(t).setHours(0, 0, 0, 0)
-  return Math.max(0, Math.round((day(Date.now()) - day(createdAt)) / 864e5))
+  return Math.max(0, Math.round((day(Date.now()) - day(date)) / 864e5))
 }
 
-// ---- bills are kept in localStorage, one list per shop ----
-const billsKey = (shopId: string) => `bolbhai:bills:${shopId}`
+// ---- a bill only keeps { pid, quantity }; the name, pack and price come from the saved inventory ----
 
-export function readBills(shopId: string): Invoice[] {
-  try {
-    const saved = JSON.parse(localStorage.getItem(billsKey(shopId)) ?? "[]")
-    return Array.isArray(saved) ? saved : []
-  } catch {
-    return []
+export const isPaid = (inv: Invoice) => inv.payment === "PAID"
+
+/** A short bill number to show, from its id. */
+export const billNumber = (inv: Invoice) => inv.id.slice(0, 4).toUpperCase()
+
+export type LineInfo = {
+  pid: string
+  quantity: number
+  name: string
+  size: string | null
+  price: number
+}
+
+/** A bill line with its name, pack and price (a product that left the shelf shows as "Removed item"). */
+export function lineInfo(line: BillLine, stock: StockItem[]): LineInfo {
+  const item = stock.find((i) => i.productId === line.pid)
+  return {
+    pid: line.pid,
+    quantity: line.quantity,
+    name: item?.name ?? "Removed item",
+    size: item?.size ?? null,
+    price: item?.price ?? 0,
   }
 }
 
-export function writeBills(shopId: string, bills: Invoice[]) {
-  try {
-    localStorage.setItem(billsKey(shopId), JSON.stringify(bills))
-  } catch {
-    // storage full or blocked: the bills still work for this visit
-  }
-}
+export const invoiceTotal = (inv: Invoice, stock: StockItem[]) =>
+  inv.items.reduce((sum, l) => sum + l.quantity * lineInfo(l, stock).price, 0)
