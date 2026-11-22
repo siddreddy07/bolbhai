@@ -10,6 +10,7 @@ import sttRoutes from './routes/stt.routes.js';
 import orderRoutes from './routes/order.routes.js';
 import productRoutes from './routes/product.routes.js';
 import inventoryRoutes from './routes/inventory.routes.js';
+import invoiceRoutes from './routes/invoice.routes.js';
 
 
 const app = express();
@@ -29,6 +30,7 @@ app.use('/api/stt', sttRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/inventory', inventoryRoutes);
+app.use('/api/invoices', invoiceRoutes);
 
 
 const PORT = env.PORT;

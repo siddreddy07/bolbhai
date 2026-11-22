@@ -1,0 +1,102 @@
+import type { Request, Response } from "express";
+import { z } from "zod";
+import { idSchema } from "../schemas/id.schema.js";
+import {
+  invoiceSchema,
+  updateInvoiceSchema,
+} from "../schemas/invoice.schema.js";
+import {
+  createInvoice,
+  deleteInvoice,
+  getInvoice,
+  getInvoices,
+  updateInvoice,
+} from "../services/invoice.service.js";
+import { getShopById } from "../services/shop.service.js";
+
+// An invoice belongs to a shop, and a shop to its owner: only the owner may touch it.
+// Gives the invoice, or answers the error itself and gives nothing.
+async function ownInvoice(req: Request, res: Response) {
+  const id = idSchema.safeParse(req.params.id);
+  if (!id.success) {
+    res.status(400).json({ message: "Invalid id" });
+    return null;
+  }
+  const invoice = await getInvoice(id.data);
+  if (!invoice || !(await getShopById(invoice.shopId, req.user!.id))) {
+    res.status(404).json({ message: "Invoice not found" });
+    return null;
+  }
+  return invoice;
+}
+
+// GET /api/invoices/shop/:shopId   every invoice of this shop, newest first
+export async function listInvoices(req: Request, res: Response) {
+  try {
+    const shopId = idSchema.safeParse(req.params.shopId);
+    if (!shopId.success) return res.status(400).json({ message: "Invalid id" });
+    if (!(await getShopById(shopId.data, req.user!.id)))
+      return res.status(404).json({ message: "Shop not found" });
+    res.json(await getInvoices(shopId.data));
+  } catch (error) {
+    console.error("Could not list invoices:", error);
+    res.status(500).json({ message: "Could not get invoices" });
+  }
+}
+
+// POST /api/invoices/shop/:shopId   body = { items: [{ pid, quantity }], date?, transactionId? }
+export async function addInvoice(req: Request, res: Response) {
+  try {
+    const shopId = idSchema.safeParse(req.params.shopId);
+    if (!shopId.success) return res.status(400).json({ message: "Invalid id" });
+    const body = invoiceSchema.safeParse(req.body);
+    if (!body.success)
+      return res.status(400).json({ message: z.prettifyError(body.error) });
+
+    if (!(await getShopById(shopId.data, req.user!.id)))
+      return res.status(404).json({ message: "Shop not found" });
+    res.status(201).json(await createInvoice(shopId.data, body.data));
+  } catch (error) {
+    console.error("Could not create invoice:", error);
+    res.status(500).json({ message: "Could not create the invoice" });
+  }
+}
+
+// GET /api/invoices/:id
+export async function readInvoice(req: Request, res: Response) {
+  try {
+    const invoice = await ownInvoice(req, res);
+    if (invoice) res.json(invoice);
+  } catch (error) {
+    console.error("Could not get invoice:", error);
+    res.status(500).json({ message: "Could not get the invoice" });
+  }
+}
+
+// PUT /api/invoices/:id   body = any of { items, date, transactionId }
+export async function editInvoice(req: Request, res: Response) {
+  try {
+    const body = updateInvoiceSchema.safeParse(req.body);
+    if (!body.success)
+      return res.status(400).json({ message: z.prettifyError(body.error) });
+
+    const invoice = await ownInvoice(req, res);
+    if (invoice) res.json(await updateInvoice(invoice.id, body.data));
+  } catch (error) {
+    console.error("Could not update invoice:", error);
+    res.status(500).json({ message: "Could not update the invoice" });
+  }
+}
+
+// DELETE /api/invoices/:id
+export async function removeInvoice(req: Request, res: Response) {
+  try {
+    const invoice = await ownInvoice(req, res);
+    if (!invoice) return;
+    await deleteInvoice(invoice.id);
+    res.json({ message: "Invoice deleted" });
+  } catch (error) {
+    console.error("Could not delete invoice:", error);
+    res.status(500).json({ message: "Could not delete the invoice" });
+  }
+}
