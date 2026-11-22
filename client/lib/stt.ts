@@ -31,28 +31,44 @@ type Recognizer = {
   continuous: boolean
   interimResults: boolean
   lang: string
-  onresult: (e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void
+  onresult: (e: {
+    results: ArrayLike<ArrayLike<{ transcript: string }>>
+  }) => void
   onend: () => void
   onerror: (e: { error: string }) => void
   start(): void
   stop(): void
 }
-type RecognizerWindow = { SpeechRecognition?: new () => Recognizer; webkitSpeechRecognition?: new () => Recognizer }
+type RecognizerWindow = {
+  SpeechRecognition?: new () => Recognizer
+  webkitSpeechRecognition?: new () => Recognizer
+}
 
-function startCaptions(onText: (text: string) => void, onProblem: (why: string) => void) {
+function startCaptions(
+  onText: (text: string) => void,
+  onProblem: (why: string) => void
+) {
   const w = window as unknown as RecognizerWindow
   const Recognition = w.SpeechRecognition ?? w.webkitSpeechRecognition
-  if (!Recognition) return onProblem("This browser cannot show live captions. Use Chrome or Edge.")
+  if (!Recognition)
+    return onProblem(
+      "This browser cannot show live captions. Use Chrome or Edge."
+    )
   const r = new Recognition()
   r.continuous = true
   r.interimResults = true
   r.lang = "en-IN"
-  r.onresult = (e) => onText(Array.from(e.results, (x) => x[0].transcript).join(" "))
+  r.onresult = (e) =>
+    onText(Array.from(e.results, (x) => x[0].transcript).join(" "))
   r.onend = () => captions && r.start() // it stops by itself after a pause: start again
   r.onerror = (e) => {
     console.warn("Live captions error:", e.error)
     if (e.error === "no-speech" || e.error === "aborted") return // normal: nobody spoke yet
-    onProblem(e.error === "network" ? "Live captions need internet (Chrome sends the audio to Google)" : `Live captions stopped (${e.error})`)
+    onProblem(
+      e.error === "network"
+        ? "Live captions need internet (Chrome sends the audio to Google)"
+        : `Live captions stopped (${e.error})`
+    )
   }
   r.start()
   captions = r
@@ -65,7 +81,10 @@ function stopCaptions() {
 }
 
 /** Asks for the microphone and starts recording. Throws if the user says no. */
-export async function startRecording(onCaption: (text: string) => void, onCaptionProblem: (why: string) => void) {
+export async function startRecording(
+  onCaption: (text: string) => void,
+  onCaptionProblem: (why: string) => void
+) {
   stream = await navigator.mediaDevices.getUserMedia({ audio: true })
   chunks = []
   audioContext = new AudioContext()
@@ -98,17 +117,28 @@ export function stopRecording() {
 export function cancelRecording() {
   stopCaptions()
   closeAnalyser()
-  if (recorder) recorder.onstop = () => stream?.getTracks().forEach((t) => t.stop())
+  if (recorder)
+    recorder.onstop = () => stream?.getTracks().forEach((t) => t.stop())
   if (recorder?.state === "recording") recorder.stop()
   recorder = null
 }
 
-/** One item the shopkeeper asked for, with the packs from the catalog that fit the amount. */
+/** One item the shopkeeper asked for, with the items on the shop's own shelf that fit the amount. */
 export type OrderItem = {
   query: string
   quantity: number | null
   unit: string | null
-  options: { name: string; brand: string | null; size: string | null; category: string | null; barcode: string }[]
+  options: {
+    id: string
+    productId: string | null
+    name: string
+    brand: string | null
+    size: string | null
+    category: string | null
+    stock: number
+    unit: string | null
+    price: number
+  }[]
 }
 
 /** Step 1: only the audio goes to the server. Deepgram writes the text and that text comes back to be checked. */
@@ -119,8 +149,11 @@ export async function transcribe(audio: Blob) {
   return data.text
 }
 
-/** Step 2: the shopkeeper pressed Confirm. The (maybe edited) text goes to the order graph, the items come back. */
-export async function confirmOrder(text: string) {
-  const { data } = await api.post<{ order: OrderItem[] }>("/api/orders/confirm", { text })
+/** Step 2: the shopkeeper pressed Confirm. The (maybe edited) text goes to the order graph, which looks in this shop's inventory; the items come back. */
+export async function confirmOrder(shopId: string, text: string) {
+  const { data } = await api.post<{ order: OrderItem[] }>(
+    "/api/orders/confirm",
+    { shopId, text }
+  )
   return data.order
 }

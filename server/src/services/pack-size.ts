@@ -1,6 +1,13 @@
 // Helpers for pack sizes: "500g", "1kg", "2" (countable, like chocolates).
 
-type Row = { name: string; brand: string | null; quantity: string | null; unit: string | null; category: string | null; barcode: string };
+type Row = {
+  name: string;
+  brand: string | null;
+  quantity: string | null;
+  unit: string | null;
+  category: string | null;
+  barcode: string;
+};
 
 // How many grams (weights) or ml (liquids) is this? null if it is not a weight or a liquid.
 function toBase(amount: number, unit: string | null) {
@@ -21,18 +28,48 @@ export function sizeLabel(row: Pick<Row, "quantity" | "unit">) {
 
 // Keeps the options that make sense for what was asked.
 // Asked 2kg: 1kg, 500g and 2kg packs are useful (you can add several). A 25kg pack is not.
-export function pickOptions(rows: Row[], wantedAmount: number, wantedUnit: string | null, max = 5) {
+export function pickOptions(
+  rows: Row[],
+  wantedAmount: number,
+  wantedUnit: string | null,
+  max = 5,
+) {
+  return pickRows(rows, wantedAmount, wantedUnit, max).map((row) => ({
+    name: row.name,
+    brand: row.brand,
+    size: sizeLabel(row),
+    category: row.category,
+    barcode: row.barcode,
+  }));
+}
+
+// The choosing itself: gives back the same rows (with all their own fields), the ones that make sense for the amount asked.
+// `keepUnsized` keeps rows with no pack size (a shop's own item) instead of leaving them out.
+export function pickRows<R extends Pick<Row, "quantity" | "unit">>(
+  rows: R[],
+  wantedAmount: number,
+  wantedUnit: string | null,
+  max = 5,
+  keepUnsized = false,
+): R[] {
   const wanted = toBase(wantedAmount, wantedUnit);
-  // Products with no size are left out.
-  rows = rows.filter((row) => sizeLabel(row) !== null);
+  const all = rows;
+  // Products with no size are left out (unless asked to keep them).
+  if (!keepUnsized) rows = rows.filter((row) => sizeLabel(row) !== null);
   let list = rows;
 
   if (wanted) {
-    const sized = rows.map((row) => ({ row, base: row.quantity === null ? null : toBase(Number(row.quantity), row.unit) }));
+    const sized = rows.map((row) => ({
+      row,
+      base:
+        row.quantity === null ? null : toBase(Number(row.quantity), row.unit),
+    }));
     const same = sized.filter((s) => s.base && s.base.kind === wanted.kind);
     const fits = same.filter((s) => s.base!.value <= wanted.value);
     // If every pack is bigger than asked, show the smallest ones instead of nothing.
-    const chosen = fits.length ? fits : [...same].sort((a, b) => a.base!.value - b.base!.value);
+    const chosen = fits.length
+      ? fits
+      : [...same].sort((a, b) => a.base!.value - b.base!.value);
     // Packs that divide the amount evenly come first (500g for 2kg), then the bigger packs.
     chosen.sort((a, b) => {
       const evenA = wanted.value % a.base!.value === 0 ? 1 : 0;
@@ -40,13 +77,8 @@ export function pickOptions(rows: Row[], wantedAmount: number, wantedUnit: strin
       return evenB - evenA || b.base!.value - a.base!.value;
     });
     list = chosen.map((s) => s.row);
+    if (!list.length && keepUnsized) list = all;
   }
 
-  return list.slice(0, max).map((row) => ({
-    name: row.name,
-    brand: row.brand,
-    size: sizeLabel(row),
-    category: row.category,
-    barcode: row.barcode,
-  }));
+  return list.slice(0, max);
 }

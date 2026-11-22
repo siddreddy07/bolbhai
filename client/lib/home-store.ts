@@ -1,3 +1,4 @@
+import { useShopStore } from "@/store/shop-store"
 import axios from "axios"
 import { create } from "zustand"
 
@@ -272,9 +273,11 @@ export const useHomeStore = create<HomeState>((set, get) => ({
   findItems: async () => {
     const { transcript, finding } = get()
     if (finding || !transcript.trim()) return
+    const shopId = useShopStore.getState().shop?.id
+    if (!shopId) return set({ orderError: "Pick a shop first" })
     set({ finding: true, orderError: null })
     try {
-      set({ order: await confirmOrder(transcript) })
+      set({ order: await confirmOrder(shopId, transcript) })
     } catch (error) {
       const aiDown = axios.isAxiosError(error) && error.response?.status === 503
       set({

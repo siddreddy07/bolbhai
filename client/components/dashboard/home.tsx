@@ -818,8 +818,11 @@ export function Home() {
                     <span className="block text-xs opacity-60">
                       {item.options
                         .slice(0, 3)
-                        .map((o) => `${o.brand ? o.brand + " " : ""}${o.size}`)
-                        .join(" · ") || "nothing found"}
+                        .map(
+                          (o) =>
+                            `${o.brand ? o.brand + " " : ""}${o.size ?? o.name}`
+                        )
+                        .join(" · ") || "not on your shelf"}
                     </span>
                   </li>
                 ))}
