@@ -3,22 +3,13 @@ import { extractOrder } from "../ai/extract-order.js";
 import { searchInventories } from "../services/inventory.service.js";
 import { pickRows } from "../services/pack-size.js";
 
-// One thing the shopkeeper asked for, with the items on the shop's shelf that fit (packs that make sense for the amount).
+// One thing the shopkeeper asked for: how much, and the shelf items that fit (ids only: the page has the rest in its own copy of the inventory).
 export type OrderItem = {
   query: string;
   quantity: number | null;
   unit: string | null;
-  options: {
-    id: string;
-    productId: string | null;
-    name: string;
-    brand: string | null;
-    size: string | null;
-    category: string | null;
-    stock: number;
-    unit: string | null;
-    price: number;
-  }[];
+  /** shop_inventory ids, best match first, and the catalog product each one is */
+  options: { id: string; productId: string | null }[];
 };
 
 const RequestState = Annotation.Root({
@@ -64,13 +55,6 @@ function pickPacks(state: typeof RequestState.State) {
     ).map((r) => ({
       id: r.id,
       productId: r.productId,
-      name: r.name,
-      brand: r.brand,
-      size: r.size,
-      category: r.category,
-      stock: r.stock,
-      unit: r.unit,
-      price: r.price,
     })),
   }));
   return { orderItems };
