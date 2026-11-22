@@ -15,7 +15,8 @@ import Link from "next/link"
 import { useTheme } from "next-themes"
 
 import { Logo } from "@/components/site/doodles"
-import { LANGS, langClass, useLang } from "@/lib/lang"
+import { LANGS, langClass, useLang, type Lang } from "@/lib/lang"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import { useUserStore } from "@/store/user-store"
 
@@ -50,6 +51,51 @@ export function ThemeToggle({ className }: { className?: string }) {
         <Moon className="size-[18px]" />
       )}
     </button>
+  )
+}
+
+/** Only English works for now. The others stay in the list, and say so when you try them. */
+const SARCASM: Record<Lang, string> = {
+  en: "",
+  te: "Telugu? Let English stop hearing “Surf” as “serve” first.",
+  hi: "Hindi? Bro, English itself is barely working. One thing at a time.",
+}
+
+function Locked({
+  id,
+  side,
+  className,
+  children,
+}: {
+  id: Lang
+  side: "left" | "top"
+  className?: string
+  children: React.ReactNode
+}) {
+  const [open, setOpen] = React.useState(false)
+  const timer = React.useRef(0)
+  // hover and keyboard focus open it by themselves; a tap (phones) opens it for a moment
+  const tap = () => {
+    setOpen(true)
+    window.clearTimeout(timer.current)
+    timer.current = window.setTimeout(() => setOpen(false), 2600)
+  }
+  return (
+    <Tooltip open={open} onOpenChange={setOpen}>
+      <TooltipTrigger
+        render={
+          <button
+            type="button"
+            aria-disabled="true"
+            onClick={tap}
+            className={cn("cursor-not-allowed opacity-55", className)}
+          />
+        }
+      >
+        {children}
+      </TooltipTrigger>
+      <TooltipContent side={side}>{SARCASM[id]}</TooltipContent>
+    </Tooltip>
   )
 }
 
@@ -98,20 +144,30 @@ function LangMenu() {
         >
           {LANGS.map((l) => (
             <li key={l.id} role="option" aria-selected={lang === l.id}>
-              <button
-                type="button"
-                onClick={() => {
-                  setLang(l.id)
-                  setOpen(false)
-                }}
-                className={cn(
-                  "flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-[15px] font-medium transition-colors hover:bg-foreground/[0.07]",
-                  langClass(l.id)
-                )}
-              >
-                {l.name}
-                {lang === l.id && <Check className="size-4 text-signal" />}
-              </button>
+              {l.id === "en" ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLang(l.id)
+                    setOpen(false)
+                  }}
+                  className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-[15px] font-medium transition-colors hover:bg-foreground/[0.07]"
+                >
+                  {l.name}
+                  {lang === l.id && <Check className="size-4 text-signal" />}
+                </button>
+              ) : (
+                <Locked
+                  id={l.id}
+                  side="left"
+                  className={cn(
+                    "flex w-full items-center rounded-xl px-3 py-2.5 text-left text-[15px] font-medium",
+                    langClass(l.id)
+                  )}
+                >
+                  {l.name}
+                </Locked>
+              )}
             </li>
           ))}
         </ul>
@@ -125,23 +181,36 @@ function LangRow() {
   const { lang, setLang } = useLang()
   return (
     <div role="radiogroup" aria-label="Language" className="flex gap-2">
-      {LANGS.map((l) => (
-        <button
-          key={l.id}
-          role="radio"
-          aria-checked={lang === l.id}
-          onClick={() => setLang(l.id)}
-          className={cn(
-            "h-9 flex-1 rounded-full border text-[13px] font-semibold transition-colors",
-            langClass(l.id),
-            lang === l.id
-              ? "border-foreground bg-foreground text-background"
-              : "border-foreground/20"
-          )}
-        >
-          {l.name}
-        </button>
-      ))}
+      {LANGS.map((l) =>
+        l.id === "en" ? (
+          <button
+            key={l.id}
+            role="radio"
+            aria-checked={lang === l.id}
+            onClick={() => setLang(l.id)}
+            className={cn(
+              "h-9 flex-1 rounded-full border text-[13px] font-semibold transition-colors",
+              lang === l.id
+                ? "border-foreground bg-foreground text-background"
+                : "border-foreground/20"
+            )}
+          >
+            {l.name}
+          </button>
+        ) : (
+          <Locked
+            key={l.id}
+            id={l.id}
+            side="top"
+            className={cn(
+              "h-9 flex-1 rounded-full border border-foreground/20 text-[13px] font-semibold",
+              langClass(l.id)
+            )}
+          >
+            {l.name}
+          </Locked>
+        )
+      )}
     </div>
   )
 }
