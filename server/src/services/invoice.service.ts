@@ -12,6 +12,8 @@ type InvoiceRow = {
   shopId: string;
   date: Date | string;
   items: unknown;
+  payment: string;
+  paymentType: string;
   transactionId: string | null;
 };
 
@@ -22,6 +24,8 @@ function publicInvoice(row: InvoiceRow) {
     shopId: row.shopId,
     date: row.date,
     items: row.items as Line[],
+    payment: row.payment as "PAID" | "LEDGER",
+    paymentType: row.paymentType as "CASH" | "UPI",
     transactionId: row.transactionId,
   };
 }
@@ -30,6 +34,8 @@ export async function createInvoice(shopId: string, data: InvoiceInput) {
   const row = await invoices.create({
     shopId,
     items: data.items,
+    payment: data.payment,
+    paymentType: data.paymentType,
     transactionId: data.transactionId ?? null,
     ...(data.date ? { date: new Date(data.date) } : {}),
   });
@@ -44,7 +50,7 @@ export async function getInvoice(id: string) {
 // All invoices of one shop, newest first, in ONE query.
 export async function getInvoices(shopId: string) {
   const plan = db.raw.sql`
-    SELECT id::text AS id, "shopId"::text AS shop_id, date::text AS date, items::text AS items, "transactionId" AS transaction_id
+    SELECT id::text AS id, "shopId"::text AS shop_id, date::text AS date, items::text AS items, payment, "paymentType" AS payment_type, "transactionId" AS transaction_id
     FROM invoices
     WHERE "shopId" = ${shopId}::uuid
     ORDER BY date DESC
@@ -54,6 +60,8 @@ export async function getInvoices(shopId: string) {
       shop_id: "pg/text@1",
       date: "pg/text@1",
       items: "pg/text@1",
+      payment: "pg/text@1",
+      payment_type: "pg/text@1",
       transaction_id: { codecId: "pg/text@1", nullable: true },
     })
     .build();
@@ -64,6 +72,8 @@ export async function getInvoices(shopId: string) {
     shopId: r.shop_id,
     date: new Date(r.date),
     items: JSON.parse(r.items) as Line[],
+    payment: r.payment as "PAID" | "LEDGER",
+    paymentType: r.payment_type as "CASH" | "UPI",
     transactionId: r.transaction_id,
   }));
 }
@@ -71,6 +81,8 @@ export async function getInvoices(shopId: string) {
 export async function updateInvoice(id: string, data: UpdateInvoiceInput) {
   const changes = {
     ...(data.items ? { items: data.items } : {}),
+    ...(data.payment ? { payment: data.payment } : {}),
+    ...(data.paymentType ? { paymentType: data.paymentType } : {}),
     ...(data.transactionId !== undefined
       ? { transactionId: data.transactionId }
       : {}),

@@ -8,6 +8,9 @@ const lineSchema = z.object({
 
 export const invoiceSchema = z.object({
   items: z.array(lineSchema).min(1).max(200),
+  // settled (PAID) or written in the ledger to be paid later (LEDGER); and how it was paid
+  payment: z.enum(["PAID", "LEDGER"]).default("PAID"),
+  paymentType: z.enum(["CASH", "UPI"]).default("CASH"),
   // when the bill was made (leave it out for "now")
   date: z.iso.datetime().optional(),
   // the payment id, once it is paid
@@ -15,7 +18,14 @@ export const invoiceSchema = z.object({
 });
 
 // Editing: send only what changes.
-export const updateInvoiceSchema = invoiceSchema.partial();
+// (the defaults are only for a new bill: when editing, a field that is left out stays as it was)
+export const updateInvoiceSchema = z.object({
+  items: invoiceSchema.shape.items.optional(),
+  payment: z.enum(["PAID", "LEDGER"]).optional(),
+  paymentType: z.enum(["CASH", "UPI"]).optional(),
+  date: invoiceSchema.shape.date,
+  transactionId: invoiceSchema.shape.transactionId,
+});
 
 export type InvoiceInput = z.infer<typeof invoiceSchema>;
 export type UpdateInvoiceInput = z.infer<typeof updateInvoiceSchema>;
