@@ -1,0 +1,151 @@
+[
+  {
+    "id": "table.invoices",
+    "label": "Create table \"invoices\"",
+    "summary": "Creates table \"invoices\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "invoices"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"invoices\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"invoices\""
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "table \"invoices\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"invoices\"",
+        "sql": "CREATE TABLE \"public\".\"invoices\" (\n  \"date\" timestamptz(3) DEFAULT (now()) NOT NULL,\n  \"id\" uuid NOT NULL,\n  \"items\" json NOT NULL,\n  \"shopId\" uuid NOT NULL,\n  \"transactionId\" text,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"invoices\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3))) AS \"result\"",
+        "params": [
+          "\"public\".\"invoices\"",
+          "r",
+          "p"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "table \"invoices\""
+        }
+      }
+    ]
+  },
+  {
+    "id": "index.invoices.invoices_shopId_idx_e9207c6b",
+    "label": "Create index \"invoices_shopId_idx_e9207c6b\" on \"invoices\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "invoices_shopId_idx_e9207c6b",
+        "table": "invoices"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"invoices_shopId_idx_e9207c6b\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"invoices_shopId_idx_e9207c6b\""
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "index \"invoices_shopId_idx_e9207c6b\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"invoices_shopId_idx_e9207c6b\"",
+        "sql": "CREATE INDEX \"invoices_shopId_idx_e9207c6b\" ON \"public\".\"invoices\" (\"shopId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"invoices_shopId_idx_e9207c6b\" exists on \"invoices\" with the planned definition",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_index\" AS \"i\" ON \"i\".\"indexrelid\" = \"c\".\"oid\" INNER JOIN \"pg_am\" AS \"m\" ON \"m\".\"oid\" = \"c\".\"relam\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3) AND \"i\".\"indrelid\" = to_regclass($4) AND NOT (\"i\".\"indisunique\") AND \"m\".\"amname\" = $5 AND (\"i\".\"indexprs\" IS NULL AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"i\".\"indkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"i\".\"indrelid\" AND key_attribute.attnum = key_column.attnum) = ($6)::jsonb) AND \"i\".\"indpred\" IS NULL)) AS \"result\"",
+        "params": [
+          "\"public\".\"invoices_shopId_idx_e9207c6b\"",
+          "i",
+          "I",
+          "\"public\".\"invoices\"",
+          "btree",
+          "[\"shopId\"]"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.invoices.invoices_shopId_fkey",
+    "label": "Add foreign key \"invoices_shopId_fkey\" on \"invoices\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "invoices_shopId_fkey",
+        "table": "invoices"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"invoices_shopId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "invoices_shopId_fkey",
+          "public",
+          "\"public\".\"invoices\""
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "FK \"invoices_shopId_fkey\" on \"invoices\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"invoices_shopId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"invoices\"\nADD CONSTRAINT \"invoices_shopId_fkey\"\nFOREIGN KEY (\"shopId\")\nREFERENCES \"public\".\"shops\" (\"id\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"invoices_shopId_fkey\" exists with the planned columns, referenced table and actions",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3) AND \"c\".\"contype\" = $4 AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"c\".\"conkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"c\".\"conrelid\" AND key_attribute.attnum = key_column.attnum) = ($5)::jsonb AND \"c\".\"confrelid\" = to_regclass($6) AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"c\".\"confkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"c\".\"confrelid\" AND key_attribute.attnum = key_column.attnum) = ($7)::jsonb AND \"c\".\"confdeltype\" = $8 AND \"c\".\"confupdtype\" = $9)) AS \"result\"",
+        "params": [
+          "invoices_shopId_fkey",
+          "public",
+          "\"public\".\"invoices\"",
+          "f",
+          "[\"shopId\"]",
+          "\"public\".\"shops\"",
+          "[\"id\"]",
+          "a",
+          "a"
+        ]
+      }
+    ]
+  }
+]
