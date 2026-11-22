@@ -14,20 +14,13 @@ import {
   useInventoryStore,
   writeStockCache,
 } from "@/store/inventory-store"
-import {
-  makeCustomers,
-  makeInvoices,
-  type Customer,
-  type Invoice,
-  type StockItem,
-} from "@/lib/mock-data"
+import type { Customer, Invoice, StockItem } from "@/lib/types"
 
-export type Phase = "idle" | "listening" | "thinking" | "confirm" | "done"
+export type Phase = "idle" | "listening" | "thinking" | "confirm"
 export type SheetKey = "bills" | "stock" | "khata" | null
 export type Period = "day" | "week" | "month"
 
 /** The mock bill the voice demo "understands". */
-export const DRAFT = { who: "Ramesh", line: "Rice 25 kg × 5", amount: 6200 }
 
 type HomeState = {
   phase: Phase
@@ -79,7 +72,6 @@ type HomeState = {
   setPeriod: (p: Period) => void
   /** idle -> listening -> thinking -> confirm */
   tapMic: () => void
-  confirm: () => void
   cancel: () => void
 }
 
@@ -103,10 +95,10 @@ export const useHomeStore = create<HomeState>((set, get) => ({
   sheet: null,
   viewInvoice: null,
   period: "day",
-  sales: 18450,
-  bills: 23,
-  invoices: makeInvoices(),
-  customers: makeCustomers(),
+  sales: 0,
+  bills: 0,
+  invoices: [],
+  customers: [],
   stock: [],
   stockShopId: null,
   stockLoading: false,
@@ -283,24 +275,6 @@ export const useHomeStore = create<HomeState>((set, get) => ({
     } finally {
       set({ finding: false })
     }
-  },
-  confirm: () => {
-    set((s) => ({
-      phase: "done",
-      sales: s.sales + DRAFT.amount,
-      bills: s.bills + 1,
-      invoices: [
-        {
-          id: (s.invoices[0]?.id ?? 1042) + 1,
-          who: DRAFT.who,
-          amount: DRAFT.amount,
-          status: "Paid",
-          daysAgo: 0,
-        },
-        ...s.invoices,
-      ],
-    }))
-    later(() => set({ phase: "idle" }), 2600)
   },
   cancel: () => {
     clearTimeout(timer)
