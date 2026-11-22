@@ -1,9 +1,24 @@
 // Mock data, swapped for the API layer later.
 
-export type Invoice = { id: number; who: string; amount: number; status: "Paid" | "Khata"; daysAgo: number }
+export type Invoice = {
+  id: number
+  who: string
+  amount: number
+  status: "Paid" | "Khata"
+  daysAgo: number
+}
 export type Customer = { id: string; name: string; due: number; days: number }
 // Short names for the catalog's own groups (see CATS in components/dashboard/stock/kit.tsx)
-export type CatId = "cereals" | "dairy" | "drinks" | "snacks" | "cooking" | "fruits" | "meals" | "meat" | "other"
+export type CatId =
+  | "cereals"
+  | "dairy"
+  | "drinks"
+  | "snacks"
+  | "cooking"
+  | "fruits"
+  | "meals"
+  | "meat"
+  | "other"
 export type StockItem = {
   id: string
   /** the catalog product this is (null or missing for a shop's own item) */
@@ -21,7 +36,18 @@ export type StockItem = {
   added: number
 }
 
-const NAMES = ["Ramesh", "Lakshmi Stores", "Walk-in", "Anil Kirana", "Sita Devi", "Mohan", "Kiran Traders", "Walk-in", "Pooja", "Walk-in"]
+const NAMES = [
+  "Ramesh",
+  "Lakshmi Stores",
+  "Walk-in",
+  "Anil Kirana",
+  "Sita Devi",
+  "Mohan",
+  "Kiran Traders",
+  "Walk-in",
+  "Pooja",
+  "Walk-in",
+]
 
 /** Deterministic pseudo-random so server and client agree. */
 function rand(seed: number) {
@@ -48,8 +74,34 @@ export function makeInvoices(): Invoice[] {
   return out
 }
 
-const FIRST = ["Ramesh", "Lakshmi", "Anil", "Sita", "Mohan", "Kiran", "Pooja", "Suresh", "Vijay", "Geeta", "Ravi", "Anita", "Prakash", "Latha", "Venkat", "Meena"]
-const SECOND = ["Stores", "Kirana", "Traders", "General", "Provisions", "Mart", "Agencies", "& Sons"]
+const FIRST = [
+  "Ramesh",
+  "Lakshmi",
+  "Anil",
+  "Sita",
+  "Mohan",
+  "Kiran",
+  "Pooja",
+  "Suresh",
+  "Vijay",
+  "Geeta",
+  "Ravi",
+  "Anita",
+  "Prakash",
+  "Latha",
+  "Venkat",
+  "Meena",
+]
+const SECOND = [
+  "Stores",
+  "Kirana",
+  "Traders",
+  "General",
+  "Provisions",
+  "Mart",
+  "Agencies",
+  "& Sons",
+]
 
 /** ~120 customers; the top four are fixed so the demo stays familiar. */
 export function makeCustomers(): Customer[] {
@@ -62,29 +114,66 @@ export function makeCustomers(): Customer[] {
   const rest: Customer[] = Array.from({ length: 116 }, (_, i) => ({
     id: `c${i + 5}`,
     name: `${FIRST[Math.floor(rand(i + 3) * FIRST.length)]} ${SECOND[Math.floor(rand(i + 91) * SECOND.length)]}`,
-    due: rand(i + 17) > 0.12 ? Math.round((200 + rand(i + 29) * 3400) / 50) * 50 : 0,
+    due:
+      rand(i + 17) > 0.12
+        ? Math.round((200 + rand(i + 29) * 3400) / 50) * 50
+        : 0,
     days: 1 + Math.floor(rand(i + 41) * 60),
   }))
   return [...top, ...rest].sort((a, b) => b.due - a.due)
 }
 
 const PRODUCTS: [string, CatId][] = [
-  ["Rice", "cereals"], ["Atta", "cereals"], ["Maida", "cereals"], ["Poha", "cereals"], ["Rava", "cereals"],
-  ["Toor dal", "cereals"], ["Moong dal", "cereals"], ["Chana dal", "cereals"],
-  ["Milk", "dairy"], ["Curd", "dairy"], ["Paneer", "dairy"], ["Butter", "dairy"],
-  ["Tea", "drinks"], ["Coffee", "drinks"], ["Cold drink", "drinks"], ["Juice", "drinks"],
-  ["Biscuits", "snacks"], ["Chips", "snacks"], ["Namkeen", "snacks"], ["Chocolate", "snacks"],
-  ["Sunflower oil", "cooking"], ["Groundnut oil", "cooking"], ["Ghee", "cooking"], ["Sugar", "cooking"], ["Salt", "cooking"],
-  ["Turmeric", "cooking"], ["Chilli powder", "cooking"], ["Jeera", "cooking"], ["Pepper", "cooking"], ["Ketchup", "cooking"],
-  ["Onion", "fruits"], ["Tomato", "fruits"], ["Banana", "fruits"],
-  ["Instant noodles", "meals"], ["Pasta", "meals"],
+  ["Rice", "cereals"],
+  ["Atta", "cereals"],
+  ["Maida", "cereals"],
+  ["Poha", "cereals"],
+  ["Rava", "cereals"],
+  ["Toor dal", "cereals"],
+  ["Moong dal", "cereals"],
+  ["Chana dal", "cereals"],
+  ["Milk", "dairy"],
+  ["Curd", "dairy"],
+  ["Paneer", "dairy"],
+  ["Butter", "dairy"],
+  ["Tea", "drinks"],
+  ["Coffee", "drinks"],
+  ["Cold drink", "drinks"],
+  ["Juice", "drinks"],
+  ["Biscuits", "snacks"],
+  ["Chips", "snacks"],
+  ["Namkeen", "snacks"],
+  ["Chocolate", "snacks"],
+  ["Sunflower oil", "cooking"],
+  ["Groundnut oil", "cooking"],
+  ["Ghee", "cooking"],
+  ["Sugar", "cooking"],
+  ["Salt", "cooking"],
+  ["Turmeric", "cooking"],
+  ["Chilli powder", "cooking"],
+  ["Jeera", "cooking"],
+  ["Pepper", "cooking"],
+  ["Ketchup", "cooking"],
+  ["Onion", "fruits"],
+  ["Tomato", "fruits"],
+  ["Banana", "fruits"],
+  ["Instant noodles", "meals"],
+  ["Pasta", "meals"],
   ["Eggs", "meat"],
-  ["Soap", "other"], ["Detergent", "other"],
+  ["Soap", "other"],
+  ["Detergent", "other"],
 ]
 const SIZES = ["500 g", "1 kg", "5 kg", "10 kg", "25 kg"]
 const UNIT: Record<CatId, string> = {
-  cereals: "bags", dairy: "packs", drinks: "packs", snacks: "boxes", cooking: "packs",
-  fruits: "kg", meals: "packs", meat: "pcs", other: "pcs",
+  cereals: "bags",
+  dairy: "packs",
+  drinks: "packs",
+  snacks: "boxes",
+  cooking: "packs",
+  fruits: "kg",
+  meals: "packs",
+  meat: "pcs",
+  other: "pcs",
 }
 
 /** ~120 stock lines. */
@@ -99,8 +188,13 @@ export function makeStock(): StockItem[] {
         category: cat,
         unit: UNIT[cat],
         max,
-        qty: rand(i * 3 + k * 7 + 1) < 0.015 ? 0 : 1 + Math.floor(rand(i * 11 + k + 5) * max),
-        price: Math.round((30 + rand(i * 5 + k) * 90) * [0.5, 1, 4.5, 9, 22][k]),
+        qty:
+          rand(i * 3 + k * 7 + 1) < 0.015
+            ? 0
+            : 1 + Math.floor(rand(i * 11 + k + 5) * max),
+        price: Math.round(
+          (30 + rand(i * 5 + k) * 90) * [0.5, 1, 4.5, 9, 22][k]
+        ),
         added: i * 5 + k,
       })
     })

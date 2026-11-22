@@ -1,9 +1,26 @@
 import axios from "axios"
 import { create } from "zustand"
 
-import { cancelRecording, confirmOrder, startRecording, stopRecording, transcribe, type OrderItem } from "@/lib/stt"
-import { readStockCache, useInventoryStore, writeStockCache } from "@/store/inventory-store"
-import { makeCustomers, makeInvoices, type Customer, type Invoice, type StockItem } from "@/lib/mock-data"
+import {
+  cancelRecording,
+  confirmOrder,
+  startRecording,
+  stopRecording,
+  transcribe,
+  type OrderItem,
+} from "@/lib/stt"
+import {
+  readStockCache,
+  useInventoryStore,
+  writeStockCache,
+} from "@/store/inventory-store"
+import {
+  makeCustomers,
+  makeInvoices,
+  type Customer,
+  type Invoice,
+  type StockItem,
+} from "@/lib/mock-data"
 
 export type Phase = "idle" | "listening" | "thinking" | "confirm" | "done"
 export type SheetKey = "bills" | "stock" | "khata" | null
@@ -41,6 +58,10 @@ type HomeState = {
   /** the shop whose stock is loaded */
   stockShopId: string | null
   stockLoading: boolean
+  /** when this shop's counts were last saved on the server (ms) */
+  stockSyncedAt: number
+  /** the products whose count changed since then. Only these are sent; once saved they leave this list. */
+  dirtyIds: string[]
   /** Opens a shop's stock. It comes from localStorage if it is there; refresh = true asks the server again. */
   loadStock: (shopId: string, refresh?: boolean) => Promise<void>
   /** stock came in by hand (no voice needed) */
@@ -48,7 +69,9 @@ type HomeState = {
   /** stock manager: type it, or snap a photo, both end up here */
   adjust: (id: string, delta: number) => void
   saveItem: (item: Omit<StockItem, "added" | "id"> & { id?: string }) => string
-  removeItem: (id: string) => void
+  /** the product being deleted right now (everything else is locked until it is done) */
+  deletingId: string | null
+  removeItem: (id: string) => Promise<void>
   /** someone paid their khata by hand (no voice needed) */
   payDue: (id: string, amount: number) => void
   setSheet: (s: SheetKey) => void
@@ -74,7 +97,8 @@ export const useHomeStore = create<HomeState>((set, get) => ({
   orderError: null,
   caption: "",
   // typing changes the text, so the items found for the old text no longer apply
-  setTranscript: (transcript) => set({ transcript, order: null, orderError: null }),
+  setTranscript: (transcript) =>
+    set({ transcript, order: null, orderError: null }),
   micError: null,
   sheet: null,
   viewInvoice: null,
@@ -86,48 +110,115 @@ export const useHomeStore = create<HomeState>((set, get) => ({
   stock: [],
   stockShopId: null,
   stockLoading: false,
+  stockSyncedAt: 0,
+  dirtyIds: [],
+  deletingId: null,
   // the stock page: the saved copy if there is one, else ask the server for everything this shop sells
   loadStock: async (shopId, refresh = false) => {
+    if (get().stockShopId && get().stockShopId !== shopId) void syncStock() // leaving a shop: save its counts first
     const saved = readStockCache(shopId)
     if (saved && !refresh) {
-      set({ stockShopId: shopId, stock: saved, stockLoading: false }) // no route hit
+      set({
+        stockShopId: shopId,
+        stock: saved.stock,
+        stockSyncedAt: saved.syncedAt,
+        dirtyIds: saved.dirtyIds,
+        stockLoading: false,
+      }) // no route hit
+      void syncStock() // counts changed before the page was closed are saved now
       return
     }
-    set({ stockShopId: shopId, stock: refresh && saved ? saved : [], stockLoading: true })
+    set({
+      stockShopId: shopId,
+      stock: refresh && saved ? saved.stock : [],
+      stockSyncedAt: saved?.syncedAt ?? Date.now(),
+      dirtyIds: saved?.dirtyIds ?? [],
+      stockLoading: true,
+    })
     try {
       const fresh = await useInventoryStore.getState().fetchStock(shopId)
-      // the counts changed with + / - only exist here, so they win over the server's
-      const counts = new Map((saved ?? []).map((i) => [i.id, i.qty]))
-      const stock = fresh.map((i) => (counts.has(i.id) ? { ...i, qty: counts.get(i.id)! } : i))
-      if (get().stockShopId === shopId) set({ stock }) // ignore it if the shopkeeper switched shops meanwhile
+      // counts in dirtyIds were changed here and are not saved yet, so they win over the server's
+      const mine = new Map(
+        (saved?.stock ?? [])
+          .filter((i) => saved!.dirtyIds.includes(i.id))
+          .map((i) => [i.id, i.qty])
+      )
+      const stock = fresh.map((i) =>
+        mine.has(i.id) ? { ...i, qty: mine.get(i.id)! } : i
+      )
+      if (get().stockShopId === shopId)
+        set({
+          stock,
+          dirtyIds: (saved?.dirtyIds ?? []).filter((id) =>
+            stock.some((i) => i.id === id)
+          ),
+        }) // ignore it if the shopkeeper switched shops meanwhile
     } catch {
       // the page just shows no products
     } finally {
       if (get().stockShopId === shopId) set({ stockLoading: false })
     }
   },
-  adjust: (id, delta) => set((s) => ({ stock: s.stock.map((i) => (i.id === id ? { ...i, qty: Math.max(0, i.qty + delta) } : i)) })),
+  // + / -: saved in localStorage at once (see the subscribe below); everything changed is sent in ONE call 10 seconds after the last press
+  adjust: (id, delta) => {
+    set((s) => ({
+      stock: s.stock.map((i) =>
+        i.id === id ? { ...i, qty: Math.max(0, i.qty + delta) } : i
+      ),
+      dirtyIds: s.dirtyIds.includes(id) ? s.dirtyIds : [...s.dirtyIds, id], // this one has to be saved
+    }))
+    scheduleSync()
+  },
   saveItem: (item) => {
     const id = item.id ?? `n${Date.now()}`
     set((s) => {
-      const exists = s.stock.some((i) => i.id === id)
-      if (exists) return { stock: s.stock.map((i) => (i.id === id ? { ...i, ...item, id } : i)) }
+      const old = s.stock.find((i) => i.id === id)
+      if (old) {
+        return {
+          stock: s.stock.map((i) => (i.id === id ? { ...i, ...item, id } : i)),
+          // an edited count is saved like a + / - one
+          dirtyIds:
+            item.qty !== old.qty && !s.dirtyIds.includes(id)
+              ? [...s.dirtyIds, id]
+              : s.dirtyIds,
+        }
+      }
       const added = Math.max(0, ...s.stock.map((i) => i.added)) + 1
       return { stock: [{ ...item, id, added }, ...s.stock] }
     })
+    scheduleSync()
     return id
   },
-  // gone from the screen at once, then from the database; if that fails the list is loaded again
-  removeItem: (id) => {
+  // Locks the page, asks the server, and only when it said yes does the product leave the list.
+  removeItem: async (id) => {
     const shopId = get().stockShopId
-    set((s) => ({ stock: s.stock.filter((i) => i.id !== id) }))
-    if (!shopId) return
-    useInventoryStore.getState().removeProduct(shopId, id).catch(() => void get().loadStock(shopId, true))
+    if (get().deletingId) return
+    if (!shopId || !IS_ID.test(id)) {
+      set((s) => ({ stock: s.stock.filter((i) => i.id !== id) })) // only ever on this screen: nothing to ask
+      return
+    }
+    set({ deletingId: id })
+    try {
+      await useInventoryStore.getState().removeProduct(shopId, id)
+      set((s) => ({
+        stock: s.stock.filter((i) => i.id !== id),
+        dirtyIds: s.dirtyIds.filter((d) => d !== id),
+      }))
+    } catch {
+      // not deleted: the product stays in the list
+    } finally {
+      set({ deletingId: null })
+    }
   },
-  addStock: (id, qty) => set((s) => ({ stock: s.stock.map((i) => (i.id === id ? { ...i, qty: i.qty + qty } : i)) })),
+  addStock: (id, qty) =>
+    set((s) => ({
+      stock: s.stock.map((i) => (i.id === id ? { ...i, qty: i.qty + qty } : i)),
+    })),
   payDue: (id, amount) =>
     set((s) => ({
-      customers: s.customers.map((c) => (c.id === id ? { ...c, due: Math.max(0, c.due - amount) } : c)),
+      customers: s.customers.map((c) =>
+        c.id === id ? { ...c, due: Math.max(0, c.due - amount) } : c
+      ),
     })),
   setSheet: (sheet) => set({ sheet }),
   setViewInvoice: (viewInvoice) => set({ viewInvoice }),
@@ -144,13 +235,26 @@ export const useHomeStore = create<HomeState>((set, get) => ({
         if (!text) throw new Error("I did not hear anything")
         set({ phase: "confirm", transcript: text })
       } catch (error) {
-        set({ phase: "idle", micError: error instanceof Error && error.message === "I did not hear anything" ? error.message : "Could not hear that. Try again" })
+        set({
+          phase: "idle",
+          micError:
+            error instanceof Error &&
+            error.message === "I did not hear anything"
+              ? error.message
+              : "Could not hear that. Try again",
+        })
       }
       return
     }
 
     if (phase !== "idle") return
-    set({ micError: null, transcript: "", order: null, orderError: null, caption: "" })
+    set({
+      micError: null,
+      transcript: "",
+      order: null,
+      orderError: null,
+      caption: "",
+    })
     try {
       await startRecording(
         (caption) => set({ caption }),
@@ -171,7 +275,11 @@ export const useHomeStore = create<HomeState>((set, get) => ({
       set({ order: await confirmOrder(transcript) })
     } catch (error) {
       const aiDown = axios.isAxiosError(error) && error.response?.status === 503
-      set({ orderError: aiDown ? "The AI is not available right now" : "Could not find the items. Try again" })
+      set({
+        orderError: aiDown
+          ? "The AI is not available right now"
+          : "Could not find the items. Try again",
+      })
     } finally {
       set({ finding: false })
     }
@@ -181,7 +289,16 @@ export const useHomeStore = create<HomeState>((set, get) => ({
       phase: "done",
       sales: s.sales + DRAFT.amount,
       bills: s.bills + 1,
-      invoices: [{ id: (s.invoices[0]?.id ?? 1042) + 1, who: DRAFT.who, amount: DRAFT.amount, status: "Paid", daysAgo: 0 }, ...s.invoices],
+      invoices: [
+        {
+          id: (s.invoices[0]?.id ?? 1042) + 1,
+          who: DRAFT.who,
+          amount: DRAFT.amount,
+          status: "Paid",
+          daysAgo: 0,
+        },
+        ...s.invoices,
+      ],
     }))
     later(() => set({ phase: "idle" }), 2600)
   },
@@ -192,7 +309,62 @@ export const useHomeStore = create<HomeState>((set, get) => ({
   },
 }))
 
+// ---- saving the + / - counts on the server ----
+const IS_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const SYNC_AFTER = 10_000 // ten seconds after the LAST press of any product
+let syncTimer: ReturnType<typeof setTimeout> | undefined
+let sending = false
+
+/** Every press starts the 10 second wait again, so a burst of presses ends in one call. */
+function scheduleSync() {
+  clearTimeout(syncTimer)
+  syncTimer = setTimeout(() => void syncStock(), SYNC_AFTER)
+}
+
+/** Sends the products in dirtyIds in one call (each with its latest count), then empties the list and moves the saved-at time. */
+export async function syncStock() {
+  clearTimeout(syncTimer)
+  const { stockShopId: shopId, stock, dirtyIds } = useHomeStore.getState()
+  if (!shopId || sending) return
+  const sent = stock.filter((i) => dirtyIds.includes(i.id) && IS_ID.test(i.id))
+  if (!sent.length) return
+
+  const startedAt = Date.now()
+  sending = true
+  try {
+    await useInventoryStore.getState().saveStock(
+      shopId,
+      sent.map((i) => ({ id: i.id, stock: i.qty }))
+    )
+    if (useHomeStore.getState().stockShopId === shopId) {
+      useHomeStore.setState((s) => ({
+        stockSyncedAt: startedAt,
+        // a product pressed again while we were sending has a new count: it stays in the list
+        dirtyIds: s.dirtyIds.filter((id) => {
+          const was = sent.find((i) => i.id === id)
+          return !was || s.stock.find((i) => i.id === id)?.qty !== was.qty
+        }),
+      }))
+    }
+  } catch {
+    // not saved: the ids stay in dirtyIds, so the next save (or leaving the page) sends them
+  } finally {
+    sending = false
+  }
+}
+
 // Every stock change (+ / -, add, delete) is saved for the shop that is on screen.
 useHomeStore.subscribe((state, prev) => {
-  if (state.stockShopId && state.stockShopId === prev.stockShopId && state.stock !== prev.stock) writeStockCache(state.stockShopId, state.stock)
+  if (
+    state.stockShopId &&
+    state.stockShopId === prev.stockShopId &&
+    (state.stock !== prev.stock ||
+      state.stockSyncedAt !== prev.stockSyncedAt ||
+      state.dirtyIds !== prev.dirtyIds)
+  )
+    writeStockCache(state.stockShopId, {
+      stock: state.stock,
+      syncedAt: state.stockSyncedAt,
+      dirtyIds: state.dirtyIds,
+    })
 })

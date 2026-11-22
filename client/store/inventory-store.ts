@@ -4,7 +4,14 @@ import { api } from "@/lib/proxy"
 import type { CatId, StockItem } from "@/lib/mock-data"
 
 /** A catalog product the shopkeeper can pick (from GET /api/products/search). */
-export type CatalogProduct = { id: string; name: string; brand: string | null; size: string | null; category: string | null; price: number }
+export type CatalogProduct = {
+  id: string
+  name: string
+  brand: string | null
+  size: string | null
+  category: string | null
+  price: number
+}
 
 // What GET /api/shops/:id/inventory sends for each product.
 type InventoryRow = {
@@ -35,25 +42,34 @@ const CATEGORY: Record<string, CatId> = {
 // The + / - counts live there too (they are not saved on the server yet).
 const stockKey = (shopId: string) => `bolbhai:stock:${shopId}`
 
-export function readStockCache(shopId: string): StockItem[] | null {
+/** What localStorage keeps for a shop: the stock, when it was last saved on the server (ms), and the ids whose count changed since. */
+export type StockCache = {
+  stock: StockItem[]
+  syncedAt: number
+  dirtyIds: string[]
+}
+
+export function readStockCache(shopId: string): StockCache | null {
   try {
-    const saved = localStorage.getItem(stockKey(shopId))
-    return saved ? (JSON.parse(saved) as StockItem[]) : null
+    const saved = JSON.parse(localStorage.getItem(stockKey(shopId)) ?? "null")
+    if (Array.isArray(saved)) return { stock: saved, syncedAt: 0, dirtyIds: [] } // the older format: a plain list
+    return saved?.stock ? ({ dirtyIds: [], ...saved } as StockCache) : null
   } catch {
     return null // unreadable: ask the server
   }
 }
 
-export function writeStockCache(shopId: string, stock: StockItem[]) {
+export function writeStockCache(shopId: string, cache: StockCache) {
   try {
-    localStorage.setItem(stockKey(shopId), JSON.stringify(stock))
+    localStorage.setItem(stockKey(shopId), JSON.stringify(cache))
   } catch {
     // storage full or blocked: the page still works for this visit
   }
 }
 
 /** The same text always gives the same key: "  ATA " and "ata" are one search. */
-export const searchKey = (text: string) => text.trim().toLowerCase().replace(/\s+/g, " ")
+export const searchKey = (text: string) =>
+  text.trim().toLowerCase().replace(/\s+/g, " ")
 
 type InventoryState = {
   /** Every search we already did, by its key. Typing "ata" twice asks the server only once. */
@@ -63,7 +79,15 @@ type InventoryState = {
   /** Asks the server and remembers the answer. */
   search: (text: string) => Promise<CatalogProduct[]>
   /** Puts the picked catalog products on this shop's shelf, each with its stock. Returns how many were new. */
-  addProducts: (shopId: string, items: { productId: string; stock: number }[]) => Promise<number>
+  addProducts: (
+    shopId: string,
+    items: { productId: string; stock: number }[]
+  ) => Promise<number>
+  /** Saves new counts (many at once). */
+  saveStock: (
+    shopId: string,
+    items: { id: string; stock: number }[]
+  ) => Promise<void>
   /** Takes one product off this shop's shelf. */
   removeProduct: (shopId: string, itemId: string) => Promise<void>
   /** The shop's stock, straight from the database, shaped for the stock page. */
@@ -75,19 +99,29 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
   cached: (text) => get().cache[searchKey(text)],
   search: async (text) => {
     const key = searchKey(text)
-    const { data } = await api.get<CatalogProduct[]>("/api/products/search", { params: { q: key } })
+    const { data } = await api.get<CatalogProduct[]>("/api/products/search", {
+      params: { q: key },
+    })
     set((s) => ({ cache: { ...s.cache, [key]: data } }))
     return data
   },
   addProducts: async (shopId, items) => {
-    const { data } = await api.post<{ added: number }>(`/api/shops/${shopId}/inventory`, { items })
+    const { data } = await api.post<{ added: number }>(
+      `/api/shops/${shopId}/inventory`,
+      { items }
+    )
     return data.added
+  },
+  saveStock: async (shopId, items) => {
+    await api.patch(`/api/shops/${shopId}/inventory`, { items })
   },
   removeProduct: async (shopId, itemId) => {
     await api.delete(`/api/shops/${shopId}/inventory/${itemId}`)
   },
   fetchStock: async (shopId) => {
-    const { data } = await api.get<InventoryRow[]>(`/api/shops/${shopId}/inventory`)
+    const { data } = await api.get<InventoryRow[]>(
+      `/api/shops/${shopId}/inventory`
+    )
     return data.map((row, i) => ({
       id: row.id,
       productId: row.productId,
