@@ -23,7 +23,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'5aa35e0bb554909d45d260bb646f3442ef09d5931b8e88ffde293e24c705edc2'>;
+  StorageHashBase<'296bbe7436b6d5b6f0b8eab2dd0b21f74416a9fe4b9dc7137eff6791cc0c1a7b'>;
 export type ExecutionHash =
   ExecutionHashBase<'b8227bec2a7449ead378099bda5123c16011e167fcc413381c40cfd570db6b88'>;
 export type ProfileHash =
@@ -278,6 +278,10 @@ type ParameterizedOutputTypeFunctions = PgParameterizedOutputTypes;
 type FieldTypeOverrides = {
   readonly public: {
     readonly models: {
+      readonly invoices: {
+        readonly payment: { readonly output: 'PAID' | 'LEDGER'; readonly input: 'PAID' | 'LEDGER' };
+        readonly paymentType: { readonly output: 'CASH' | 'UPI'; readonly input: 'CASH' | 'UPI' };
+      };
       readonly shops: {
         readonly type: { readonly output: 'GROCERY' | 'CAFE'; readonly input: 'GROCERY' | 'CAFE' };
       };
@@ -302,6 +306,10 @@ export type FieldInputTypes = FieldTypesFromDomain<
 >;
 type ColumnTypeOverrides = {
   readonly public: {
+    readonly invoices: {
+      readonly payment: { readonly output: 'PAID' | 'LEDGER'; readonly input: 'PAID' | 'LEDGER' };
+      readonly paymentType: { readonly output: 'CASH' | 'UPI'; readonly input: 'CASH' | 'UPI' };
+    };
     readonly shops: {
       readonly type: { readonly output: 'GROCERY' | 'CAFE'; readonly input: 'GROCERY' | 'CAFE' };
     };
@@ -327,6 +335,8 @@ export namespace Models {
     date: FieldOutputTypes['public']['invoices']['date'];
     id: FieldOutputTypes['public']['invoices']['id'];
     items: FieldOutputTypes['public']['invoices']['items'];
+    payment: FieldOutputTypes['public']['invoices']['payment'];
+    paymentType: FieldOutputTypes['public']['invoices']['paymentType'];
     shopId: FieldOutputTypes['public']['invoices']['shopId'];
     transactionId: FieldOutputTypes['public']['invoices']['transactionId'];
     shop: public_shops;
@@ -435,6 +445,26 @@ type ContractBase = Omit<
                   readonly dataType: 'pg/json';
                   readonly codecId: 'pg/json@1';
                   readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly payment: {
+                  readonly dataType: 'pg/text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/text@1', 'PAID'>;
+                  };
+                  readonly many: false;
+                };
+                readonly paymentType: {
+                  readonly dataType: 'pg/text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/text@1', 'CASH'>;
+                  };
                   readonly many: false;
                 };
                 readonly shopId: {
@@ -791,6 +821,14 @@ type ContractBase = Omit<
             };
           };
           readonly valueSet: {
+            readonly PaymentStatus: {
+              readonly kind: 'valueSet';
+              readonly values: readonly ['PAID', 'LEDGER'];
+            };
+            readonly PaymentType: {
+              readonly kind: 'valueSet';
+              readonly values: readonly ['CASH', 'UPI'];
+            };
             readonly ShopType: {
               readonly kind: 'valueSet';
               readonly values: readonly ['GROCERY', 'CAFE'];
@@ -837,6 +875,14 @@ type ContractBase = Omit<
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/json@1' };
               };
+              readonly payment: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly paymentType: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
               readonly shopId: {
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/uuid@1' };
@@ -867,6 +913,8 @@ type ContractBase = Omit<
                 readonly date: { readonly column: 'date' };
                 readonly id: { readonly column: 'id' };
                 readonly items: { readonly column: 'items' };
+                readonly payment: { readonly column: 'payment' };
+                readonly paymentType: { readonly column: 'paymentType' };
                 readonly shopId: { readonly column: 'shopId' };
                 readonly transactionId: { readonly column: 'transactionId' };
               };
@@ -1204,6 +1252,20 @@ type ContractBase = Omit<
           };
         };
         readonly enum: {
+          readonly PaymentStatus: {
+            readonly codecId: 'pg/text@1';
+            readonly members: readonly [
+              { readonly name: 'PAID'; readonly value: 'PAID' },
+              { readonly name: 'LEDGER'; readonly value: 'LEDGER' },
+            ];
+          };
+          readonly PaymentType: {
+            readonly codecId: 'pg/text@1';
+            readonly members: readonly [
+              { readonly name: 'CASH'; readonly value: 'CASH' },
+              { readonly name: 'UPI'; readonly value: 'UPI' },
+            ];
+          };
           readonly ShopType: {
             readonly codecId: 'pg/text@1';
             readonly members: readonly [
@@ -1213,6 +1275,14 @@ type ContractBase = Omit<
           };
         };
         readonly enumMemberTypes?: {
+          readonly PaymentStatus: readonly [
+            { readonly name: 'PAID'; readonly value: 'PAID' },
+            { readonly name: 'LEDGER'; readonly value: 'LEDGER' },
+          ];
+          readonly PaymentType: readonly [
+            { readonly name: 'CASH'; readonly value: 'CASH' },
+            { readonly name: 'UPI'; readonly value: 'UPI' },
+          ];
           readonly ShopType: readonly [
             { readonly name: 'GROCERY'; readonly value: 'GROCERY' },
             { readonly name: 'CAFE'; readonly value: 'CAFE' },

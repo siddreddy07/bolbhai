@@ -5,6 +5,18 @@ enum ShopType {
   CAFE
 }
 
+// Is the bill settled, or written in the ledger (khata) to be paid later?
+enum PaymentStatus {
+  PAID
+  LEDGER
+}
+
+// How it was paid.
+enum PaymentType {
+  CASH
+  UPI
+}
+
 model users {
   id        Uuid               @id @onCreate(uuid())
   email     String             @unique
@@ -73,6 +85,8 @@ model invoices {
   // when the bill was made
   date          DateTime @default(now()) @onCreate(now())
   items         Json
-  // the payment's id, once it is paid (empty while the bill is open)
+  payment       PaymentStatus @default(PAID)
+  paymentType   PaymentType   @default(CASH)
+  // the payment id, if there is one (optional)
   transactionId String?
 }

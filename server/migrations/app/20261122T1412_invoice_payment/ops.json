@@ -1,0 +1,236 @@
+[
+  {
+    "id": "column.public.invoices.payment",
+    "label": "Add column \"payment\" to \"invoices\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "payment",
+        "table": "invoices"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"payment\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "invoices",
+          "payment"
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "column \"payment\" on \"invoices\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"payment\"",
+        "sql": "ALTER TABLE \"public\".\"invoices\" ADD COLUMN \"payment\" text DEFAULT 'PAID' NOT NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"payment\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "invoices",
+          "payment"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "column \"payment\" on \"invoices\""
+        }
+      },
+      {
+        "description": "verify column \"payment\" has type \"text\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_attribute\" AS \"a\" INNER JOIN \"pg_class\" AS \"c\" ON \"c\".\"oid\" = \"a\".\"attrelid\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"relnamespace\" WHERE (\"n\".\"nspname\" = $1 AND \"c\".\"relname\" = $2 AND \"a\".\"attname\" = $3 AND (format_type(\"a\".\"atttypid\", \"a\".\"atttypmod\")) = $4 AND NOT (\"a\".\"attisdropped\"))) AS \"result\"",
+        "params": [
+          "public",
+          "invoices",
+          "payment",
+          "text"
+        ]
+      },
+      {
+        "description": "verify column \"payment\" is NOT NULL",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3 AND \"is_nullable\" = $4)) AS \"result\"",
+        "params": [
+          "public",
+          "invoices",
+          "payment",
+          "NO"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.invoices.paymentType",
+    "label": "Add column \"paymentType\" to \"invoices\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "paymentType",
+        "table": "invoices"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"paymentType\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "invoices",
+          "paymentType"
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "column \"paymentType\" on \"invoices\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"paymentType\"",
+        "sql": "ALTER TABLE \"public\".\"invoices\" ADD COLUMN \"paymentType\" text DEFAULT 'CASH' NOT NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"paymentType\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "invoices",
+          "paymentType"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "column \"paymentType\" on \"invoices\""
+        }
+      },
+      {
+        "description": "verify column \"paymentType\" has type \"text\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_attribute\" AS \"a\" INNER JOIN \"pg_class\" AS \"c\" ON \"c\".\"oid\" = \"a\".\"attrelid\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"relnamespace\" WHERE (\"n\".\"nspname\" = $1 AND \"c\".\"relname\" = $2 AND \"a\".\"attname\" = $3 AND (format_type(\"a\".\"atttypid\", \"a\".\"atttypmod\")) = $4 AND NOT (\"a\".\"attisdropped\"))) AS \"result\"",
+        "params": [
+          "public",
+          "invoices",
+          "paymentType",
+          "text"
+        ]
+      },
+      {
+        "description": "verify column \"paymentType\" is NOT NULL",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3 AND \"is_nullable\" = $4)) AS \"result\"",
+        "params": [
+          "public",
+          "invoices",
+          "paymentType",
+          "NO"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "checkConstraint.invoices.invoices_paymentType_check_59ca32a3",
+    "label": "Add check constraint \"invoices_paymentType_check_59ca32a3\" on \"invoices\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "checkConstraint",
+        "name": "invoices_paymentType_check_59ca32a3",
+        "table": "invoices"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"invoices_paymentType_check_59ca32a3\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "invoices_paymentType_check_59ca32a3",
+          "public",
+          "\"public\".\"invoices\""
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "constraint \"invoices_paymentType_check_59ca32a3\" on \"invoices\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "add check constraint \"invoices_paymentType_check_59ca32a3\"",
+        "sql": "ALTER TABLE \"public\".\"invoices\" ADD CONSTRAINT \"invoices_paymentType_check_59ca32a3\" CHECK (\"paymentType\" IN ('CASH', 'UPI'))"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify check constraint \"invoices_paymentType_check_59ca32a3\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3) AND \"c\".\"contype\" = $4)) AS \"result\"",
+        "params": [
+          "invoices_paymentType_check_59ca32a3",
+          "public",
+          "\"public\".\"invoices\"",
+          "c"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "checkConstraint.invoices.invoices_payment_check_cacccf0d",
+    "label": "Add check constraint \"invoices_payment_check_cacccf0d\" on \"invoices\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "checkConstraint",
+        "name": "invoices_payment_check_cacccf0d",
+        "table": "invoices"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"invoices_payment_check_cacccf0d\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "invoices_payment_check_cacccf0d",
+          "public",
+          "\"public\".\"invoices\""
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "constraint \"invoices_payment_check_cacccf0d\" on \"invoices\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "add check constraint \"invoices_payment_check_cacccf0d\"",
+        "sql": "ALTER TABLE \"public\".\"invoices\" ADD CONSTRAINT \"invoices_payment_check_cacccf0d\" CHECK (\"payment\" IN ('PAID', 'LEDGER'))"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify check constraint \"invoices_payment_check_cacccf0d\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3) AND \"c\".\"contype\" = $4)) AS \"result\"",
+        "params": [
+          "invoices_payment_check_cacccf0d",
+          "public",
+          "\"public\".\"invoices\"",
+          "c"
+        ]
+      }
+    ]
+  }
+]

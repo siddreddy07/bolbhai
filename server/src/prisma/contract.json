@@ -29,6 +29,32 @@
     "namespaces": {
       "public": {
         "enum": {
+          "PaymentStatus": {
+            "codecId": "pg/text@1",
+            "members": [
+              {
+                "name": "PAID",
+                "value": "PAID"
+              },
+              {
+                "name": "LEDGER",
+                "value": "LEDGER"
+              }
+            ]
+          },
+          "PaymentType": {
+            "codecId": "pg/text@1",
+            "members": [
+              {
+                "name": "CASH",
+                "value": "CASH"
+              },
+              {
+                "name": "UPI",
+                "value": "UPI"
+              }
+            ]
+          },
           "ShopType": {
             "codecId": "pg/text@1",
             "members": [
@@ -68,6 +94,32 @@
                 "type": {
                   "codecId": "pg/json@1",
                   "kind": "scalar"
+                }
+              },
+              "payment": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                },
+                "valueSet": {
+                  "entityKind": "enum",
+                  "entityName": "PaymentStatus",
+                  "namespaceId": "public",
+                  "plane": "domain"
+                }
+              },
+              "paymentType": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                },
+                "valueSet": {
+                  "entityKind": "enum",
+                  "entityName": "PaymentType",
+                  "namespaceId": "public",
+                  "plane": "domain"
                 }
               },
               "shopId": {
@@ -113,6 +165,12 @@
                 },
                 "items": {
                   "column": "items"
+                },
+                "payment": {
+                  "column": "payment"
+                },
+                "paymentType": {
+                  "column": "paymentType"
                 },
                 "shopId": {
                   "column": "shopId"
@@ -661,6 +719,18 @@
         "entries": {
           "table": {
             "invoices": {
+              "checks": [
+                {
+                  "expression": "\"paymentType\" IN ('CASH', 'UPI')",
+                  "name": "invoices_paymentType_check_59ca32a3",
+                  "prefix": "invoices_paymentType_check"
+                },
+                {
+                  "expression": "\"payment\" IN ('PAID', 'LEDGER')",
+                  "name": "invoices_payment_check_cacccf0d",
+                  "prefix": "invoices_payment_check"
+                }
+              ],
               "columns": {
                 "date": {
                   "codecId": "pg/timestamptz-date@1",
@@ -683,6 +753,36 @@
                   "codecId": "pg/json@1",
                   "dataType": "pg/json",
                   "nullable": false
+                },
+                "payment": {
+                  "codecId": "pg/text@1",
+                  "dataType": "pg/text",
+                  "default": {
+                    "kind": "literal",
+                    "value": "PAID"
+                  },
+                  "nullable": false,
+                  "valueSet": {
+                    "entityKind": "valueSet",
+                    "entityName": "PaymentStatus",
+                    "namespaceId": "public",
+                    "plane": "storage"
+                  }
+                },
+                "paymentType": {
+                  "codecId": "pg/text@1",
+                  "dataType": "pg/text",
+                  "default": {
+                    "kind": "literal",
+                    "value": "CASH"
+                  },
+                  "nullable": false,
+                  "valueSet": {
+                    "entityKind": "valueSet",
+                    "entityName": "PaymentType",
+                    "namespaceId": "public",
+                    "plane": "storage"
+                  }
                 },
                 "shopId": {
                   "codecId": "pg/uuid@1",
@@ -1124,6 +1224,20 @@
             }
           },
           "valueSet": {
+            "PaymentStatus": {
+              "kind": "valueSet",
+              "values": [
+                "PAID",
+                "LEDGER"
+              ]
+            },
+            "PaymentType": {
+              "kind": "valueSet",
+              "values": [
+                "CASH",
+                "UPI"
+              ]
+            },
             "ShopType": {
               "kind": "valueSet",
               "values": [
@@ -1137,7 +1251,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "5aa35e0bb554909d45d260bb646f3442ef09d5931b8e88ffde293e24c705edc2"
+    "storageHash": "296bbe7436b6d5b6f0b8eab2dd0b21f74416a9fe4b9dc7137eff6791cc0c1a7b"
   },
   "execution": {
     "executionHash": "b8227bec2a7449ead378099bda5123c16011e167fcc413381c40cfd570db6b88",
