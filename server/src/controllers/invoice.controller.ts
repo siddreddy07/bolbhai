@@ -3,6 +3,7 @@ import { z } from "zod";
 import { idSchema } from "../schemas/id.schema.js";
 import {
   invoiceSchema,
+  unpaidQuerySchema,
   updateInvoiceSchema,
 } from "../schemas/invoice.schema.js";
 import {
@@ -10,6 +11,7 @@ import {
   deleteInvoice,
   getInvoice,
   getInvoices,
+  getUnpaidInvoices,
   updateInvoice,
 } from "../services/invoice.service.js";
 import { getShopById } from "../services/shop.service.js";
@@ -41,6 +43,22 @@ export async function listInvoices(req: Request, res: Response) {
   } catch (error) {
     console.error("Could not list invoices:", error);
     res.status(500).json({ message: "Could not get invoices" });
+  }
+}
+
+// GET /api/invoices/shop/:shopId/unpaid?limit=100   the khata: this shop's unpaid (ledger) bills, newest first, with totals
+export async function listUnpaid(req: Request, res: Response) {
+  try {
+    const shopId = idSchema.safeParse(req.params.shopId);
+    const query = unpaidQuerySchema.safeParse(req.query);
+    if (!shopId.success || !query.success)
+      return res.status(400).json({ message: "Invalid request" });
+    if (!(await getShopById(shopId.data, req.user!.id)))
+      return res.status(404).json({ message: "Shop not found" });
+    res.json(await getUnpaidInvoices(shopId.data, query.data.limit));
+  } catch (error) {
+    console.error("Could not list unpaid invoices:", error);
+    res.status(500).json({ message: "Could not get the unpaid bills" });
   }
 }
 
