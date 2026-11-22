@@ -14,6 +14,7 @@ import {
   getUnpaidInvoices,
   updateInvoice,
 } from "../services/invoice.service.js";
+import { getAnalytics } from "../services/analytics.service.js";
 import { getShopById } from "../services/shop.service.js";
 
 // An invoice belongs to a shop, and a shop to its owner: only the owner may touch it.
@@ -59,6 +60,21 @@ export async function listUnpaid(req: Request, res: Response) {
   } catch (error) {
     console.error("Could not list unpaid invoices:", error);
     res.status(500).json({ message: "Could not get the unpaid bills" });
+  }
+}
+
+// GET /api/invoices/shop/:shopId/analytics   sales for today, this week and this month in one response
+export async function readAnalytics(req: Request, res: Response) {
+  try {
+    const shopId = idSchema.safeParse(req.params.shopId);
+    if (!shopId.success)
+      return res.status(400).json({ message: "Invalid request" });
+    if (!(await getShopById(shopId.data, req.user!.id)))
+      return res.status(404).json({ message: "Shop not found" });
+    res.json(await getAnalytics(shopId.data));
+  } catch (error) {
+    console.error("Could not get the analytics:", error);
+    res.status(500).json({ message: "Could not get the analytics" });
   }
 }
 
