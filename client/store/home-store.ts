@@ -20,8 +20,10 @@ import { khataOf, packsFor } from "@/lib/bill"
 import {
   createInvoice,
   deleteInvoice,
+  fetchAnalytics,
   fetchInvoices,
   updateInvoice,
+  type Analytics,
   type StockNow,
 } from "@/lib/invoice-api"
 import type {
@@ -89,8 +91,10 @@ type HomeState = {
   /** the bill whose invoice is open (any screen) */
   viewInvoice: string | null
   period: Period
-  sales: number
-  bills: number
+  /** sales for today, this week and this month: ONE request, kept here, so switching the tabs asks nothing */
+  analytics: Analytics | null
+  analyticsShopId: string | null
+  loadAnalytics: (shopId: string) => Promise<void>
   invoices: Invoice[]
   stock: StockItem[]
   /** the shop whose stock is loaded */
@@ -140,8 +144,8 @@ export const useHomeStore = create<HomeState>((set, get) => ({
   sheet: null,
   viewInvoice: null,
   period: "day",
-  sales: 0,
-  bills: 0,
+  analytics: null,
+  analyticsShopId: null,
   invoices: [],
   billsShopId: null,
   billsLoading: false,
@@ -401,6 +405,7 @@ export const useHomeStore = create<HomeState>((set, get) => ({
         draftPaymentType
       )
       applyStock(stock) // the shelf already moved on the server
+      refreshAnalytics()
       set((s) => ({
         invoices: [bill, ...s.invoices],
         billsShopId: s.billsShopId ?? shopId,
@@ -441,6 +446,16 @@ export const useHomeStore = create<HomeState>((set, get) => ({
         set({ billError: "Could not load the bills" })
     } finally {
       if (get().billsShopId === shopId) set({ billsLoading: false })
+    }
+  },
+  loadAnalytics: async (shopId) => {
+    if (get().analyticsShopId !== shopId)
+      set({ analyticsShopId: shopId, analytics: null })
+    try {
+      const analytics = await fetchAnalytics(shopId)
+      if (get().analyticsShopId === shopId) set({ analytics })
+    } catch {
+      // the chart keeps what it had (or stays empty); the next bill change tries again
     }
   },
   addBillItem: (billId, pid) => {
@@ -508,6 +523,7 @@ export const useHomeStore = create<HomeState>((set, get) => ({
     try {
       await syncStock()
       applyStock(await deleteInvoice(billId)) // its items are back on the shelf, on the server
+      refreshAnalytics()
       toast.success("Bill deleted", {
         description: "Its items are back on your shelf.",
       })
@@ -526,6 +542,16 @@ export const useHomeStore = create<HomeState>((set, get) => ({
 }))
 
 // ---- bills and the shelf: the SERVER moves the stock with every bill change (in the same statement) and sends the new counts back ----
+
+/** A bill made, deleted or edited changes the sales: ask the server again, once for a burst of changes. A payment change does not (it only moves money between paid and unpaid). */
+let analyticsTimer: ReturnType<typeof setTimeout> | undefined
+function refreshAnalytics() {
+  clearTimeout(analyticsTimer)
+  analyticsTimer = setTimeout(() => {
+    const { billsShopId, loadAnalytics } = useHomeStore.getState()
+    if (billsShopId) void loadAnalytics(billsShopId)
+  }, 1500)
+}
 
 /** Puts the server's stock counts (by product id) into the saved inventory. Not marked as changed here: the server already has them. */
 function applyStock(rows: StockNow) {
@@ -566,6 +592,7 @@ export async function flushBill(billId: string) {
     const { stock } = await updateInvoice(billId, { items: bill.items })
     applyStock(stock)
     useHomeStore.setState({ billError: null })
+    refreshAnalytics()
   } catch {
     useHomeStore.setState({ billError: "Could not save the change. Try again" })
     toast.error("Could not save the change", {

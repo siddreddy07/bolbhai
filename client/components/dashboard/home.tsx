@@ -44,7 +44,7 @@ import { cn } from "@/lib/utils"
 const inr = (n: number) => "₹" + n.toLocaleString("en-IN")
 const HELLO: Record<Lang, string> = { en: "Hello", te: "నమస్తే", hi: "नमस्ते" }
 
-// Sales per period. Nothing is recorded yet, so every bar is empty. The last bar is "now".
+// What the chart shows before the server's numbers arrive: empty bars.
 const zeros = (n: number) => Array.from({ length: n }, () => 0)
 const SERIES: Record<
   Period,
@@ -355,8 +355,7 @@ export function Home() {
     caption,
     micError,
     sheet,
-    sales,
-    bills,
+    analytics,
     period,
     setSheet,
     setPeriod,
@@ -372,8 +371,22 @@ export function Home() {
   const [pick, setPick] = React.useState<number | null>(null)
   const [hov, setHov] = React.useState<number | null>(null)
   const firstRun = React.useRef(true)
-  const serie = SERIES[period]
-  const total = serie.total + sales
+  // the server's numbers once they are in; empty bars until then
+  const real = analytics?.[period]
+  const serie = real
+    ? {
+        label: real.label,
+        total: real.total,
+        bills: real.bills,
+        delta: real.change === null ? "–" : `${Math.abs(real.change)}%`,
+        up: (real.change ?? 0) >= 0,
+        vs: real.vs,
+        bars: real.bars,
+        names: real.names,
+      }
+    : SERIES[period]
+  const nowBar = analytics ? analytics.now[period] : serie.bars.length - 1
+  const total = serie.total
   const max = Math.max(1, ...serie.bars)
   const open = sheet ? SHEETS[sheet] : null
   const root = React.useRef<HTMLElement>(null)
@@ -579,7 +592,7 @@ export function Home() {
       <header data-top className="relative flex items-center justify-between">
         <ShopMenu />
         <Link href="/" aria-label="BolBhai home" className="shrink-0 pl-2">
-          <Logo className="[&_svg]:size-7" />
+          <Logo className="[&_img]:h-9" />
         </Link>
       </header>
 
@@ -637,7 +650,7 @@ export function Home() {
           >
             {serie.up ? "▲" : "▼"} {serie.delta}
           </span>
-          vs {serie.vs} · {serie.bills + bills} bills
+          vs {serie.vs} · {serie.bills} bills
         </p>
 
         {/* the graph: tap a bar to read it */}
@@ -678,7 +691,7 @@ export function Home() {
                 onPointerLeave={() => setHov(null)}
               >
                 {serie.bars.map((v, i) => {
-                  const now = i === serie.bars.length - 1
+                  const now = i === nowBar
                   return (
                     <button
                       key={`${period}-${i}`}
