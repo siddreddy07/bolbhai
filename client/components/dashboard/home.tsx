@@ -31,7 +31,12 @@ import {
 } from "@/components/dashboard/panels"
 import { MicBars } from "@/components/dashboard/mic-bars"
 import { daysAgo } from "@/lib/bill"
-import { useHomeStore, type Period, type SheetKey } from "@/lib/home-store"
+import {
+  useHomeStore,
+  useKhata,
+  type Period,
+  type SheetKey,
+} from "@/store/home-store"
 import { LISTENING, langClass, useLang, type Lang } from "@/lib/lang"
 import { useUserStore } from "@/store/user-store"
 import { cn } from "@/lib/utils"
@@ -336,7 +341,7 @@ function Register({ value }: { value: number }) {
 export function Home() {
   const { lang } = useLang()
   const user = useUserStore((s) => s.user)
-  const customers = useHomeStore((s) => s.customers)
+  const owed = useKhata().totalDue
   const invoices = useHomeStore((s) => s.invoices)
   const stock = useHomeStore((s) => s.stock)
   const {
@@ -757,7 +762,7 @@ export function Home() {
                 {t.key === "bills"
                   ? `${invoices.filter((i) => daysAgo(i.date) === 0).length} today`
                   : t.key === "khata"
-                    ? `${inr(customers.reduce((a, c) => a + c.due, 0))} due`
+                    ? `${inr(owed)} due`
                     : `${stock.filter((i) => i.qty / i.max < 0.2).length} running low`}
               </span>
             </span>
