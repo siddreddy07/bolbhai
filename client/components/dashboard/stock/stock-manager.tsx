@@ -62,15 +62,20 @@ const SORTS: { id: Sort; name: string }[] = [
 
 function Stepper({ item }: { item: StockItem }) {
   const adjust = useHomeStore((s) => s.adjust)
+  const setQty = useHomeStore((s) => s.setQty)
   const busy = useHomeStore((s) => !!s.deletingId)
-  const num = React.useRef<HTMLSpanElement>(null)
+  const num = React.useRef<HTMLInputElement>(null)
   const prev = React.useRef(item.qty)
+  // what is typed right now ("" while the box is empty); null = show the real count
+  const [typed, setTyped] = React.useState<string | null>(null)
 
+  // the number slides when + / - changes it (not while you are typing)
   useGSAP(
     () => {
       if (prev.current === item.qty) return
       const up = item.qty > prev.current
       prev.current = item.qty
+      if (document.activeElement === num.current) return
       if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
       gsap.fromTo(
         num.current,
@@ -98,21 +103,41 @@ function Stepper({ item }: { item: StockItem }) {
         type="button"
         aria-label={`One less ${item.name}`}
         disabled={item.qty === 0 || busy}
-        onClick={() => adjust(item.id, -1)}
+        onClick={() => {
+          setTyped(null)
+          adjust(item.id, -1)
+        }}
         className={b}
       >
         <Minus className="size-3.5" />
       </button>
-      <span
+      <input
         ref={num}
-        className="min-w-8 text-center text-[15px] leading-none font-extrabold tabular-nums"
-      >
-        {item.qty}
-      </span>
+        inputMode="numeric"
+        aria-label={`How many ${item.name}`}
+        disabled={busy}
+        value={typed ?? String(item.qty)}
+        onFocus={(e) => e.target.select()}
+        onChange={(e) => {
+          const digits = e.target.value.replace(/\D/g, "").slice(0, 5)
+          setTyped(digits)
+          if (digits !== "") setQty(item.id, Number(digits)) // saved as you type
+        }}
+        onBlur={() => {
+          if (typed === "") setQty(item.id, 0) // left empty means none
+          setTyped(null)
+        }}
+        onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+        className="h-7 w-10 min-w-0 bg-transparent text-center text-[15px] leading-none font-extrabold tabular-nums outline-none focus:rounded-md focus:bg-background/70"
+      />
       <button
         type="button"
         aria-label={`One more ${item.name}`}
-        onClick={() => adjust(item.id, 1)}
+        disabled={busy}
+        onClick={() => {
+          setTyped(null)
+          adjust(item.id, 1)
+        }}
         className={b}
       >
         <Plus className="size-3.5" />
@@ -376,10 +401,11 @@ function FilterPanel({
   setSort,
   lowCount,
 }: FilterProps) {
+  const h = "mb-1.5 text-xs font-bold"
   return (
-    <div className="grid gap-5">
+    <div className="grid gap-3">
       <section>
-        <h3 className="mb-2 text-sm font-bold">
+        <h3 className={h}>
           Category{" "}
           <span className="font-normal text-muted-foreground">
             · pick one or more
@@ -389,58 +415,58 @@ function FilterPanel({
           multiple
           value={cats}
           onValueChange={(v) => setCats(v as CatId[])}
-          spacing={8}
+          spacing={6}
           aria-label="Categories"
-          className="mx-auto grid w-full max-w-md grid-cols-3 gap-2"
+          className="grid w-full grid-cols-3 gap-1.5"
         >
           {CATS.map((c) => (
             <ToggleGroupItem
               key={c.id}
               value={c.id}
               disabled={!counts[c.id] && !cats.includes(c.id)}
-              className="h-auto flex-col gap-1 rounded-2xl! border border-foreground/15 bg-card px-1.5 py-2.5 disabled:opacity-35 aria-pressed:border-foreground/70 aria-pressed:bg-(--tone) aria-pressed:text-[#10301f]"
+              className="h-10 min-w-0 justify-start gap-1.5 rounded-xl! border border-foreground/15 bg-card px-1.5 disabled:opacity-35 aria-pressed:border-foreground/70 aria-pressed:bg-(--tone) aria-pressed:text-[#10301f]"
               style={{ "--tone": c.tone } as React.CSSProperties}
             >
               <span
-                className="grid size-9 place-items-center rounded-xl text-[#10301f]"
+                className="grid size-6 shrink-0 place-items-center rounded-lg text-[#10301f]"
                 style={{ background: c.tone }}
               >
-                <c.icon className="size-[18px]" />
+                <c.icon className="size-3.5" />
               </span>
-              <span className="text-[13px] leading-tight font-semibold">
+              <span className="min-w-0 flex-1 truncate text-left text-xs leading-tight font-semibold">
                 {c.name}
               </span>
-              <span className="text-[11px] leading-none font-medium opacity-60">
+              <span className="shrink-0 text-[10px] leading-none font-medium tabular-nums opacity-60">
                 {counts[c.id] ?? 0}
               </span>
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
       </section>
-      <div className="grid gap-5">
-        <section>
-          <h3 className="mb-2 text-sm font-bold">Stock level</h3>
-          <Segmented
-            value={status}
-            onChange={setStatus}
-            label="Stock level"
-            options={[
-              { id: "all", name: "All" },
-              { id: "low", name: `Running low · ${lowCount}` },
-              { id: "out", name: "Out" },
-            ]}
-          />
-        </section>
-        <section>
-          <h3 className="mb-2 text-sm font-bold">Sort by</h3>
-          <Segmented
-            value={sort}
-            onChange={setSort}
-            label="Sort"
-            options={SORTS}
-          />
-        </section>
-      </div>
+      <section>
+        <h3 className={h}>Stock level</h3>
+        <Segmented
+          compact
+          value={status}
+          onChange={setStatus}
+          label="Stock level"
+          options={[
+            { id: "all", name: "All" },
+            { id: "low", name: `Running low · ${lowCount}` },
+            { id: "out", name: "Out" },
+          ]}
+        />
+      </section>
+      <section>
+        <h3 className={h}>Sort by</h3>
+        <Segmented
+          compact
+          value={sort}
+          onChange={setSort}
+          label="Sort"
+          options={SORTS}
+        />
+      </section>
     </div>
   )
 }
@@ -723,31 +749,32 @@ export function StockManager() {
       </ListScreen>
 
       <Drawer open={filterOpen} onOpenChange={setFilterOpen} showSwipeHandle>
-        <DrawerContent className="mx-auto max-w-[560px]">
-          <div className="max-h-[80dvh] overflow-y-auto overscroll-contain px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
-            <DrawerHeader className="p-0 pb-4 text-left">
-              <DrawerTitle className="font-hand text-4xl leading-none font-semibold">
+        <DrawerContent className="mx-auto max-w-[24rem]">
+          {/* everything fits without scrolling; the scroll is only a safety net for a very short screen */}
+          <div className="max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain px-3.5 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+            <DrawerHeader className="flex-row items-center justify-between p-0 pb-2.5">
+              <DrawerTitle className="font-hand text-2xl leading-none font-semibold">
                 Filters
               </DrawerTitle>
-              <DrawerDescription>Pick what you want to see.</DrawerDescription>
-            </DrawerHeader>
-            <FilterPanel {...fp} />
-            <div className="mt-6 grid grid-cols-[auto_1fr] gap-2">
-              <Button
-                variant="ghost"
+              <DrawerDescription className="sr-only">
+                Pick what you want to see.
+              </DrawerDescription>
+              <button
+                type="button"
                 onClick={clear}
                 disabled={activeCount === 0}
-                className="h-12 rounded-full px-5 text-base"
+                className="h-8 rounded-full px-3 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
               >
                 Clear
-              </Button>
-              <Button
-                onClick={() => setFilterOpen(false)}
-                className="h-12 rounded-full text-base"
-              >
-                Show {list.length} {list.length === 1 ? "item" : "items"}
-              </Button>
-            </div>
+              </button>
+            </DrawerHeader>
+            <FilterPanel {...fp} />
+            <Button
+              onClick={() => setFilterOpen(false)}
+              className="mt-3.5 h-11 w-full rounded-full text-base"
+            >
+              Show {list.length} {list.length === 1 ? "item" : "items"}
+            </Button>
           </div>
         </DrawerContent>
       </Drawer>

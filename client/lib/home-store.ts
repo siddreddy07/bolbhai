@@ -61,6 +61,8 @@ type HomeState = {
   addStock: (id: string, qty: number) => void
   /** stock manager: type it, or snap a photo, both end up here */
   adjust: (id: string, delta: number) => void
+  /** an exact count, typed in the box between - and + */
+  setQty: (id: string, qty: number) => void
   saveItem: (item: Omit<StockItem, "added" | "id"> & { id?: string }) => string
   /** the product being deleted right now (everything else is locked until it is done) */
   deletingId: string | null
@@ -158,6 +160,14 @@ export const useHomeStore = create<HomeState>((set, get) => ({
         i.id === id ? { ...i, qty: Math.max(0, i.qty + delta) } : i
       ),
       dirtyIds: s.dirtyIds.includes(id) ? s.dirtyIds : [...s.dirtyIds, id], // this one has to be saved
+    }))
+    scheduleSync()
+  },
+  setQty: (id, qty) => {
+    const count = Math.max(0, Math.min(99999, Math.floor(qty) || 0))
+    set((s) => ({
+      stock: s.stock.map((i) => (i.id === id ? { ...i, qty: count } : i)),
+      dirtyIds: s.dirtyIds.includes(id) ? s.dirtyIds : [...s.dirtyIds, id],
     }))
     scheduleSync()
   },
