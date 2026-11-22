@@ -9,7 +9,6 @@ import {
   Boxes,
   Check,
   Mic,
-  X,
   ReceiptText,
   type LucideIcon,
 } from "lucide-react"
@@ -360,12 +359,10 @@ export function Home() {
     dismiss,
     pickMatch,
     saveOrderAsBill,
-    savedBill,
     savingBill,
     draftPayment,
     draftPaymentType,
     setDraftPayment,
-    setViewInvoice,
   } = useHomeStore()
   const [pick, setPick] = React.useState<number | null>(null)
   const [hov, setHov] = React.useState<number | null>(null)
@@ -805,14 +802,6 @@ export function Home() {
               data-slip
               className="relative bg-[#fffef8] [mask-image:conic-gradient(from_-45deg_at_bottom,#0000,#000_1deg_89deg,#0000_90deg)] [mask-size:16px_100%] [mask-position:50%] px-5 pt-4 pb-6 text-[#10301f] shadow-[0_18px_40px_-18px_rgb(0_0_0/0.7)]"
             >
-              <button
-                type="button"
-                onClick={dismiss}
-                aria-label="Close"
-                className="absolute top-2 right-2 grid size-8 place-items-center rounded-full text-[#10301f]/60 hover:bg-[#10301f]/10 active:scale-90"
-              >
-                <X className="size-4" />
-              </button>
               <textarea
                 data-line
                 value={transcript}
@@ -820,7 +809,7 @@ export function Home() {
                 rows={2}
                 placeholder="Type it here, like 1 kg sugar"
                 aria-label="What you said. Tap to fix it or type."
-                className="mb-2 w-full resize-none rounded-lg border border-dashed border-[#10301f]/30 bg-transparent px-2 py-1.5 pr-8 text-base leading-snug outline-none focus:border-[#10301f] focus:bg-white/60"
+                className="mb-2 w-full resize-none rounded-lg border border-dashed border-[#10301f]/30 bg-transparent px-2 py-1.5 text-base leading-snug outline-none focus:border-[#10301f] focus:bg-white/60"
               />
               <p
                 data-line
@@ -994,15 +983,6 @@ export function Home() {
           {micError ??
             (phase === "listening" ? "Tap to stop" : "Tap and say it")}
         </p>
-        {savedBill !== null && phase === "idle" && (
-          <button
-            type="button"
-            onClick={() => setViewInvoice(savedBill)}
-            className="mt-1 rounded-full bg-foreground px-4 py-1.5 text-sm font-semibold text-background active:scale-95"
-          >
-            Bill #{savedBill} saved in Bills · Open it
-          </button>
-        )}
       </div>
 
       {/* shadcn Drawer: drag it down or tap outside to close */}

@@ -8,6 +8,12 @@ import { Minus, Plus, Trash2 } from "lucide-react"
 import { Segmented, inr } from "@/components/dashboard/list-kit"
 import { Button } from "@/components/ui/button"
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
   Drawer,
   DrawerContent,
   DrawerDescription,
@@ -68,6 +74,8 @@ function Slip({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
   const { addBillItem, setBillQty, setBillPayment, removeBill, loadStock } =
     useHomeStore.getState()
   const box = React.useRef<HTMLDivElement>(null)
+  const [asking, setAsking] = React.useState(false) // "are you sure?" is open
+  const [deleting, setDeleting] = React.useState(false)
   const paid = isPaid(inv)
   const stamp = STAMP[inv.payment]
 
@@ -240,7 +248,7 @@ function Slip({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
             <p className="mt-4 text-center font-mono text-[11px] opacity-60">
               {paid
                 ? `paid by ${inv.paymentType === "UPI" ? "UPI" : "cash"} · thank you`
-                : "not paid yet · written in the ledger"}
+                : "in Khata"}
             </p>
           </div>
           <div aria-hidden="true" className="zig-b paper h-3" />
@@ -275,13 +283,46 @@ function Slip({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
           </Button>
           <Button
             variant="ghost"
-            onClick={() => removeBill(inv.id)}
+            onClick={() => setAsking(true)}
             className="h-12 rounded-full text-base text-destructive hover:text-destructive"
           >
             Delete bill
           </Button>
         </div>
       </div>
+
+      <Dialog open={asking} onOpenChange={(o) => !deleting && setAsking(o)}>
+        <DialogContent>
+          <DialogTitle>Delete this bill?</DialogTitle>
+          <DialogDescription className="mt-1.5">
+            Bill #{billNumber(inv)} will be removed for good, and its items go
+            back on your shelf.
+          </DialogDescription>
+          <div className="mt-5 grid grid-cols-2 gap-2">
+            <Button
+              variant="outline"
+              disabled={deleting}
+              onClick={() => setAsking(false)}
+              className="h-11 rounded-full text-base"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleting}
+              onClick={async () => {
+                setDeleting(true)
+                await removeBill(inv.id) // closes the bill when it is gone
+                setDeleting(false)
+                setAsking(false)
+              }}
+              className="h-11 rounded-full text-base"
+            >
+              {deleting ? "Deleting…" : "Delete"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
