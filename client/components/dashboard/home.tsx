@@ -9,6 +9,7 @@ import {
   Boxes,
   Check,
   Mic,
+  X,
   ReceiptText,
   type LucideIcon,
 } from "lucide-react"
@@ -30,6 +31,7 @@ import {
   StockPanel,
 } from "@/components/dashboard/panels"
 import { MicBars } from "@/components/dashboard/mic-bars"
+import { daysAgo } from "@/lib/bill"
 import { useHomeStore, type Period, type SheetKey } from "@/lib/home-store"
 import { LISTENING, langClass, useLang, type Lang } from "@/lib/lang"
 import { useUserStore } from "@/store/user-store"
@@ -355,7 +357,11 @@ export function Home() {
     setSheet,
     setPeriod,
     tapMic,
-    cancel,
+    dismiss,
+    pickMatch,
+    saveOrderAsBill,
+    savedBill,
+    setViewInvoice,
   } = useHomeStore()
   const [pick, setPick] = React.useState<number | null>(null)
   const [hov, setHov] = React.useState<number | null>(null)
@@ -538,6 +544,7 @@ export function Home() {
             y: 0,
             duration: 0.8,
             ease: "power2.out",
+            clearProps: "clipPath,transform",
           }
         )
         gsap.from(q("[data-slip] [data-line]"), {
@@ -747,7 +754,7 @@ export function Home() {
               </span>
               <span className="block text-[11px] font-semibold opacity-70 sm:text-xs md:[@media(min-height:900px)]:text-sm">
                 {t.key === "bills"
-                  ? `${invoices.filter((i) => i.daysAgo === 0).length} today`
+                  ? `${invoices.filter((i) => daysAgo(i.createdAt) === 0).length} today`
                   : t.key === "khata"
                     ? `${inr(customers.reduce((a, c) => a + c.due, 0))} due`
                     : `${stock.filter((i) => i.qty / i.max < 0.2).length} running low`}
@@ -789,70 +796,110 @@ export function Home() {
         )}
 
         {phase === "confirm" && (
-          <div
-            data-slip
-            className="w-full max-w-[340px] bg-[#fffef8] [mask-image:conic-gradient(from_-45deg_at_bottom,#0000,#000_1deg_89deg,#0000_90deg)] [mask-size:16px_100%] [mask-position:50%] px-5 pt-4 pb-6 text-[#10301f] shadow-[0_18px_40px_-18px_rgb(0_0_0/0.7)] [clip-path:inset(0)]"
-          >
-            <textarea
-              data-line
-              value={transcript}
-              onChange={(e) => setTranscript(e.target.value)}
-              rows={2}
-              placeholder="Type it here, like 1 kg sugar"
-              aria-label="What you said. Tap to fix it or type."
-              className="mb-2 w-full resize-none rounded-lg border border-dashed border-[#10301f]/30 bg-transparent px-2 py-1.5 text-base leading-snug outline-none focus:border-[#10301f] focus:bg-white/60"
-            />
-            <p data-line className="font-hand text-2xl leading-none opacity-70">
-              Your order
-            </p>
-            {order?.length ? (
-              <ul
-                data-line
-                className="border-b border-dashed border-[#10301f]/30 pb-2 text-sm"
+          <div className="relative z-10 flex w-full max-w-[340px] flex-col gap-3">
+            <div
+              data-slip
+              className="relative bg-[#fffef8] [mask-image:conic-gradient(from_-45deg_at_bottom,#0000,#000_1deg_89deg,#0000_90deg)] [mask-size:16px_100%] [mask-position:50%] px-5 pt-4 pb-6 text-[#10301f] shadow-[0_18px_40px_-18px_rgb(0_0_0/0.7)]"
+            >
+              <button
+                type="button"
+                onClick={dismiss}
+                aria-label="Close"
+                className="absolute top-2 right-2 grid size-8 place-items-center rounded-full text-[#10301f]/60 hover:bg-[#10301f]/10 active:scale-90"
               >
-                {order.map((item) => (
-                  <li key={item.query} className="py-0.5">
-                    <span className="font-bold">
-                      {item.quantity} {item.unit} {item.query}
-                    </span>
-                    <span className="block text-xs opacity-60">
-                      {item.options
-                        .slice(0, 3)
-                        .map(
-                          (o) =>
-                            `${o.brand ? o.brand + " " : ""}${o.size ?? o.name}`
-                        )
-                        .join(" · ") || "not on your shelf"}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
+                <X className="size-4" />
+              </button>
+              <textarea
+                data-line
+                value={transcript}
+                onChange={(e) => setTranscript(e.target.value)}
+                rows={2}
+                placeholder="Type it here, like 1 kg sugar"
+                aria-label="What you said. Tap to fix it or type."
+                className="mb-2 w-full resize-none rounded-lg border border-dashed border-[#10301f]/30 bg-transparent px-2 py-1.5 pr-8 text-base leading-snug outline-none focus:border-[#10301f] focus:bg-white/60"
+              />
               <p
                 data-line
-                className="border-b border-dashed border-[#10301f]/30 pb-2 text-sm opacity-70"
+                className="font-hand text-2xl leading-none opacity-70"
               >
-                Tap Confirm to find the items.
+                Your order
               </p>
-            )}
-            {orderError && (
-              <p className="mt-2 text-sm font-semibold text-signal">
-                {orderError}
-              </p>
-            )}
-            <div data-line className="mt-3 grid grid-cols-[1fr_auto] gap-2">
+              {order?.length ? (
+                <ul
+                  data-line
+                  className="max-h-[38dvh] overflow-y-auto overscroll-contain border-b border-dashed border-[#10301f]/30 pb-2 text-sm"
+                >
+                  {order.map((line) => (
+                    <li key={line.query} className="py-1">
+                      <span className="font-bold">
+                        {line.quantity} {line.unit} {line.query}
+                      </span>
+                      {line.matches.length ? (
+                        <span
+                          role="radiogroup"
+                          aria-label={`Which ${line.query}`}
+                          className="mt-1 flex flex-wrap gap-1"
+                        >
+                          {line.matches.slice(0, 4).map((m, i) => (
+                            <button
+                              key={m.id}
+                              type="button"
+                              role="radio"
+                              aria-checked={line.pick === i}
+                              onClick={() => pickMatch(line.query, i)}
+                              className={cn(
+                                "rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors",
+                                line.pick === i
+                                  ? "border-[#10301f] bg-[#10301f] text-[#f8f8f3]"
+                                  : "border-[#10301f]/25 hover:bg-[#10301f]/10"
+                              )}
+                            >
+                              {m.name}
+                              {m.size ? ` ${m.size}` : ""} · ₹{m.price}
+                            </button>
+                          ))}
+                        </span>
+                      ) : (
+                        <span className="block text-xs opacity-60">
+                          not on your shelf
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p
+                  data-line
+                  className="border-b border-dashed border-[#10301f]/30 pb-2 text-sm opacity-70"
+                >
+                  Tap Confirm to find the items.
+                </p>
+              )}
+              {orderError && (
+                <p className="mt-2 text-sm font-semibold text-signal">
+                  {orderError}
+                </p>
+              )}
+            </div>
+
+            {/* the buttons sit outside the torn paper, so nothing can cover or clip them */}
+            <div className="grid grid-cols-[1fr_auto] gap-2">
               <Button
-                onClick={order ? cancel : findItems}
-                disabled={finding || (!order && !transcript.trim())}
-                className="h-12 rounded-full bg-[#10301f] text-base text-[#f8f8f3] hover:bg-[#10301f]/90"
+                onClick={order ? () => saveOrderAsBill() : findItems}
+                disabled={
+                  finding ||
+                  (!order && !transcript.trim()) ||
+                  (!!order && !order.some((l) => l.matches.length))
+                }
+                className="h-12 rounded-full text-base"
               >
                 <Check className="size-5" />{" "}
                 {finding ? "Finding items…" : order ? "Done" : "Confirm"}
               </Button>
               <Button
-                onClick={cancel}
-                variant="ghost"
-                className="h-12 rounded-full px-4 text-base text-[#10301f] hover:bg-[#10301f]/10"
+                onClick={dismiss}
+                variant="outline"
+                className="h-12 rounded-full px-5 text-base"
               >
                 Cancel
               </Button>
@@ -886,6 +933,15 @@ export function Home() {
           {micError ??
             (phase === "listening" ? "Tap to stop" : "Tap and say it")}
         </p>
+        {savedBill !== null && phase === "idle" && (
+          <button
+            type="button"
+            onClick={() => setViewInvoice(savedBill)}
+            className="mt-1 rounded-full bg-foreground px-4 py-1.5 text-sm font-semibold text-background active:scale-95"
+          >
+            Bill #{savedBill} saved in Bills · Open it
+          </button>
+        )}
       </div>
 
       {/* shadcn Drawer: drag it down or tap outside to close */}
