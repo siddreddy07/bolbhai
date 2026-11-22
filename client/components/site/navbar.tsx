@@ -3,7 +3,14 @@
 import * as React from "react"
 import gsap from "gsap"
 import { useGSAP } from "@gsap/react"
-import { Check, ChevronDown, ChevronRight, Globe, Moon, Sun } from "lucide-react"
+import {
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Globe,
+  Moon,
+  Sun,
+} from "lucide-react"
 import Link from "next/link"
 import { useTheme } from "next-themes"
 
@@ -37,7 +44,11 @@ export function ThemeToggle({ className }: { className?: string }) {
         className
       )}
     >
-      {dark ? <Sun className="size-[18px]" /> : <Moon className="size-[18px]" />}
+      {dark ? (
+        <Sun className="size-[18px]" />
+      ) : (
+        <Moon className="size-[18px]" />
+      )}
     </button>
   )
 }
@@ -75,7 +86,9 @@ function LangMenu() {
       >
         <Globe className="size-[18px]" />
         <span className={cn("min-w-5", langClass(lang))}>{current.short}</span>
-        <ChevronDown className={cn("size-3.5 transition-transform", open && "rotate-180")} />
+        <ChevronDown
+          className={cn("size-3.5 transition-transform", open && "rotate-180")}
+        />
       </button>
       {open && (
         <ul
@@ -163,24 +176,53 @@ export function Navbar() {
   useGSAP(
     () => {
       const q = gsap.utils.selector(root.current)
-      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      const reduce = window.matchMedia(
+        "(prefers-reduced-motion: reduce)"
+      ).matches
       // icon: two bars centred by margins; they start ±3.5px apart (the hamburger)
       gsap.set(q("[data-bar-a]"), { y: -3.5 })
       gsap.set(q("[data-bar-b]"), { y: 3.5 })
-      const t = gsap.timeline({ paused: true, defaults: { ease: "power3.out" } })
+      const t = gsap.timeline({
+        paused: true,
+        defaults: { ease: "power3.out" },
+      })
       // the sheet drops open from under the bar: full width, height from 0 to auto
       t.set(q("[data-menu]"), { autoAlpha: 1 }, 0)
         .fromTo(
           q("[data-menu]"),
           { height: 0, paddingTop: 0, paddingBottom: 0 },
-          { height: "auto", paddingTop: 8, paddingBottom: 8, duration: 0.5, ease: "power4.out" },
+          {
+            height: "auto",
+            paddingTop: 8,
+            paddingBottom: 8,
+            duration: 0.5,
+            ease: "power4.out",
+          },
           0
         )
         // ...and slide onto the centre while turning ±45°, so they cross exactly
-        .to(q("[data-bar-a]"), { y: 0, rotation: 45, duration: 0.4, ease: "power3.inOut" }, 0)
-        .to(q("[data-bar-b]"), { y: 0, rotation: -45, duration: 0.4, ease: "power3.inOut" }, 0)
-        .fromTo(q("[data-link]"), { autoAlpha: 0, y: 14 }, { autoAlpha: 1, y: 0, duration: 0.45, stagger: 0.05 }, 0.12)
-        .fromTo(q("[data-foot]"), { autoAlpha: 0, y: 10 }, { autoAlpha: 1, y: 0, duration: 0.4, stagger: 0.06 }, 0.3)
+        .to(
+          q("[data-bar-a]"),
+          { y: 0, rotation: 45, duration: 0.4, ease: "power3.inOut" },
+          0
+        )
+        .to(
+          q("[data-bar-b]"),
+          { y: 0, rotation: -45, duration: 0.4, ease: "power3.inOut" },
+          0
+        )
+        .fromTo(
+          q("[data-link]"),
+          { autoAlpha: 0, y: 14 },
+          { autoAlpha: 1, y: 0, duration: 0.45, stagger: 0.05 },
+          0.12
+        )
+        .fromTo(
+          q("[data-foot]"),
+          { autoAlpha: 0, y: 10 },
+          { autoAlpha: 1, y: 0, duration: 0.4, stagger: 0.06 },
+          0.3
+        )
       t.timeScale(reduce ? 40 : 1)
       tl.current = t
     },
@@ -196,7 +238,8 @@ export function Navbar() {
     if (!open) return
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false)
     const onDown = (e: PointerEvent) => {
-      if (!(e.target as Element).closest("[data-menu],[data-menu-btn]")) setOpen(false)
+      if (!(e.target as Element).closest("[data-menu],[data-menu-btn]"))
+        setOpen(false)
     }
     window.addEventListener("keydown", onKey)
     document.addEventListener("pointerdown", onDown)
@@ -230,7 +273,7 @@ export function Navbar() {
           <a
             href="#main"
             aria-label="BolBhai home"
-            className="shrink-0 [&_svg]:size-6 sm:[&_svg]:size-[30px]"
+            className="-my-1.5 flex shrink-0 items-center sm:-my-2"
             onClick={() => setOpen(false)}
           >
             <Logo />
@@ -270,8 +313,14 @@ export function Navbar() {
               aria-controls="mobile-menu"
               onClick={() => setOpen((o) => !o)}
             >
-              <span data-bar-a className="absolute top-1/2 left-1/2 -mt-px -ml-[7.5px] h-[2px] w-[15px] rounded bg-current" />
-              <span data-bar-b className="absolute top-1/2 left-1/2 -mt-px -ml-[7.5px] h-[2px] w-[15px] rounded bg-current" />
+              <span
+                data-bar-a
+                className="absolute top-1/2 left-1/2 -mt-px -ml-[7.5px] h-[2px] w-[15px] rounded bg-current"
+              />
+              <span
+                data-bar-b
+                className="absolute top-1/2 left-1/2 -mt-px -ml-[7.5px] h-[2px] w-[15px] rounded bg-current"
+              />
             </button>
           </div>
         </nav>

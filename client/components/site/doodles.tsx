@@ -7,22 +7,17 @@ type P = React.SVGProps<SVGSVGElement>
 export function Logo({ className }: { className?: string }) {
   return (
     <span className={`inline-flex items-center gap-2 ${className ?? ""}`}>
-      <svg width="30" height="30" viewBox="0 0 32 32" aria-hidden="true">
-        <path
-          d="M4 14C4 7.4 9.4 3 16 3s12 4.4 12 11-5.4 11-12 11c-1.3 0-2.5-.2-3.7-.5L6 29l1.4-6.3C5.4 20.8 4 17.6 4 14Z"
-          fill="var(--hl)"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M10.5 12v4M14 9.5v9M17.5 11v6M21 13v2"
-          stroke="currentColor"
-          strokeWidth="2.2"
-          strokeLinecap="round"
-        />
-      </svg>
-      <span className="font-display text-[1.1rem] leading-none font-extrabold tracking-tight sm:text-[1.35rem]">
+      {/* the whole mascot is the logo everywhere (navbar, footer, loader, dashboard) */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/mascot/bolbhai-logo.png"
+        alt=""
+        width={120}
+        height={152}
+        aria-hidden="true"
+        className="h-10 w-auto shrink-0 sm:h-11"
+      />
+      <span className="font-display pt-[3px] text-[1.1rem] leading-none font-extrabold tracking-tight sm:text-[1.35rem]">
         {BRAND}
       </span>
     </span>
@@ -53,7 +48,13 @@ export function CurlyArrow(props: P) {
 /** Marker scribble underline */
 export function Scribble(props: P) {
   return (
-    <svg viewBox="0 0 220 18" fill="none" preserveAspectRatio="none" aria-hidden="true" {...props}>
+    <svg
+      viewBox="0 0 220 18"
+      fill="none"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+      {...props}
+    >
       <path
         d="M3 11C40 4 70 15 110 8s70 4 107-3"
         stroke="currentColor"

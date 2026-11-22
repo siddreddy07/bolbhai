@@ -69,7 +69,7 @@ export function ListScreen({
           aria-label="BolBhai home"
           className="ml-auto shrink-0 pl-2"
         >
-          <Logo className="[&_svg]:size-7" />
+          <Logo className="[&_img]:h-9" />
         </Link>
       </header>
       <div data-ls className="mt-3 grid gap-2.5">

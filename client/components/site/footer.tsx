@@ -5,6 +5,7 @@ import gsap from "gsap"
 import { useGSAP } from "@gsap/react"
 
 import { Logo } from "@/components/site/doodles"
+import { Mascot } from "@/components/site/mascot"
 import { BRAND } from "@/lib/lang"
 
 const COLS: [string, string[]][] = [
@@ -22,9 +23,13 @@ export function Footer() {
   // transform for it to misread. A native IntersectionObserver fires the tween.
   useGSAP(
     () => {
-      const letters = gsap.utils.toArray<HTMLElement>("[data-letter]", root.current)
+      const letters = gsap.utils.toArray<HTMLElement>(
+        "[data-letter]",
+        root.current
+      )
       const el = mark.current
-      if (!el || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
+      if (!el || window.matchMedia("(prefers-reduced-motion: reduce)").matches)
+        return
       gsap.set(letters, { yPercent: 105 })
       const io = new IntersectionObserver(
         ([entry]) => {
@@ -73,7 +78,10 @@ export function Footer() {
               <ul className="mt-2 space-y-1.5 opacity-70 sm:mt-3 sm:space-y-2">
                 {items.map((i) => (
                   <li key={i}>
-                    <a href="#try" className="underline-offset-4 hover:underline hover:opacity-100">
+                    <a
+                      href="#try"
+                      className="underline-offset-4 hover:underline hover:opacity-100"
+                    >
                       {i}
                     </a>
                   </li>
@@ -86,18 +94,28 @@ export function Footer() {
       <div
         ref={mark}
         aria-hidden="true"
-        className="font-display mx-auto mt-5 flex max-w-[1400px] sm:mt-14 justify-center overflow-hidden pb-2 text-[clamp(4rem,19vw,17rem)] leading-[0.85] font-extrabold tracking-tighter select-none"
+        className="font-display mx-auto mt-5 flex max-w-[1400px] justify-center overflow-hidden pb-2 text-[clamp(4rem,19vw,17rem)] leading-[0.85] font-extrabold tracking-tighter select-none sm:mt-14"
         style={{ fontVariationSettings: '"wdth" 90' }}
       >
         {BRAND.split("").map((c, i) => (
           <span key={i} className="inline-block overflow-hidden pb-[0.08em]">
             <span data-letter className="inline-block will-change-transform">
-              {c}
+              {i === BRAND.lastIndexOf("a") ? (
+                // the "a" of Bhai is the mascot, as tall as the capitals; the letter shows if the mascot files are missing
+                <Mascot
+                  className="h-[0.8em] w-auto align-baseline sm:w-auto"
+                  fallback={c}
+                />
+              ) : (
+                c
+              )}
             </span>
           </span>
         ))}
       </div>
-      <p className="mx-auto max-w-[1120px] pb-4 text-xs opacity-50 sm:pb-6 sm:text-sm">© 2026 {BRAND}</p>
+      <p className="mx-auto max-w-[1120px] pb-4 text-xs opacity-50 sm:pb-6 sm:text-sm">
+        © 2026 {BRAND}
+      </p>
     </footer>
   )
 }
