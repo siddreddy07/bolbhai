@@ -3,7 +3,10 @@
 import * as React from "react"
 import { useRouter } from "next/navigation"
 
-import { CreateShopDialog, EditShopDialog } from "@/components/dashboard/shop-dialogs"
+import {
+  CreateShopDialog,
+  EditShopDialog,
+} from "@/components/dashboard/shop-dialogs"
 import { useHomeStore } from "@/lib/home-store"
 import { api } from "@/lib/proxy"
 import type { Shop } from "@/lib/shop"
@@ -15,13 +18,18 @@ import { useShopStore } from "@/store/shop-store"
  */
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const router = useRouter()
-  const { shop, loaded, dialog, setShops, setLoaded, setDialog } = useShopStore()
+  const { shop, loaded, dialog, setShops, setLoaded, setDialog } =
+    useShopStore()
 
   const shopId = shop?.id
   const loadStock = useHomeStore((s) => s.loadStock)
+  const loadBills = useHomeStore((s) => s.loadBills)
   React.useEffect(() => {
-    if (shopId) loadStock(shopId)
-  }, [shopId, loadStock])
+    if (shopId) {
+      loadStock(shopId) // the saved inventory: the order slip and the bills read from it
+      loadBills(shopId)
+    }
+  }, [shopId, loadStock, loadBills])
 
   React.useEffect(() => {
     api
@@ -39,7 +47,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       {children}
       {loaded && !shop && <CreateShopDialog first />}
       {dialog === "add" && <CreateShopDialog onClose={() => setDialog(null)} />}
-      {dialog === "edit" && shop && <EditShopDialog shop={shop} onClose={() => setDialog(null)} />}
+      {dialog === "edit" && shop && (
+        <EditShopDialog shop={shop} onClose={() => setDialog(null)} />
+      )}
     </>
   )
 }

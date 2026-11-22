@@ -123,22 +123,12 @@ export function cancelRecording() {
   recorder = null
 }
 
-/** One item the shopkeeper asked for, with the items on the shop's own shelf that fit the amount. */
+/** One thing the shopkeeper asked for, with the ids of the shelf items that fit (the page fills in the rest from its saved inventory). */
 export type OrderItem = {
   query: string
   quantity: number | null
   unit: string | null
-  options: {
-    id: string
-    productId: string | null
-    name: string
-    brand: string | null
-    size: string | null
-    category: string | null
-    stock: number
-    unit: string | null
-    price: number
-  }[]
+  options: { id: string; productId: string | null }[]
 }
 
 /** Step 1: only the audio goes to the server. Deepgram writes the text and that text comes back to be checked. */

@@ -8,14 +8,20 @@ import {
   startRecording,
   stopRecording,
   transcribe,
-  type OrderItem,
 } from "@/lib/stt"
 import {
   readStockCache,
   useInventoryStore,
   writeStockCache,
 } from "@/store/inventory-store"
-import type { Customer, Invoice, StockItem } from "@/lib/types"
+import { billTotal, packsFor, readBills, writeBills } from "@/lib/bill"
+import type {
+  BillLine,
+  Customer,
+  Invoice,
+  OrderLine,
+  StockItem,
+} from "@/lib/types"
 
 export type Phase = "idle" | "listening" | "thinking" | "confirm"
 export type SheetKey = "bills" | "stock" | "khata" | null
@@ -27,8 +33,24 @@ type HomeState = {
   phase: Phase
   /** what the shopkeeper said, written down by the speech-to-text on the server */
   transcript: string
-  /** the items the order graph found, once the shopkeeper pressed Confirm */
-  order: OrderItem[] | null
+  /** what the order graph found (mapped onto the saved inventory), once the shopkeeper pressed Confirm */
+  order: OrderLine[] | null
+  /** choose which shelf item a line of the order means */
+  pickMatch: (query: string, index: number) => void
+  /** Done on the slip: the order becomes an open bill (not paid yet). Returns its number. */
+  saveOrderAsBill: () => number | null
+  /** the bill just made, so the home page can offer to open it */
+  savedBill: number | null
+  /** close the slip and forget the order */
+  dismiss: () => void
+  /** the shop whose bills are loaded */
+  billsShopId: string | null
+  loadBills: (shopId: string) => void
+  addBillItem: (billId: number, line: BillLine) => void
+  setBillQty: (billId: number, itemId: string, qty: number) => void
+  setBillWho: (billId: number, who: string) => void
+  setBillStatus: (billId: number, status: Invoice["status"]) => void
+  removeBill: (billId: number) => void
   /** Confirm was pressed and the graph is still working */
   finding: boolean
   orderError: string | null
@@ -101,6 +123,8 @@ export const useHomeStore = create<HomeState>((set, get) => ({
   sales: 0,
   bills: 0,
   invoices: [],
+  billsShopId: null,
+  savedBill: null,
   customers: [],
   stock: [],
   stockShopId: null,
@@ -253,6 +277,7 @@ export const useHomeStore = create<HomeState>((set, get) => ({
     if (phase !== "idle") return
     set({
       micError: null,
+      savedBill: null,
       transcript: "",
       order: null,
       orderError: null,
@@ -277,7 +302,31 @@ export const useHomeStore = create<HomeState>((set, get) => ({
     if (!shopId) return set({ orderError: "Pick a shop first" })
     set({ finding: true, orderError: null })
     try {
-      set({ order: await confirmOrder(shopId, transcript) })
+      const found = await confirmOrder(shopId, transcript)
+      // the graph only sends ids: everything else comes from the saved inventory
+      if (get().stockShopId !== shopId || !get().stock.length)
+        await get().loadStock(shopId)
+      const byId = new Map(get().stock.map((i) => [i.id, i]))
+      const byProduct = new Map(
+        get()
+          .stock.filter((i) => i.productId)
+          .map((i) => [i.productId!, i])
+      )
+      set({
+        order: found.map((f) => ({
+          query: f.query,
+          quantity: f.quantity,
+          unit: f.unit,
+          pick: 0,
+          matches: f.options
+            .map(
+              (o) =>
+                byId.get(o.id) ??
+                (o.productId ? byProduct.get(o.productId) : undefined)
+            )
+            .filter((i): i is StockItem => !!i),
+        })),
+      })
     } catch (error) {
       const aiDown = axios.isAxiosError(error) && error.response?.status === 503
       set({
@@ -294,6 +343,98 @@ export const useHomeStore = create<HomeState>((set, get) => ({
     cancelRecording()
     set({ phase: "idle" })
   },
+  dismiss: () => {
+    clearTimeout(timer)
+    cancelRecording()
+    set({ phase: "idle", order: null, orderError: null, transcript: "" })
+  },
+  pickMatch: (query, index) =>
+    set((s) => ({
+      order:
+        s.order?.map((l) => (l.query === query ? { ...l, pick: index } : l)) ??
+        null,
+    })),
+  saveOrderAsBill: () => {
+    const { order, invoices, billsShopId } = get()
+    const shopId = useShopStore.getState().shop?.id
+    if (!order || !shopId || billsShopId !== shopId) return null
+    const items: BillLine[] = order.flatMap((l) => {
+      const item = l.matches[l.pick]
+      if (!item) return []
+      return [
+        {
+          itemId: item.id,
+          name: item.name,
+          size: item.size ?? null,
+          qty: packsFor(l.quantity, l.unit, item.size),
+          price: item.price,
+        },
+      ]
+    })
+    if (!items.length) {
+      set({ orderError: "Nothing here is on your shelf yet" })
+      return null
+    }
+    const id = Math.max(0, ...invoices.map((i) => i.id)) + 1
+    const bill: Invoice = {
+      id,
+      who: "Walk-in",
+      amount: billTotal(items),
+      status: "Open",
+      createdAt: Date.now(),
+      items,
+    }
+    set({
+      invoices: [bill, ...invoices],
+      savedBill: id,
+      phase: "idle",
+      order: null,
+      orderError: null,
+      transcript: "",
+    })
+    return id
+  },
+  loadBills: (shopId) => {
+    if (get().billsShopId === shopId) return
+    set({ billsShopId: shopId, invoices: readBills(shopId) })
+  },
+  addBillItem: (billId, line) =>
+    set((s) => ({
+      invoices: s.invoices.map((b) => {
+        if (b.id !== billId || b.status !== "Open") return b
+        const has = b.items.some((l) => l.itemId === line.itemId)
+        const items = has
+          ? b.items.map((l) =>
+              l.itemId === line.itemId ? { ...l, qty: l.qty + line.qty } : l
+            )
+          : [...b.items, line]
+        return { ...b, items, amount: billTotal(items) }
+      }),
+    })),
+  setBillQty: (billId, itemId, qty) =>
+    set((s) => ({
+      invoices: s.invoices.map((b) => {
+        if (b.id !== billId || b.status !== "Open") return b
+        const items =
+          qty > 0
+            ? b.items.map((l) => (l.itemId === itemId ? { ...l, qty } : l))
+            : b.items.filter((l) => l.itemId !== itemId)
+        return { ...b, items, amount: billTotal(items) }
+      }),
+    })),
+  setBillWho: (billId, who) =>
+    set((s) => ({
+      invoices: s.invoices.map((b) => (b.id === billId ? { ...b, who } : b)),
+    })),
+  setBillStatus: (billId, status) =>
+    set((s) => ({
+      invoices: s.invoices.map((b) => (b.id === billId ? { ...b, status } : b)),
+    })),
+  removeBill: (billId) =>
+    set((s) => ({
+      invoices: s.invoices.filter((b) => b.id !== billId),
+      viewInvoice: s.viewInvoice === billId ? null : s.viewInvoice,
+    })),
 }))
 
 // ---- saving the + / - counts on the server ----
@@ -354,4 +495,14 @@ useHomeStore.subscribe((state, prev) => {
       syncedAt: state.stockSyncedAt,
       dirtyIds: state.dirtyIds,
     })
+})
+
+// Every bill change is saved for the shop that is on screen.
+useHomeStore.subscribe((state, prev) => {
+  if (
+    state.billsShopId &&
+    state.billsShopId === prev.billsShopId &&
+    state.invoices !== prev.invoices
+  )
+    writeBills(state.billsShopId, state.invoices)
 })

@@ -7,6 +7,7 @@ import { ArrowRight, Check, ChevronRight } from "lucide-react"
 import { BillRow } from "@/components/dashboard/bills/bills-page"
 import { PayForm, inr } from "@/components/dashboard/list-kit"
 import { CatChip } from "@/components/dashboard/stock/kit"
+import { daysAgo } from "@/lib/bill"
 import { useHomeStore } from "@/lib/home-store"
 import { cn } from "@/lib/utils"
 
@@ -32,12 +33,16 @@ export function BillsPanel() {
   const invoices = useHomeStore((s) => s.invoices)
   const setView = useHomeStore((s) => s.setViewInvoice)
   const setSheet = useHomeStore((s) => s.setSheet)
-  const today = invoices.filter((i) => i.daysAgo === 0)
+  const today = invoices.filter((i) => daysAgo(i.createdAt) === 0)
   const total = today.reduce((a, i) => a + i.amount, 0)
   return (
     <div>
-      <p className="text-xs text-muted-foreground">{today.length} bills today</p>
-      <p className="text-3xl leading-none font-extrabold tabular-nums">{inr(total)}</p>
+      <p className="text-xs text-muted-foreground">
+        {today.length} bills today
+      </p>
+      <p className="text-3xl leading-none font-extrabold tabular-nums">
+        {inr(total)}
+      </p>
       <ul className="mt-1">
         {invoices.slice(0, PREVIEW).map((i) => (
           <BillRow
@@ -51,7 +56,10 @@ export function BillsPanel() {
           />
         ))}
       </ul>
-      <ViewAll href="/dashboard/bills" label={`View all bills (${invoices.length.toLocaleString("en-IN")})`} />
+      <ViewAll
+        href="/dashboard/bills"
+        label={`View all bills (${invoices.length.toLocaleString("en-IN")})`}
+      />
     </div>
   )
 }
@@ -67,10 +75,17 @@ export function KhataPanel() {
 
   return (
     <div>
-      <p className="text-xs text-muted-foreground">{owing.length} customers owe you</p>
-      <p className="text-3xl leading-none font-extrabold tabular-nums">{inr(totalDue)}</p>
+      <p className="text-xs text-muted-foreground">
+        {owing.length} customers owe you
+      </p>
+      <p className="text-3xl leading-none font-extrabold tabular-nums">
+        {inr(totalDue)}
+      </p>
       {thanks && (
-        <p role="status" className="mt-2 flex items-center gap-2 rounded-xl bg-[#bfe8c4] px-3 py-2 text-sm font-semibold text-[#10301f]">
+        <p
+          role="status"
+          className="mt-2 flex items-center gap-2 rounded-xl bg-[#bfe8c4] px-3 py-2 text-sm font-semibold text-[#10301f]"
+        >
           <Check className="size-4 shrink-0" /> {thanks}
         </p>
       )}
@@ -87,12 +102,21 @@ export function KhataPanel() {
               className="flex w-full items-center justify-between py-3 text-left"
             >
               <span className="min-w-0">
-                <span className="block truncate text-[15px] font-semibold">{c.name}</span>
-                <span className="block text-xs text-muted-foreground">{c.days} days overdue</span>
+                <span className="block truncate text-[15px] font-semibold">
+                  {c.name}
+                </span>
+                <span className="block text-xs text-muted-foreground">
+                  {c.days} days overdue
+                </span>
               </span>
               <span className="flex shrink-0 items-center gap-1.5">
                 <span className="font-bold tabular-nums">{inr(c.due)}</span>
-                <ChevronRight className={cn("size-4 opacity-50 transition-transform", openId === c.id && "rotate-90")} />
+                <ChevronRight
+                  className={cn(
+                    "size-4 opacity-50 transition-transform",
+                    openId === c.id && "rotate-90"
+                  )}
+                />
               </span>
             </button>
             {openId === c.id && (
@@ -100,7 +124,9 @@ export function KhataPanel() {
                 due={c.due}
                 onSave={(amt, mode) => {
                   payDue(c.id, amt)
-                  setThanks(`${inr(amt)} from ${c.name} noted (${mode}). ${amt === c.due ? "All square." : "Rest still owed."}`)
+                  setThanks(
+                    `${inr(amt)} from ${c.name} noted (${mode}). ${amt === c.due ? "All square." : "Rest still owed."}`
+                  )
                   setOpenId(null)
                 }}
               />
@@ -108,7 +134,10 @@ export function KhataPanel() {
           </li>
         ))}
       </ul>
-      <ViewAll href="/dashboard/khata" label={`View all customers (${customers.length})`} />
+      <ViewAll
+        href="/dashboard/khata"
+        label={`View all customers (${customers.length})`}
+      />
     </div>
   )
 }
@@ -116,21 +145,35 @@ export function KhataPanel() {
 export function StockPanel() {
   const stock = useHomeStore((s) => s.stock)
   // two columns, so six fills the grid evenly
-  const lowest = [...stock].sort((a, b) => a.qty / a.max - b.qty / b.max).slice(0, 6)
+  const lowest = [...stock]
+    .sort((a, b) => a.qty / a.max - b.qty / b.max)
+    .slice(0, 6)
   return (
     <div>
       <ul className="grid grid-cols-2 gap-2">
         {lowest.map((i) => (
-          <li key={i.id} className="flex items-center gap-2.5 rounded-2xl bg-foreground/[0.06] p-2.5">
+          <li
+            key={i.id}
+            className="flex items-center gap-2.5 rounded-2xl bg-foreground/[0.06] p-2.5"
+          >
             <CatChip category={i.category} className="size-10" />
             <div className="min-w-0">
-              <p className="truncate text-sm leading-tight font-bold">{i.name}</p>
-              <p className="text-xs font-semibold text-signal">{i.qty === 0 ? "Out" : `${i.qty} ${i.qty === 1 ? i.unit.replace(/s$/, "") : i.unit} left`}</p>
+              <p className="truncate text-sm leading-tight font-bold">
+                {i.name}
+              </p>
+              <p className="text-xs font-semibold text-signal">
+                {i.qty === 0
+                  ? "Out"
+                  : `${i.qty} ${i.qty === 1 ? i.unit.replace(/s$/, "") : i.unit} left`}
+              </p>
             </div>
           </li>
         ))}
       </ul>
-      <ViewAll href="/dashboard/stock" label={`View all stock (${stock.length})`} />
+      <ViewAll
+        href="/dashboard/stock"
+        label={`View all stock (${stock.length})`}
+      />
     </div>
   )
 }
