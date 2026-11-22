@@ -9,6 +9,7 @@ import shopRoutes from './routes/shop.routes.js';
 import sttRoutes from './routes/stt.routes.js';
 import orderRoutes from './routes/order.routes.js';
 import productRoutes from './routes/product.routes.js';
+import inventoryRoutes from './routes/inventory.routes.js';
 
 
 const app = express();
@@ -27,6 +28,7 @@ app.use('/api/shops', shopRoutes);
 app.use('/api/stt', sttRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/products', productRoutes);
+app.use('/api/inventory', inventoryRoutes);
 
 
 const PORT = env.PORT;

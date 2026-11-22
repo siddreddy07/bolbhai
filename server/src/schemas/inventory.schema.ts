@@ -13,6 +13,12 @@ export const searchSchema = z.object({
   q: z.string().trim().min(2).max(60),
 });
 
+// Searching one shop's own inventory: which shop, and the words typed.
+export const inventorySearchSchema = z.object({
+  shopId: z.uuid(),
+  q: z.string().trim().min(2).max(60),
+});
+
 // The new counts after the shopkeeper pressed + and - (the page sends them together, a few seconds after the last press).
 export const updateStockSchema = z.object({
   items: z

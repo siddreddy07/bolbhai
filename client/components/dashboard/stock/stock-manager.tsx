@@ -16,7 +16,6 @@ import {
 
 import {
   ListScreen,
-  SearchBox,
   Segmented,
   Sentinel,
   useBatches,
@@ -36,6 +35,7 @@ import {
   isLow,
 } from "@/components/dashboard/stock/kit"
 import { Button } from "@/components/ui/button"
+import { SearchBox } from "@/components/ui/search-box"
 import {
   Drawer,
   DrawerContent,
@@ -471,6 +471,15 @@ function FilterPanel({
   )
 }
 
+/** one row of GET /api/inventory/search */
+type InventoryHit = {
+  id: string
+  name: string
+  brand: string | null
+  size: string | null
+  stock: number
+}
+
 /* ---------------------------------- the page ---------------------------------- */
 
 export function StockManager() {
@@ -651,9 +660,30 @@ export function StockManager() {
           <>
             <div className="flex gap-2">
               <div className="min-w-0 flex-1">
-                <SearchBox
+                {/* the box asks the server (this shop's inventory); the grid below follows the typed words */}
+                <SearchBox<InventoryHit>
+                  url="/api/inventory/search"
+                  params={{ shopId: stockShopId ?? undefined }}
+                  cacheKey={stock.length}
+                  logLabel="inventory search"
                   value={q}
-                  onChange={setQ}
+                  onValueChange={setQ}
+                  getKey={(i) => i.id}
+                  getLabel={(i) => i.name}
+                  getHint={(i) =>
+                    [i.size, `${byId.get(i.id)?.qty ?? i.stock} in stock`]
+                      .filter(Boolean)
+                      .join(" · ")
+                  }
+                  onSelect={(i) => {
+                    // show just this item, and highlight it
+                    setCats([])
+                    setStatus("all")
+                    setQ(i.name)
+                    setFlash(null)
+                    requestAnimationFrame(() => setFlash(i.id))
+                    scroller.current?.scrollTo({ top: 0 })
+                  }}
                   placeholder="Search an item"
                 />
               </div>
