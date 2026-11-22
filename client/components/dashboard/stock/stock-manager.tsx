@@ -4,7 +4,15 @@ import * as React from "react"
 import gsap from "gsap"
 import { useGSAP } from "@gsap/react"
 import { motion } from "motion/react"
-import { Camera, Minus, Plus, SlidersHorizontal, Trash2, X } from "lucide-react"
+import {
+  Camera,
+  Loader2,
+  Minus,
+  Plus,
+  SlidersHorizontal,
+  Trash2,
+  X,
+} from "lucide-react"
 
 import {
   ListScreen,
@@ -36,7 +44,7 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { useHomeStore } from "@/lib/home-store"
+import { syncStock, useHomeStore } from "@/lib/home-store"
 import type { CatId, StockItem } from "@/lib/mock-data"
 import { cn } from "@/lib/utils"
 
@@ -54,6 +62,7 @@ const SORTS: { id: Sort; name: string }[] = [
 
 function Stepper({ item }: { item: StockItem }) {
   const adjust = useHomeStore((s) => s.adjust)
+  const busy = useHomeStore((s) => !!s.deletingId)
   const num = React.useRef<HTMLSpanElement>(null)
   const prev = React.useRef(item.qty)
 
@@ -88,7 +97,7 @@ function Stepper({ item }: { item: StockItem }) {
       <button
         type="button"
         aria-label={`One less ${item.name}`}
-        disabled={item.qty === 0}
+        disabled={item.qty === 0 || busy}
         onClick={() => adjust(item.id, -1)}
         className={b}
       >
@@ -118,6 +127,8 @@ const RING = 2 * Math.PI * 21 // the length of the loading ring around the icon
 
 function Tile({ item, onEdit }: { item: StockItem; onEdit: () => void }) {
   const removeItem = useHomeStore((s) => s.removeItem)
+  const deleting = useHomeStore((s) => s.deletingId === item.id) // the server is deleting this one
+  const busy = useHomeStore((s) => !!s.deletingId) // some product is being deleted: nothing else works
   const [sure, setSure] = React.useState(false) // desktop: first tap asks "Remove?", second tap removes
   const [holding, setHolding] = React.useState(false) // phone, tablet: the ring is filling
   const askRef = React.useRef<HTMLDivElement>(null)
@@ -170,7 +181,11 @@ function Tile({ item, onEdit }: { item: StockItem; onEdit: () => void }) {
       // Phone and tablet: hold the card anywhere except the counter. The ring on the icon fills, then it is deleted.
       onTapStart={(event) => {
         const small = !window.matchMedia("(min-width: 1024px)").matches
-        if (!small || (event.target as HTMLElement).closest("[data-nohold]"))
+        if (
+          !small ||
+          busy ||
+          (event.target as HTMLElement).closest("[data-nohold]")
+        )
           return
         // 1) after HOLD_DELAY of holding, the ring starts and the text says "release to cancel"
         // 2) HOLD_SECONDS later, when the ring is full, the product is deleted
@@ -191,19 +206,26 @@ function Tile({ item, onEdit }: { item: StockItem; onEdit: () => void }) {
       onTap={stop} // let go early = cancelled
       onTapCancel={stop}
       onContextMenu={(e) => e.preventDefault()}
-      className="relative flex gap-3 rounded-xl border border-foreground/10 bg-card p-2.5 select-none [-webkit-touch-callout:none]"
+      className={cn(
+        "relative flex gap-3 rounded-xl border border-foreground/10 bg-card p-2.5 select-none [-webkit-touch-callout:none]",
+        deleting && "opacity-70"
+      )}
     >
       <button
         type="button"
         onClick={() => {
-          if (justDeleted.current) return
+          if (justDeleted.current || busy) return
           onEdit()
         }}
         aria-label={`Edit ${item.name}`}
         className="flex min-w-0 flex-1 items-start gap-2.5 text-left"
       >
         <span className="relative shrink-0">
-          {holding ? (
+          {deleting ? (
+            <span className="grid size-9 place-items-center rounded-lg bg-signal/15 text-signal">
+              <Loader2 className="size-[18px] animate-spin" />
+            </span>
+          ) : holding ? (
             <span className="grid size-9 place-items-center rounded-lg bg-signal/15 text-signal">
               <Trash2 className="size-[18px]" />
             </span>
@@ -253,7 +275,11 @@ function Tile({ item, onEdit }: { item: StockItem; onEdit: () => void }) {
           <span className="line-clamp-2 block text-[13px] leading-tight font-semibold break-words">
             {item.name}
           </span>
-          {holding ? (
+          {deleting ? (
+            <span className="mt-1.5 block text-xs leading-none font-bold text-signal">
+              Deleting…
+            </span>
+          ) : holding ? (
             <span className="mt-1.5 block text-xs leading-none font-bold text-signal">
               Release to cancel delete
             </span>
@@ -281,11 +307,22 @@ function Tile({ item, onEdit }: { item: StockItem; onEdit: () => void }) {
       {/* right column: the counter on top, and (desktop only) delete at the bottom */}
       <div className="flex shrink-0 flex-col items-end justify-center gap-1.5 lg:justify-between">
         <Stepper item={item} />
-        {sure ? (
+        {deleting ? (
+          <span
+            data-nohold
+            className="hidden size-7 place-items-center text-signal lg:grid"
+          >
+            <Loader2 className="size-4 animate-spin" />
+          </span>
+        ) : sure ? (
           <div data-nohold ref={askRef} className="flex items-center gap-1">
             <button
               type="button"
-              onClick={() => removeItem(item.id)}
+              disabled={busy}
+              onClick={() => {
+                setSure(false)
+                void removeItem(item.id)
+              }}
               className="flex h-7 items-center gap-1 rounded-full bg-signal px-2.5 text-xs font-bold text-white active:scale-95"
             >
               <Trash2 className="size-3.5" /> Remove?
@@ -304,8 +341,9 @@ function Tile({ item, onEdit }: { item: StockItem; onEdit: () => void }) {
             data-nohold
             type="button"
             aria-label={`Remove ${item.name}`}
+            disabled={busy}
             onClick={() => setSure(true)}
-            className="hidden size-7 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-signal/10 hover:text-signal active:scale-90 lg:grid"
+            className="hidden size-7 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-signal/10 hover:text-signal active:scale-90 disabled:opacity-40 lg:grid"
           >
             <Trash2 className="size-4" />
           </button>
@@ -413,8 +451,23 @@ export function StockManager() {
   const stock = useHomeStore((s) => s.stock)
   const saveItem = useHomeStore((s) => s.saveItem)
   const removeItem = useHomeStore((s) => s.removeItem)
+  const busy = useHomeStore((s) => !!s.deletingId)
   const stockShopId = useHomeStore((s) => s.stockShopId)
   const loadStock = useHomeStore((s) => s.loadStock)
+
+  // Leaving the stock page (or hiding the tab) sends the latest counts at once, without waiting for the 10 seconds.
+  React.useEffect(() => {
+    const hidden = () =>
+      document.visibilityState === "hidden" && void syncStock()
+    const closing = () => void syncStock()
+    document.addEventListener("visibilitychange", hidden)
+    window.addEventListener("pagehide", closing)
+    return () => {
+      document.removeEventListener("visibilitychange", hidden)
+      window.removeEventListener("pagehide", closing)
+      void syncStock()
+    }
+  }, [])
 
   const [q, setQ] = React.useState("")
   const [cats, setCats] = React.useState<CatId[]>([])
@@ -611,7 +664,12 @@ export function StockManager() {
           ref={scroller}
           className="mt-1 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 pb-28"
         >
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,19rem),1fr))] gap-1.5">
+          <div
+            className={cn(
+              "grid grid-cols-[repeat(auto-fill,minmax(min(100%,19rem),1fr))] gap-1.5",
+              busy && "pointer-events-none"
+            )}
+          >
             {shown.map((i) => (
               <Tile key={i.id} item={i} onEdit={() => setDraft(fromItem(i))} />
             ))}
@@ -643,8 +701,9 @@ export function StockManager() {
           <div className="flex gap-2">
             <button
               type="button"
+              disabled={busy}
               onClick={() => setPickerOpen(true)}
-              className="pointer-events-auto flex h-14 items-center gap-2 rounded-full bg-foreground px-7 text-base font-semibold text-background shadow-[0_16px_36px_-12px_rgb(0_0_0/0.6)] transition-transform active:scale-95"
+              className="pointer-events-auto flex h-14 items-center gap-2 rounded-full bg-foreground px-7 text-base font-semibold text-background shadow-[0_16px_36px_-12px_rgb(0_0_0/0.6)] transition-transform active:scale-95 disabled:opacity-50"
             >
               <Plus className="size-5" /> Add item
             </button>
