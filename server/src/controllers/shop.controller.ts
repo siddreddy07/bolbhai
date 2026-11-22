@@ -2,8 +2,8 @@ import type { Request, Response } from "express";
 import { z } from "zod";
 import { idSchema } from "../schemas/id.schema.js";
 import { shopSchema, updateShopSchema } from "../schemas/shop.schema.js";
-import { addInventorySchema } from "../schemas/inventory.schema.js";
-import { addToInventory, getInventory, removeFromInventory } from "../services/inventory.service.js";
+import { addInventorySchema, updateStockSchema } from "../schemas/inventory.schema.js";
+import { addToInventory, getInventory, removeFromInventory, updateStocks } from "../services/inventory.service.js";
 import { createShop, deleteShop, getShopById, getShops, gstinTaken, updateShop } from "../services/shop.service.js";
 
 export async function addShop(req: Request, res: Response) {
@@ -118,5 +118,20 @@ export async function removeInventory(req: Request, res: Response) {
   } catch (error) {
     console.error("Could not remove from inventory:", error);
     res.status(500).json({ message: "Could not remove the product" });
+  }
+}
+
+// PATCH /api/shops/:id/inventory   body = { items: [{ id, stock }] }   save the new counts
+export async function saveStock(req: Request, res: Response) {
+  try {
+    const id = idSchema.safeParse(req.params.id);
+    const body = updateStockSchema.safeParse(req.body);
+    if (!id.success || !body.success) return res.status(400).json({ message: "Invalid stock" });
+
+    if (!(await getShopById(id.data, req.user!.id))) return res.status(404).json({ message: "Shop not found" });
+    res.json({ saved: await updateStocks(id.data, body.data.items) });
+  } catch (error) {
+    console.error("Could not save stock:", error);
+    res.status(500).json({ message: "Could not save the stock" });
   }
 }

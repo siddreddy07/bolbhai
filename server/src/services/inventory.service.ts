@@ -66,3 +66,20 @@ export async function addToInventory(shopId: string, items: { productId: string;
 export async function removeFromInventory(shopId: string, itemId: string) {
   return inventory.where({ id: itemId, shopId }).delete();
 }
+
+// Saves many new stock counts in ONE statement. The shopId is part of the match, so a shop can only change its own rows.
+export async function updateStocks(shopId: string, items: { id: string; stock: number }[]) {
+  const plan = db.raw.sql`
+    WITH changed AS (
+      UPDATE shop_inventory i
+      SET stock = x.stock, "updatedAt" = now()
+      FROM jsonb_to_recordset(${JSON.stringify(items)}::jsonb) AS x(id uuid, stock numeric)
+      WHERE i.id = x.id AND i."shopId" = ${shopId}::uuid
+      RETURNING 1
+    )
+    SELECT count(*)::text AS changed FROM changed
+  `.returnsRow({ changed: "pg/text@1" }).build();
+
+  const [row] = await db.query(plan);
+  return Number(row?.changed ?? 0);
+}
