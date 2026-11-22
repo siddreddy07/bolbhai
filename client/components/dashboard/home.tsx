@@ -361,6 +361,10 @@ export function Home() {
     pickMatch,
     saveOrderAsBill,
     savedBill,
+    savingBill,
+    draftPayment,
+    draftPaymentType,
+    setDraftPayment,
     setViewInvoice,
   } = useHomeStore()
   const [pick, setPick] = React.useState<number | null>(null)
@@ -754,7 +758,7 @@ export function Home() {
               </span>
               <span className="block text-[11px] font-semibold opacity-70 sm:text-xs md:[@media(min-height:900px)]:text-sm">
                 {t.key === "bills"
-                  ? `${invoices.filter((i) => daysAgo(i.createdAt) === 0).length} today`
+                  ? `${invoices.filter((i) => daysAgo(i.date) === 0).length} today`
                   : t.key === "khata"
                     ? `${inr(customers.reduce((a, c) => a + c.due, 0))} due`
                     : `${stock.filter((i) => i.qty / i.max < 0.2).length} running low`}
@@ -875,6 +879,56 @@ export function Home() {
                   Tap Confirm to find the items.
                 </p>
               )}
+              {order?.length ? (
+                <div data-line className="mt-3 grid gap-1.5">
+                  <div
+                    role="radiogroup"
+                    aria-label="Payment"
+                    className="grid grid-cols-2 gap-1.5"
+                  >
+                    {(["PAID", "LEDGER"] as const).map((p) => (
+                      <button
+                        key={p}
+                        type="button"
+                        role="radio"
+                        aria-checked={draftPayment === p}
+                        onClick={() => setDraftPayment(p, draftPaymentType)}
+                        className={cn(
+                          "h-9 rounded-full border text-sm font-semibold transition-colors",
+                          draftPayment === p
+                            ? "border-[#10301f] bg-[#10301f] text-[#f8f8f3]"
+                            : "border-[#10301f]/25 hover:bg-[#10301f]/10"
+                        )}
+                      >
+                        {p === "PAID" ? "Paid" : "Not paid"}
+                      </button>
+                    ))}
+                  </div>
+                  <div
+                    role="radiogroup"
+                    aria-label="Payment type"
+                    className="grid grid-cols-2 gap-1.5"
+                  >
+                    {(["CASH", "UPI"] as const).map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        role="radio"
+                        aria-checked={draftPaymentType === t}
+                        onClick={() => setDraftPayment(draftPayment, t)}
+                        className={cn(
+                          "h-9 rounded-full border text-sm font-semibold transition-colors",
+                          draftPaymentType === t
+                            ? "border-[#10301f] bg-[#10301f] text-[#f8f8f3]"
+                            : "border-[#10301f]/25 hover:bg-[#10301f]/10"
+                        )}
+                      >
+                        {t === "CASH" ? "Cash" : "UPI"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
               {orderError && (
                 <p className="mt-2 text-sm font-semibold text-signal">
                   {orderError}
@@ -888,13 +942,20 @@ export function Home() {
                 onClick={order ? () => saveOrderAsBill() : findItems}
                 disabled={
                   finding ||
+                  savingBill ||
                   (!order && !transcript.trim()) ||
                   (!!order && !order.some((l) => l.matches.length))
                 }
                 className="h-12 rounded-full text-base"
               >
                 <Check className="size-5" />{" "}
-                {finding ? "Finding items…" : order ? "Done" : "Confirm"}
+                {finding
+                  ? "Finding items…"
+                  : savingBill
+                    ? "Saving…"
+                    : order
+                      ? "Done"
+                      : "Confirm"}
               </Button>
               <Button
                 onClick={dismiss}
