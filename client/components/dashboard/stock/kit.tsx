@@ -2,7 +2,7 @@
 
 import { Apple, Droplets, Egg, Milk, Package, Soup, Wheat, Cookie, CupSoda, type LucideIcon } from "lucide-react"
 
-import type { CatId, StockItem } from "@/lib/mock-data"
+import type { CatId, StockItem } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 /**

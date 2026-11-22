@@ -8,7 +8,7 @@ import { inr } from "@/components/dashboard/list-kit"
 import { Button } from "@/components/ui/button"
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer"
 import { useHomeStore } from "@/lib/home-store"
-import type { Invoice } from "@/lib/mock-data"
+import type { Invoice } from "@/lib/types"
 import { useShopStore } from "@/store/shop-store"
 
 const POOL = ["Rice 25 kg", "Toor dal 1 kg", "Sugar 5 kg", "Sunflower oil 1 L", "Atta 10 kg", "Tea 500 g", "Salt 1 kg", "Biscuits 500 g", "Chilli powder 1 kg", "Soap 100 g", "Ghee 500 g", "Moong dal 1 kg"]

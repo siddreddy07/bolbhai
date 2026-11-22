@@ -45,7 +45,7 @@ import {
 } from "@/components/ui/drawer"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { syncStock, useHomeStore } from "@/lib/home-store"
-import type { CatId, StockItem } from "@/lib/mock-data"
+import type { CatId, StockItem } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 type Status = "all" | "low" | "out"

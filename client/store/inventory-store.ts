@@ -1,7 +1,7 @@
 import { create } from "zustand"
 
 import { api } from "@/lib/proxy"
-import type { CatId, StockItem } from "@/lib/mock-data"
+import type { CatId, StockItem } from "@/lib/types"
 
 /** A catalog product the shopkeeper can pick (from GET /api/products/search). */
 export type CatalogProduct = {

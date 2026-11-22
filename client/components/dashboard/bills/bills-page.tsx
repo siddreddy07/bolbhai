@@ -8,7 +8,7 @@ import { ChevronRight } from "lucide-react"
 import { InvoiceDrawer } from "@/components/dashboard/bills/invoice-slip"
 import { Chips, ListScreen, SearchBox, Segmented, Sentinel, inr, useBatches } from "@/components/dashboard/list-kit"
 import { useHomeStore } from "@/lib/home-store"
-import type { Invoice } from "@/lib/mock-data"
+import type { Invoice } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 type Range = "today" | "week" | "month" | "year"

@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import type { CatId, StockItem } from "@/lib/mock-data"
+import type { CatId, StockItem } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 export type Draft = {
