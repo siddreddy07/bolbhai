@@ -23,7 +23,9 @@ export const CATS: { id: CatId; name: string; group: string; icon: LucideIcon; t
 export const CAT = Object.fromEntries(CATS.map((c) => [c.id, c])) as Record<CatId, (typeof CATS)[number]>
 export const UNITS = ["bags", "kg", "L", "packs", "pcs", "boxes", "tins"]
 
-export const isLow = (i: Pick<StockItem, "qty" | "max">) => i.qty / i.max < 0.2
+/** fewer than 5 left (0 is "Out", 1 to 4 is "Out soon") */
+export const LOW_AT = 5
+export const isLow = (i: Pick<StockItem, "qty">) => i.qty < LOW_AT
 export const inr = (n: number) => "₹" + Math.round(n).toLocaleString("en-IN")
 
 /** Small coloured chip with the category icon (no pictures). */

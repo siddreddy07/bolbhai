@@ -776,7 +776,7 @@ export function Home() {
                   ? `${invoices.filter((i) => daysAgo(i.date) === 0).length} today`
                   : t.key === "khata"
                     ? `${inr(owed)} due`
-                    : `${stock.filter((i) => i.qty / i.max < 0.2).length} running low`}
+                    : `${stock.filter((i) => i.qty < 5).length} out soon`}
               </span>
             </span>
           </button>

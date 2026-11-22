@@ -125,7 +125,7 @@ export function StockPanel() {
   const stock = useHomeStore((s) => s.stock)
   // two columns, so six fills the grid evenly
   const lowest = [...stock]
-    .sort((a, b) => a.qty / a.max - b.qty / b.max)
+    .sort((a, b) => a.qty - b.qty)
     .slice(0, 6)
   return (
     <div>
@@ -140,10 +140,14 @@ export function StockPanel() {
               <p className="truncate text-sm leading-tight font-bold">
                 {i.name}
               </p>
-              <p className="text-xs font-semibold text-signal">
+              <p
+                className={`text-xs font-semibold ${i.qty < 5 ? "text-red-500" : "text-foreground/60"}`}
+              >
                 {i.qty === 0
                   ? "Out"
-                  : `${i.qty} ${i.qty === 1 ? i.unit.replace(/s$/, "") : i.unit} left`}
+                  : i.qty < 5
+                    ? `Out soon · ${i.qty} left`
+                    : `${i.qty} ${i.unit} left`}
               </p>
             </div>
           </li>

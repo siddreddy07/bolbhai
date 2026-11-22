@@ -320,8 +320,8 @@ function Tile({ item, onEdit }: { item: StockItem; onEdit: () => void }) {
               )}
               <span className="font-bold tabular-nums">{inr(item.price)}</span>
               {(out || low) && (
-                <span className="font-bold text-signal">
-                  {out ? "Out" : "Low"}
+                <span className="font-bold text-red-500">
+                  {out ? "Out" : "Out soon"}
                 </span>
               )}
             </span>
@@ -540,7 +540,7 @@ export function StockManager() {
     if (sort === "az") l.sort((a, b) => a.name.localeCompare(b.name))
     else if (sort === "most") l.sort((a, b) => b.qty - a.qty)
     else if (sort === "new") l.sort((a, b) => b.added - a.added)
-    else l.sort((a, b) => a.qty / a.max - b.qty / b.max)
+    else l.sort((a, b) => a.qty - b.qty)
     return l
   }, [base, cats, sort])
 
