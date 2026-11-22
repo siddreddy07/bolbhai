@@ -2,7 +2,7 @@ import axios from "axios"
 import { create } from "zustand"
 
 import { cancelRecording, confirmOrder, startRecording, stopRecording, transcribe, type OrderItem } from "@/lib/stt"
-import { loadShopStock, saveShopStock } from "@/lib/shop-stock"
+import { readStockCache, useInventoryStore, writeStockCache } from "@/store/inventory-store"
 import { makeCustomers, makeInvoices, type Customer, type Invoice, type StockItem } from "@/lib/mock-data"
 
 export type Phase = "idle" | "listening" | "thinking" | "confirm" | "done"
@@ -38,9 +38,11 @@ type HomeState = {
   invoices: Invoice[]
   customers: Customer[]
   stock: StockItem[]
-  /** the shop whose stock is loaded (stock lives in localStorage, per shop) */
+  /** the shop whose stock is loaded */
   stockShopId: string | null
-  loadStock: (shopId: string) => void
+  stockLoading: boolean
+  /** Opens a shop's stock. It comes from localStorage if it is there; refresh = true asks the server again. */
+  loadStock: (shopId: string, refresh?: boolean) => Promise<void>
   /** stock came in by hand (no voice needed) */
   addStock: (id: string, qty: number) => void
   /** stock manager: type it, or snap a photo, both end up here */
@@ -83,7 +85,27 @@ export const useHomeStore = create<HomeState>((set, get) => ({
   customers: makeCustomers(),
   stock: [],
   stockShopId: null,
-  loadStock: (shopId) => set({ stockShopId: shopId, stock: loadShopStock(shopId) }),
+  stockLoading: false,
+  // the stock page: the saved copy if there is one, else ask the server for everything this shop sells
+  loadStock: async (shopId, refresh = false) => {
+    const saved = readStockCache(shopId)
+    if (saved && !refresh) {
+      set({ stockShopId: shopId, stock: saved, stockLoading: false }) // no route hit
+      return
+    }
+    set({ stockShopId: shopId, stock: refresh && saved ? saved : [], stockLoading: true })
+    try {
+      const fresh = await useInventoryStore.getState().fetchStock(shopId)
+      // the counts changed with + / - only exist here, so they win over the server's
+      const counts = new Map((saved ?? []).map((i) => [i.id, i.qty]))
+      const stock = fresh.map((i) => (counts.has(i.id) ? { ...i, qty: counts.get(i.id)! } : i))
+      if (get().stockShopId === shopId) set({ stock }) // ignore it if the shopkeeper switched shops meanwhile
+    } catch {
+      // the page just shows no products
+    } finally {
+      if (get().stockShopId === shopId) set({ stockLoading: false })
+    }
+  },
   adjust: (id, delta) => set((s) => ({ stock: s.stock.map((i) => (i.id === id ? { ...i, qty: Math.max(0, i.qty + delta) } : i)) })),
   saveItem: (item) => {
     const id = item.id ?? `n${Date.now()}`
@@ -95,7 +117,13 @@ export const useHomeStore = create<HomeState>((set, get) => ({
     })
     return id
   },
-  removeItem: (id) => set((s) => ({ stock: s.stock.filter((i) => i.id !== id) })),
+  // gone from the screen at once, then from the database; if that fails the list is loaded again
+  removeItem: (id) => {
+    const shopId = get().stockShopId
+    set((s) => ({ stock: s.stock.filter((i) => i.id !== id) }))
+    if (!shopId) return
+    useInventoryStore.getState().removeProduct(shopId, id).catch(() => void get().loadStock(shopId, true))
+  },
   addStock: (id, qty) => set((s) => ({ stock: s.stock.map((i) => (i.id === id ? { ...i, qty: i.qty + qty } : i)) })),
   payDue: (id, amount) =>
     set((s) => ({
@@ -164,7 +192,7 @@ export const useHomeStore = create<HomeState>((set, get) => ({
   },
 }))
 
-// Every stock change is saved for the shop that is on screen.
+// Every stock change (+ / -, add, delete) is saved for the shop that is on screen.
 useHomeStore.subscribe((state, prev) => {
-  if (state.stockShopId && state.stockShopId === prev.stockShopId && state.stock !== prev.stock) saveShopStock(state.stockShopId, state.stock)
+  if (state.stockShopId && state.stockShopId === prev.stockShopId && state.stock !== prev.stock) writeStockCache(state.stockShopId, state.stock)
 })

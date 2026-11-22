@@ -6,9 +6,13 @@ export type Customer = { id: string; name: string; due: number; days: number }
 export type CatId = "cereals" | "dairy" | "drinks" | "snacks" | "cooking" | "fruits" | "meals" | "meat" | "other"
 export type StockItem = {
   id: string
+  /** the catalog product this is (null or missing for a shop's own item) */
+  productId?: string | null
   name: string
   category: CatId
   unit: string
+  /** the pack, like "1kg" or "500g" (empty for a shop's own item) */
+  size?: string | null
   qty: number
   /** what a full shelf looks like (drives the low-stock alert) */
   max: number
