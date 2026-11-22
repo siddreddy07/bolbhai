@@ -67,3 +67,35 @@ export function lineInfo(line: BillLine, stock: StockItem[]): LineInfo {
 
 export const invoiceTotal = (inv: Invoice, stock: StockItem[]) =>
   inv.items.reduce((sum, l) => sum + l.quantity * lineInfo(l, stock).price, 0)
+
+/** One unpaid bill as the khata shows it. */
+export type KhataBill = {
+  id: string
+  date: number
+  itemCount: number
+  total: number
+  items: LineInfo[]
+}
+
+/**
+ * The khata is NOT fetched: it is every bill that is not paid, worked out from the bills the page already loaded
+ * (and the saved inventory for names and prices). Newest first. So marking a bill paid or not paid changes it on the spot,
+ * with no request of its own.
+ */
+export function khataOf(invoices: Invoice[], stock: StockItem[]) {
+  const bills: KhataBill[] = invoices
+    .filter((i) => !isPaid(i))
+    .map((i) => ({
+      id: i.id,
+      date: i.date,
+      itemCount: i.items.reduce((n, l) => n + l.quantity, 0),
+      total: invoiceTotal(i, stock),
+      items: i.items.map((l) => lineInfo(l, stock)),
+    }))
+    .sort((a, b) => b.date - a.date)
+  return {
+    bills,
+    count: bills.length,
+    totalDue: bills.reduce((n, b) => n + b.total, 0),
+  }
+}
