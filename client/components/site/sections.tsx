@@ -11,6 +11,7 @@ import { StepsStage } from "@/components/site/steps-stage"
 import { FeatureCarousel, type CarouselItem } from "@/components/ui/feature-carousel"
 import { JOB_SAY, LANGS, langClass, useLang, type Lang } from "@/lib/lang"
 import { cn } from "@/lib/utils"
+import { useUserStore } from "@/store/user-store"
 
 const wrap = "mx-auto w-full max-w-[1120px] px-5 sm:px-8"
 
@@ -378,6 +379,7 @@ export function Faq() {
 /* ------------------------------------- CTA ------------------------------------ */
 
 export function Cta() {
+  const user = useUserStore((s) => s.user)
   return (
     <section id="cta" className="relative mx-2 mt-2 flex items-center overflow-hidden rounded-[1.5rem] bg-sky py-10 sm:mx-3 sm:mt-3 sm:rounded-[2rem] sm:py-14 lg:py-24">
       <div aria-hidden="true" className="grain pointer-events-none absolute inset-0" />
@@ -388,10 +390,10 @@ export function Cta() {
         </h2>
         <div className="flex w-full gap-2.5 lg:w-auto lg:gap-3">
           <Link
-            href="/get-started"
+            href={user ? "/dashboard" : "/get-started"}
             className="inline-flex h-11 flex-1 items-center justify-center rounded-full bg-foreground px-5 text-sm sm:text-base font-semibold text-background transition-all hover:-translate-y-px hover:shadow-xl active:scale-[.97] lg:h-14 lg:flex-none lg:px-8 lg:text-lg"
           >
-            Start free
+            {user ? "Go to shop" : "Start free"}
           </Link>
           <a
             href="#try"

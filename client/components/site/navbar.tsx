@@ -10,6 +10,7 @@ import { useTheme } from "next-themes"
 import { Logo } from "@/components/site/doodles"
 import { LANGS, langClass, useLang } from "@/lib/lang"
 import { cn } from "@/lib/utils"
+import { useUserStore } from "@/store/user-store"
 
 const LINKS = [
   { href: "#try", label: "Try it" },
@@ -133,6 +134,7 @@ function LangRow() {
 }
 
 export function Navbar() {
+  const user = useUserStore((s) => s.user) // set once /api/users/me answers
   const [open, setOpen] = React.useState(false)
   const [scrolled, setScrolled] = React.useState(false)
   const root = React.useRef<HTMLDivElement>(null)
@@ -254,10 +256,10 @@ export function Navbar() {
               <ThemeToggle />
             </div>
             <Link
-              href="/get-started"
+              href={user ? "/dashboard" : "/get-started"}
               className="hidden h-9 items-center rounded-full bg-foreground px-4 text-sm font-semibold whitespace-nowrap text-background transition-all hover:-translate-y-px hover:shadow-lg active:translate-y-0 active:scale-[.97] sm:inline-flex lg:h-11 lg:px-5 lg:text-[15px]"
             >
-              Start free
+              {user ? "Go to shop" : "Start free"}
             </Link>
             <button
               type="button"
@@ -303,11 +305,11 @@ export function Navbar() {
           </div>
           <div data-foot className="flex items-center gap-2">
             <Link
-              href="/get-started"
+              href={user ? "/dashboard" : "/get-started"}
               onClick={() => setOpen(false)}
               className="inline-flex h-10 flex-1 items-center justify-center rounded-full bg-foreground text-sm font-semibold text-background sm:hidden"
             >
-              Start free
+              {user ? "Go to shop" : "Start free"}
             </Link>
             <ThemeToggle className="size-10 shrink-0 border border-foreground/15" />
           </div>
