@@ -1,0 +1,344 @@
+[
+  {
+    "id": "dropTable.items",
+    "label": "Drop table \"items\"",
+    "operationClass": "destructive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "items"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"items\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"items\""
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "table \"items\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "drop table \"items\"",
+        "sql": "DROP TABLE \"public\".\"items\""
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"items\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"items\""
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "table \"items\""
+        }
+      }
+    ]
+  },
+  {
+    "id": "table.shop_inventory",
+    "label": "Create table \"shop_inventory\"",
+    "summary": "Creates table \"shop_inventory\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "shop_inventory"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"shop_inventory\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"shop_inventory\""
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "table \"shop_inventory\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"shop_inventory\"",
+        "sql": "CREATE TABLE \"public\".\"shop_inventory\" (\n  \"createdAt\" timestamptz(3) DEFAULT (now()) NOT NULL,\n  \"customName\" text,\n  \"id\" uuid NOT NULL,\n  \"productId\" uuid,\n  \"sellingPrice\" numeric NOT NULL,\n  \"shopId\" uuid NOT NULL,\n  \"stock\" numeric DEFAULT '0'::numeric NOT NULL,\n  \"unit\" text,\n  \"updatedAt\" timestamptz(3) NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"shop_inventory\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3))) AS \"result\"",
+        "params": [
+          "\"public\".\"shop_inventory\"",
+          "r",
+          "p"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "table \"shop_inventory\""
+        }
+      }
+    ]
+  },
+  {
+    "id": "unique.shop_inventory.shop_inventory_shopId_productId_key",
+    "label": "Add unique constraint on \"shop_inventory\" (shopId, productId)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "shop_inventory_shopId_productId_key",
+        "table": "shop_inventory"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"shop_inventory_shopId_productId_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "shop_inventory_shopId_productId_key",
+          "public",
+          "\"public\".\"shop_inventory\""
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "constraint \"shop_inventory_shopId_productId_key\" on \"shop_inventory\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"shop_inventory_shopId_productId_key\"",
+        "sql": "ALTER TABLE \"public\".\"shop_inventory\" ADD CONSTRAINT \"shop_inventory_shopId_productId_key\" UNIQUE (\"shopId\", \"productId\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify unique constraint \"shop_inventory_shopId_productId_key\" exists on (shopId, productId)",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3) AND \"c\".\"contype\" = $4 AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"c\".\"conkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"c\".\"conrelid\" AND key_attribute.attnum = key_column.attnum) = ($5)::jsonb)) AS \"result\"",
+        "params": [
+          "shop_inventory_shopId_productId_key",
+          "public",
+          "\"public\".\"shop_inventory\"",
+          "u",
+          "[\"shopId\",\"productId\"]"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.shop_inventory.shop_inventory_productId_idx_5858600a",
+    "label": "Create index \"shop_inventory_productId_idx_5858600a\" on \"shop_inventory\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "shop_inventory_productId_idx_5858600a",
+        "table": "shop_inventory"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"shop_inventory_productId_idx_5858600a\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"shop_inventory_productId_idx_5858600a\""
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "index \"shop_inventory_productId_idx_5858600a\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"shop_inventory_productId_idx_5858600a\"",
+        "sql": "CREATE INDEX \"shop_inventory_productId_idx_5858600a\" ON \"public\".\"shop_inventory\" (\"productId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"shop_inventory_productId_idx_5858600a\" exists on \"shop_inventory\" with the planned definition",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_index\" AS \"i\" ON \"i\".\"indexrelid\" = \"c\".\"oid\" INNER JOIN \"pg_am\" AS \"m\" ON \"m\".\"oid\" = \"c\".\"relam\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3) AND \"i\".\"indrelid\" = to_regclass($4) AND NOT (\"i\".\"indisunique\") AND \"m\".\"amname\" = $5 AND (\"i\".\"indexprs\" IS NULL AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"i\".\"indkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"i\".\"indrelid\" AND key_attribute.attnum = key_column.attnum) = ($6)::jsonb) AND \"i\".\"indpred\" IS NULL)) AS \"result\"",
+        "params": [
+          "\"public\".\"shop_inventory_productId_idx_5858600a\"",
+          "i",
+          "I",
+          "\"public\".\"shop_inventory\"",
+          "btree",
+          "[\"productId\"]"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.shop_inventory.shop_inventory_shopId_idx_e9207c6b",
+    "label": "Create index \"shop_inventory_shopId_idx_e9207c6b\" on \"shop_inventory\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "shop_inventory_shopId_idx_e9207c6b",
+        "table": "shop_inventory"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"shop_inventory_shopId_idx_e9207c6b\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"shop_inventory_shopId_idx_e9207c6b\""
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "index \"shop_inventory_shopId_idx_e9207c6b\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"shop_inventory_shopId_idx_e9207c6b\"",
+        "sql": "CREATE INDEX \"shop_inventory_shopId_idx_e9207c6b\" ON \"public\".\"shop_inventory\" (\"shopId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"shop_inventory_shopId_idx_e9207c6b\" exists on \"shop_inventory\" with the planned definition",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_index\" AS \"i\" ON \"i\".\"indexrelid\" = \"c\".\"oid\" INNER JOIN \"pg_am\" AS \"m\" ON \"m\".\"oid\" = \"c\".\"relam\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3) AND \"i\".\"indrelid\" = to_regclass($4) AND NOT (\"i\".\"indisunique\") AND \"m\".\"amname\" = $5 AND (\"i\".\"indexprs\" IS NULL AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"i\".\"indkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"i\".\"indrelid\" AND key_attribute.attnum = key_column.attnum) = ($6)::jsonb) AND \"i\".\"indpred\" IS NULL)) AS \"result\"",
+        "params": [
+          "\"public\".\"shop_inventory_shopId_idx_e9207c6b\"",
+          "i",
+          "I",
+          "\"public\".\"shop_inventory\"",
+          "btree",
+          "[\"shopId\"]"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.shop_inventory.shop_inventory_shopId_fkey",
+    "label": "Add foreign key \"shop_inventory_shopId_fkey\" on \"shop_inventory\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "shop_inventory_shopId_fkey",
+        "table": "shop_inventory"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"shop_inventory_shopId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "shop_inventory_shopId_fkey",
+          "public",
+          "\"public\".\"shop_inventory\""
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "FK \"shop_inventory_shopId_fkey\" on \"shop_inventory\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"shop_inventory_shopId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"shop_inventory\"\nADD CONSTRAINT \"shop_inventory_shopId_fkey\"\nFOREIGN KEY (\"shopId\")\nREFERENCES \"public\".\"shops\" (\"id\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"shop_inventory_shopId_fkey\" exists with the planned columns, referenced table and actions",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3) AND \"c\".\"contype\" = $4 AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"c\".\"conkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"c\".\"conrelid\" AND key_attribute.attnum = key_column.attnum) = ($5)::jsonb AND \"c\".\"confrelid\" = to_regclass($6) AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"c\".\"confkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"c\".\"confrelid\" AND key_attribute.attnum = key_column.attnum) = ($7)::jsonb AND \"c\".\"confdeltype\" = $8 AND \"c\".\"confupdtype\" = $9)) AS \"result\"",
+        "params": [
+          "shop_inventory_shopId_fkey",
+          "public",
+          "\"public\".\"shop_inventory\"",
+          "f",
+          "[\"shopId\"]",
+          "\"public\".\"shops\"",
+          "[\"id\"]",
+          "a",
+          "a"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.shop_inventory.shop_inventory_productId_fkey",
+    "label": "Add foreign key \"shop_inventory_productId_fkey\" on \"shop_inventory\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "shop_inventory_productId_fkey",
+        "table": "shop_inventory"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"shop_inventory_productId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "shop_inventory_productId_fkey",
+          "public",
+          "\"public\".\"shop_inventory\""
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "FK \"shop_inventory_productId_fkey\" on \"shop_inventory\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"shop_inventory_productId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"shop_inventory\"\nADD CONSTRAINT \"shop_inventory_productId_fkey\"\nFOREIGN KEY (\"productId\")\nREFERENCES \"public\".\"products\" (\"id\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"shop_inventory_productId_fkey\" exists with the planned columns, referenced table and actions",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3) AND \"c\".\"contype\" = $4 AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"c\".\"conkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"c\".\"conrelid\" AND key_attribute.attnum = key_column.attnum) = ($5)::jsonb AND \"c\".\"confrelid\" = to_regclass($6) AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"c\".\"confkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"c\".\"confrelid\" AND key_attribute.attnum = key_column.attnum) = ($7)::jsonb AND \"c\".\"confdeltype\" = $8 AND \"c\".\"confupdtype\" = $9)) AS \"result\"",
+        "params": [
+          "shop_inventory_productId_fkey",
+          "public",
+          "\"public\".\"shop_inventory\"",
+          "f",
+          "[\"productId\"]",
+          "\"public\".\"products\"",
+          "[\"id\"]",
+          "a",
+          "a"
+        ]
+      }
+    ]
+  }
+]

@@ -22,21 +22,28 @@ model shops {
   gstin     String             @unique
   owner     users              @relation(fields: [ownerId], references: [id])
   ownerId   Uuid
-  items     items[]
+  inventory shop_inventory[]
   createdAt DateTime           @default(now()) @onCreate(now())
   updatedAt temporal.UpdatedAt
 }
 
-model items {
-  id        Uuid               @id @onCreate(uuid())
-  name      String
-  unit      String?
-  price     Decimal
-  stock     Int                @default(0)
-  shop      shops              @relation(fields: [shopId], references: [id])
-  shopId    Uuid
-  createdAt DateTime           @default(now()) @onCreate(now())
-  updatedAt temporal.UpdatedAt
+// What one shop sells: a catalog product (productId) or its own item (customName), with the shop's price and stock.
+model shop_inventory {
+  id           Uuid               @id @onCreate(uuid())
+  shop         shops              @relation(fields: [shopId], references: [id])
+  shopId       Uuid
+  product      products?          @relation(fields: [productId], references: [id])
+  productId    Uuid?
+  // For products that are not in the shared catalog
+  customName   String?
+  // Shop-specific values
+  sellingPrice Decimal
+  stock        Decimal            @default(0)
+  unit         String?
+  createdAt    DateTime           @default(now()) @onCreate(now())
+  updatedAt    temporal.UpdatedAt
+
+  @@unique([shopId, productId])
 }
 
 // Shared product catalog (barcode, name, pack size). Shops add their own price and stock elsewhere.
@@ -49,6 +56,10 @@ model products {
   unit        String?
   category    String?
   subcategory String?
+  // Rough shelf price in whole rupees, in steps of 100. Filled by `npm run db:price`.
+  currency    String             @default("INR")
+  cost        Int?
+  inventory   shop_inventory[]
   createdAt   DateTime           @default(now()) @onCreate(now())
   updatedAt   temporal.UpdatedAt
 }

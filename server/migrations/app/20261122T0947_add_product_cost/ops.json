@@ -1,0 +1,132 @@
+[
+  {
+    "id": "column.public.products.cost",
+    "label": "Add column \"cost\" to \"products\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "cost",
+        "table": "products"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"cost\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "products",
+          "cost"
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "column \"cost\" on \"products\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"cost\"",
+        "sql": "ALTER TABLE \"public\".\"products\" ADD COLUMN \"cost\" int4"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"cost\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "products",
+          "cost"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "column \"cost\" on \"products\""
+        }
+      },
+      {
+        "description": "verify column \"cost\" has type \"integer\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_attribute\" AS \"a\" INNER JOIN \"pg_class\" AS \"c\" ON \"c\".\"oid\" = \"a\".\"attrelid\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"relnamespace\" WHERE (\"n\".\"nspname\" = $1 AND \"c\".\"relname\" = $2 AND \"a\".\"attname\" = $3 AND (format_type(\"a\".\"atttypid\", \"a\".\"atttypmod\")) = $4 AND NOT (\"a\".\"attisdropped\"))) AS \"result\"",
+        "params": [
+          "public",
+          "products",
+          "cost",
+          "integer"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.products.currency",
+    "label": "Add column \"currency\" to \"products\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "currency",
+        "table": "products"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"currency\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "products",
+          "currency"
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "column \"currency\" on \"products\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"currency\"",
+        "sql": "ALTER TABLE \"public\".\"products\" ADD COLUMN \"currency\" text DEFAULT 'INR' NOT NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"currency\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "products",
+          "currency"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "column \"currency\" on \"products\""
+        }
+      },
+      {
+        "description": "verify column \"currency\" has type \"text\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_attribute\" AS \"a\" INNER JOIN \"pg_class\" AS \"c\" ON \"c\".\"oid\" = \"a\".\"attrelid\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"relnamespace\" WHERE (\"n\".\"nspname\" = $1 AND \"c\".\"relname\" = $2 AND \"a\".\"attname\" = $3 AND (format_type(\"a\".\"atttypid\", \"a\".\"atttypmod\")) = $4 AND NOT (\"a\".\"attisdropped\"))) AS \"result\"",
+        "params": [
+          "public",
+          "products",
+          "currency",
+          "text"
+        ]
+      },
+      {
+        "description": "verify column \"currency\" is NOT NULL",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3 AND \"is_nullable\" = $4)) AS \"result\"",
+        "params": [
+          "public",
+          "products",
+          "currency",
+          "NO"
+        ]
+      }
+    ]
+  }
+]

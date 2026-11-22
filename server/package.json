@@ -13,6 +13,7 @@
     "db:plan": "prisma migration plan",
     "db:migrate": "prisma db migrate --advance-ref db",
     "db:seed": "tsx --env-file=.env src/seed/products.seed.ts",
+    "db:price": "tsx --env-file=.env src/seed/prices.ts",
     "db:categorize": "tsx --env-file=.env src/seed/categorize.ts",
     "ai:test": "tsx --env-file=.env src/ai/test.ts"
   },
