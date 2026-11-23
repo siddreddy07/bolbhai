@@ -8,6 +8,10 @@
       "model": "customer_transactions",
       "namespace": "public"
     },
+    "customers": {
+      "model": "customers",
+      "namespace": "public"
+    },
     "invoices": {
       "model": "invoices",
       "namespace": "public"
@@ -147,6 +151,22 @@
               }
             },
             "relations": {
+              "customer": {
+                "cardinality": "N:1",
+                "nullable": true,
+                "on": {
+                  "localFields": [
+                    "customerId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "customers",
+                  "namespace": "public"
+                }
+              },
               "invoice": {
                 "cardinality": "N:1",
                 "nullable": false,
@@ -214,8 +234,139 @@
               "table": "customer_transactions"
             }
           },
+          "customers": {
+            "fields": {
+              "createdAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-date@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 3
+                  }
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
+              "name": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "phone": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "shopId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
+              "updatedAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-date@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 3
+                  }
+                }
+              }
+            },
+            "relations": {
+              "invoices": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "customerId"
+                  ]
+                },
+                "to": {
+                  "model": "invoices",
+                  "namespace": "public"
+                }
+              },
+              "shop": {
+                "cardinality": "N:1",
+                "nullable": false,
+                "on": {
+                  "localFields": [
+                    "shopId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "shops",
+                  "namespace": "public"
+                }
+              },
+              "transactions": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "customerId"
+                  ]
+                },
+                "to": {
+                  "model": "customer_transactions",
+                  "namespace": "public"
+                }
+              }
+            },
+            "storage": {
+              "fields": {
+                "createdAt": {
+                  "column": "createdAt"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "name": {
+                  "column": "name"
+                },
+                "phone": {
+                  "column": "phone"
+                },
+                "shopId": {
+                  "column": "shopId"
+                },
+                "updatedAt": {
+                  "column": "updatedAt"
+                }
+              },
+              "namespaceId": "public",
+              "table": "customers"
+            }
+          },
           "invoices": {
             "fields": {
+              "customerId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
               "date": {
                 "nullable": false,
                 "type": {
@@ -275,6 +426,22 @@
               }
             },
             "relations": {
+              "customer": {
+                "cardinality": "N:1",
+                "nullable": true,
+                "on": {
+                  "localFields": [
+                    "customerId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "customers",
+                  "namespace": "public"
+                }
+              },
               "shop": {
                 "cardinality": "N:1",
                 "nullable": false,
@@ -309,6 +476,9 @@
             },
             "storage": {
               "fields": {
+                "customerId": {
+                  "column": "customerId"
+                },
                 "date": {
                   "column": "date"
                 },
@@ -690,6 +860,21 @@
               }
             },
             "relations": {
+              "customers": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "shopId"
+                  ]
+                },
+                "to": {
+                  "model": "customers",
+                  "namespace": "public"
+                }
+              },
               "inventory": {
                 "cardinality": "1:N",
                 "on": {
@@ -962,6 +1147,25 @@
                 },
                 {
                   "index": {
+                    "name": "customer_transactions_customerId_idx_b2a8a46c"
+                  },
+                  "source": {
+                    "columns": [
+                      "customerId"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "customer_transactions"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "customers"
+                  }
+                },
+                {
+                  "index": {
                     "name": "customer_transactions_invoiceId_idx_d5c4f70e"
                   },
                   "source": {
@@ -981,6 +1185,14 @@
                 }
               ],
               "indexes": [
+                {
+                  "columns": [
+                    "customerId"
+                  ],
+                  "name": "customer_transactions_customerId_idx_b2a8a46c",
+                  "prefix": "customer_transactions_customerId_idx",
+                  "unique": false
+                },
                 {
                   "columns": [
                     "invoiceId"
@@ -1012,6 +1224,94 @@
                 }
               ]
             },
+            "customers": {
+              "columns": {
+                "createdAt": {
+                  "codecId": "pg/timestamptz-date@1",
+                  "dataType": "pg/timestamptz",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nullable": false,
+                  "typeParams": {
+                    "precision": 3
+                  }
+                },
+                "id": {
+                  "codecId": "pg/uuid@1",
+                  "dataType": "pg/uuid",
+                  "nullable": false
+                },
+                "name": {
+                  "codecId": "pg/text@1",
+                  "dataType": "pg/text",
+                  "nullable": false
+                },
+                "phone": {
+                  "codecId": "pg/text@1",
+                  "dataType": "pg/text",
+                  "nullable": false
+                },
+                "shopId": {
+                  "codecId": "pg/uuid@1",
+                  "dataType": "pg/uuid",
+                  "nullable": false
+                },
+                "updatedAt": {
+                  "codecId": "pg/timestamptz-date@1",
+                  "dataType": "pg/timestamptz",
+                  "nullable": false,
+                  "typeParams": {
+                    "precision": 3
+                  }
+                }
+              },
+              "foreignKeys": [
+                {
+                  "index": {
+                    "name": "customers_shopId_idx_e9207c6b"
+                  },
+                  "source": {
+                    "columns": [
+                      "shopId"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "customers"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "shops"
+                  }
+                }
+              ],
+              "indexes": [
+                {
+                  "columns": [
+                    "shopId"
+                  ],
+                  "name": "customers_shopId_idx_e9207c6b",
+                  "prefix": "customers_shopId_idx",
+                  "unique": false
+                }
+              ],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ]
+              },
+              "uniques": [
+                {
+                  "columns": [
+                    "shopId",
+                    "phone"
+                  ]
+                }
+              ]
+            },
             "invoices": {
               "checks": [
                 {
@@ -1026,6 +1326,11 @@
                 }
               ],
               "columns": {
+                "customerId": {
+                  "codecId": "pg/uuid@1",
+                  "dataType": "pg/uuid",
+                  "nullable": true
+                },
                 "date": {
                   "codecId": "pg/timestamptz-date@1",
                   "dataType": "pg/timestamptz",
@@ -1103,9 +1408,36 @@
                     "namespaceId": "public",
                     "tableName": "shops"
                   }
+                },
+                {
+                  "index": {
+                    "name": "invoices_customerId_idx_b2a8a46c"
+                  },
+                  "source": {
+                    "columns": [
+                      "customerId"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "invoices"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "customers"
+                  }
                 }
               ],
               "indexes": [
+                {
+                  "columns": [
+                    "customerId"
+                  ],
+                  "name": "invoices_customerId_idx_b2a8a46c",
+                  "prefix": "invoices_customerId_idx",
+                  "unique": false
+                },
                 {
                   "columns": [
                     "shopId",
@@ -1549,10 +1881,10 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "ee2fa86c1924a75d5921323b385d0aab9bb09c560b11b666df933e44e5900222"
+    "storageHash": "712167cadf5909e34d957bb3863907cd307693e78b409c31990e96095b6c1ed5"
   },
   "execution": {
-    "executionHash": "80c749e0549256402a43544433a7a010db52e36edf62cf73bf8e152d671b343e",
+    "executionHash": "ecb4e2a40ac148a43f91259a636fdafdcf2740174cf057fdae433fde3d219d6c",
     "mutations": {
       "defaults": [
         {
@@ -1597,6 +1929,52 @@
           },
           "ref": {
             "entry": "customer_transactions",
+            "field": "updatedAt",
+            "namespace": "public"
+          }
+        },
+        {
+          "onCreate": {
+            "id": "timestampNow",
+            "kind": "generator",
+            "params": {
+              "precision": 3
+            }
+          },
+          "ref": {
+            "entry": "customers",
+            "field": "createdAt",
+            "namespace": "public"
+          }
+        },
+        {
+          "onCreate": {
+            "id": "uuidv4",
+            "kind": "generator"
+          },
+          "ref": {
+            "entry": "customers",
+            "field": "id",
+            "namespace": "public"
+          }
+        },
+        {
+          "onCreate": {
+            "id": "timestampNow",
+            "kind": "generator",
+            "params": {
+              "precision": 3
+            }
+          },
+          "onUpdate": {
+            "id": "timestampNow",
+            "kind": "generator",
+            "params": {
+              "precision": 3
+            }
+          },
+          "ref": {
+            "entry": "customers",
             "field": "updatedAt",
             "namespace": "public"
           }

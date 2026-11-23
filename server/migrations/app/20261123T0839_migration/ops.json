@@ -1,0 +1,459 @@
+[
+  {
+    "id": "table.customers",
+    "label": "Create table \"customers\"",
+    "summary": "Creates table \"customers\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "customers"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"customers\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"customers\""
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "table \"customers\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"customers\"",
+        "sql": "CREATE TABLE \"public\".\"customers\" (\n  \"createdAt\" timestamptz(3) DEFAULT (now()) NOT NULL,\n  \"id\" uuid NOT NULL,\n  \"name\" text NOT NULL,\n  \"phone\" text NOT NULL,\n  \"shopId\" uuid NOT NULL,\n  \"updatedAt\" timestamptz(3) NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"customers\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3))) AS \"result\"",
+        "params": [
+          "\"public\".\"customers\"",
+          "r",
+          "p"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "table \"customers\""
+        }
+      }
+    ]
+  },
+  {
+    "id": "column.public.invoices.customerId",
+    "label": "Add column \"customerId\" to \"invoices\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "customerId",
+        "table": "invoices"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"customerId\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "invoices",
+          "customerId"
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "column \"customerId\" on \"invoices\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"customerId\"",
+        "sql": "ALTER TABLE \"public\".\"invoices\" ADD COLUMN \"customerId\" uuid"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"customerId\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "invoices",
+          "customerId"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "column \"customerId\" on \"invoices\""
+        }
+      },
+      {
+        "description": "verify column \"customerId\" has type \"uuid\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_attribute\" AS \"a\" INNER JOIN \"pg_class\" AS \"c\" ON \"c\".\"oid\" = \"a\".\"attrelid\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"relnamespace\" WHERE (\"n\".\"nspname\" = $1 AND \"c\".\"relname\" = $2 AND \"a\".\"attname\" = $3 AND (format_type(\"a\".\"atttypid\", \"a\".\"atttypmod\")) = $4 AND NOT (\"a\".\"attisdropped\"))) AS \"result\"",
+        "params": [
+          "public",
+          "invoices",
+          "customerId",
+          "uuid"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.customers.customers_shopId_phone_key",
+    "label": "Add unique constraint on \"customers\" (shopId, phone)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "customers_shopId_phone_key",
+        "table": "customers"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"customers_shopId_phone_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "customers_shopId_phone_key",
+          "public",
+          "\"public\".\"customers\""
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "constraint \"customers_shopId_phone_key\" on \"customers\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"customers_shopId_phone_key\"",
+        "sql": "ALTER TABLE \"public\".\"customers\" ADD CONSTRAINT \"customers_shopId_phone_key\" UNIQUE (\"shopId\", \"phone\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify unique constraint \"customers_shopId_phone_key\" exists on (shopId, phone)",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3) AND \"c\".\"contype\" = $4 AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"c\".\"conkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"c\".\"conrelid\" AND key_attribute.attnum = key_column.attnum) = ($5)::jsonb)) AS \"result\"",
+        "params": [
+          "customers_shopId_phone_key",
+          "public",
+          "\"public\".\"customers\"",
+          "u",
+          "[\"shopId\",\"phone\"]"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.customer_transactions.customer_transactions_customerId_idx_b2a8a46c",
+    "label": "Create index \"customer_transactions_customerId_idx_b2a8a46c\" on \"customer_transactions\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "customer_transactions_customerId_idx_b2a8a46c",
+        "table": "customer_transactions"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"customer_transactions_customerId_idx_b2a8a46c\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"customer_transactions_customerId_idx_b2a8a46c\""
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "index \"customer_transactions_customerId_idx_b2a8a46c\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"customer_transactions_customerId_idx_b2a8a46c\"",
+        "sql": "CREATE INDEX \"customer_transactions_customerId_idx_b2a8a46c\" ON \"public\".\"customer_transactions\" (\"customerId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"customer_transactions_customerId_idx_b2a8a46c\" exists on \"customer_transactions\" with the planned definition",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_index\" AS \"i\" ON \"i\".\"indexrelid\" = \"c\".\"oid\" INNER JOIN \"pg_am\" AS \"m\" ON \"m\".\"oid\" = \"c\".\"relam\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3) AND \"i\".\"indrelid\" = to_regclass($4) AND NOT (\"i\".\"indisunique\") AND \"m\".\"amname\" = $5 AND (\"i\".\"indexprs\" IS NULL AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"i\".\"indkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"i\".\"indrelid\" AND key_attribute.attnum = key_column.attnum) = ($6)::jsonb) AND \"i\".\"indpred\" IS NULL)) AS \"result\"",
+        "params": [
+          "\"public\".\"customer_transactions_customerId_idx_b2a8a46c\"",
+          "i",
+          "I",
+          "\"public\".\"customer_transactions\"",
+          "btree",
+          "[\"customerId\"]"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.customers.customers_shopId_idx_e9207c6b",
+    "label": "Create index \"customers_shopId_idx_e9207c6b\" on \"customers\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "customers_shopId_idx_e9207c6b",
+        "table": "customers"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"customers_shopId_idx_e9207c6b\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"customers_shopId_idx_e9207c6b\""
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "index \"customers_shopId_idx_e9207c6b\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"customers_shopId_idx_e9207c6b\"",
+        "sql": "CREATE INDEX \"customers_shopId_idx_e9207c6b\" ON \"public\".\"customers\" (\"shopId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"customers_shopId_idx_e9207c6b\" exists on \"customers\" with the planned definition",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_index\" AS \"i\" ON \"i\".\"indexrelid\" = \"c\".\"oid\" INNER JOIN \"pg_am\" AS \"m\" ON \"m\".\"oid\" = \"c\".\"relam\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3) AND \"i\".\"indrelid\" = to_regclass($4) AND NOT (\"i\".\"indisunique\") AND \"m\".\"amname\" = $5 AND (\"i\".\"indexprs\" IS NULL AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"i\".\"indkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"i\".\"indrelid\" AND key_attribute.attnum = key_column.attnum) = ($6)::jsonb) AND \"i\".\"indpred\" IS NULL)) AS \"result\"",
+        "params": [
+          "\"public\".\"customers_shopId_idx_e9207c6b\"",
+          "i",
+          "I",
+          "\"public\".\"customers\"",
+          "btree",
+          "[\"shopId\"]"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.invoices.invoices_customerId_idx_b2a8a46c",
+    "label": "Create index \"invoices_customerId_idx_b2a8a46c\" on \"invoices\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "invoices_customerId_idx_b2a8a46c",
+        "table": "invoices"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"invoices_customerId_idx_b2a8a46c\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"invoices_customerId_idx_b2a8a46c\""
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "index \"invoices_customerId_idx_b2a8a46c\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"invoices_customerId_idx_b2a8a46c\"",
+        "sql": "CREATE INDEX \"invoices_customerId_idx_b2a8a46c\" ON \"public\".\"invoices\" (\"customerId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"invoices_customerId_idx_b2a8a46c\" exists on \"invoices\" with the planned definition",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_index\" AS \"i\" ON \"i\".\"indexrelid\" = \"c\".\"oid\" INNER JOIN \"pg_am\" AS \"m\" ON \"m\".\"oid\" = \"c\".\"relam\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3) AND \"i\".\"indrelid\" = to_regclass($4) AND NOT (\"i\".\"indisunique\") AND \"m\".\"amname\" = $5 AND (\"i\".\"indexprs\" IS NULL AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"i\".\"indkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"i\".\"indrelid\" AND key_attribute.attnum = key_column.attnum) = ($6)::jsonb) AND \"i\".\"indpred\" IS NULL)) AS \"result\"",
+        "params": [
+          "\"public\".\"invoices_customerId_idx_b2a8a46c\"",
+          "i",
+          "I",
+          "\"public\".\"invoices\"",
+          "btree",
+          "[\"customerId\"]"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.customers.customers_shopId_fkey",
+    "label": "Add foreign key \"customers_shopId_fkey\" on \"customers\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "customers_shopId_fkey",
+        "table": "customers"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"customers_shopId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "customers_shopId_fkey",
+          "public",
+          "\"public\".\"customers\""
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "FK \"customers_shopId_fkey\" on \"customers\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"customers_shopId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"customers\"\nADD CONSTRAINT \"customers_shopId_fkey\"\nFOREIGN KEY (\"shopId\")\nREFERENCES \"public\".\"shops\" (\"id\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"customers_shopId_fkey\" exists with the planned columns, referenced table and actions",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3) AND \"c\".\"contype\" = $4 AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"c\".\"conkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"c\".\"conrelid\" AND key_attribute.attnum = key_column.attnum) = ($5)::jsonb AND \"c\".\"confrelid\" = to_regclass($6) AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"c\".\"confkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"c\".\"confrelid\" AND key_attribute.attnum = key_column.attnum) = ($7)::jsonb AND \"c\".\"confdeltype\" = $8 AND \"c\".\"confupdtype\" = $9)) AS \"result\"",
+        "params": [
+          "customers_shopId_fkey",
+          "public",
+          "\"public\".\"customers\"",
+          "f",
+          "[\"shopId\"]",
+          "\"public\".\"shops\"",
+          "[\"id\"]",
+          "a",
+          "a"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.customer_transactions.customer_transactions_customerId_fkey",
+    "label": "Add foreign key \"customer_transactions_customerId_fkey\" on \"customer_transactions\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "customer_transactions_customerId_fkey",
+        "table": "customer_transactions"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"customer_transactions_customerId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "customer_transactions_customerId_fkey",
+          "public",
+          "\"public\".\"customer_transactions\""
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "FK \"customer_transactions_customerId_fkey\" on \"customer_transactions\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"customer_transactions_customerId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"customer_transactions\"\nADD CONSTRAINT \"customer_transactions_customerId_fkey\"\nFOREIGN KEY (\"customerId\")\nREFERENCES \"public\".\"customers\" (\"id\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"customer_transactions_customerId_fkey\" exists with the planned columns, referenced table and actions",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3) AND \"c\".\"contype\" = $4 AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"c\".\"conkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"c\".\"conrelid\" AND key_attribute.attnum = key_column.attnum) = ($5)::jsonb AND \"c\".\"confrelid\" = to_regclass($6) AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"c\".\"confkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"c\".\"confrelid\" AND key_attribute.attnum = key_column.attnum) = ($7)::jsonb AND \"c\".\"confdeltype\" = $8 AND \"c\".\"confupdtype\" = $9)) AS \"result\"",
+        "params": [
+          "customer_transactions_customerId_fkey",
+          "public",
+          "\"public\".\"customer_transactions\"",
+          "f",
+          "[\"customerId\"]",
+          "\"public\".\"customers\"",
+          "[\"id\"]",
+          "a",
+          "a"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.invoices.invoices_customerId_fkey",
+    "label": "Add foreign key \"invoices_customerId_fkey\" on \"invoices\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "invoices_customerId_fkey",
+        "table": "invoices"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"invoices_customerId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "invoices_customerId_fkey",
+          "public",
+          "\"public\".\"invoices\""
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "FK \"invoices_customerId_fkey\" on \"invoices\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"invoices_customerId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"invoices\"\nADD CONSTRAINT \"invoices_customerId_fkey\"\nFOREIGN KEY (\"customerId\")\nREFERENCES \"public\".\"customers\" (\"id\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"invoices_customerId_fkey\" exists with the planned columns, referenced table and actions",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3) AND \"c\".\"contype\" = $4 AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"c\".\"conkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"c\".\"conrelid\" AND key_attribute.attnum = key_column.attnum) = ($5)::jsonb AND \"c\".\"confrelid\" = to_regclass($6) AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"c\".\"confkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"c\".\"confrelid\" AND key_attribute.attnum = key_column.attnum) = ($7)::jsonb AND \"c\".\"confdeltype\" = $8 AND \"c\".\"confupdtype\" = $9)) AS \"result\"",
+        "params": [
+          "invoices_customerId_fkey",
+          "public",
+          "\"public\".\"invoices\"",
+          "f",
+          "[\"customerId\"]",
+          "\"public\".\"customers\"",
+          "[\"id\"]",
+          "a",
+          "a"
+        ]
+      }
+    ]
+  }
+]

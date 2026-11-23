@@ -37,6 +37,7 @@ model shops {
   inventory shop_inventory[]
   invoices  invoices[]
   transactions customer_transactions[]
+  customers customers[]
   createdAt DateTime           @default(now()) @onCreate(now())
   updatedAt temporal.UpdatedAt
 }
@@ -78,11 +79,29 @@ model products {
   updatedAt   temporal.UpdatedAt
 }
 
+// A person who buys from one shop. The phone number is how the shop knows them, so it is not repeated inside a shop.
+model customers {
+  id           Uuid               @id @onCreate(uuid())
+  shop         shops              @relation(fields: [shopId], references: [id])
+  shopId       Uuid
+  name         String
+  phone        String
+  invoices     invoices[]
+  transactions customer_transactions[]
+  createdAt    DateTime           @default(now()) @onCreate(now())
+  updatedAt    temporal.UpdatedAt
+
+  @@unique([shopId, phone])
+}
+
 // A bill a shop made. `items` is a list of { pid, quantity }: pid = the product's id in the products table.
 model invoices {
   id            Uuid     @id @onCreate(uuid())
   shop          shops    @relation(fields: [shopId], references: [id])
   shopId        Uuid
+  // who the bill is for (empty for a customer who was not noted down)
+  customer      customers?    @relation(fields: [customerId], references: [id])
+  customerId    Uuid?
   // when the bill was made
   date          DateTime @default(now()) @onCreate(now())
   items         Json
@@ -101,6 +120,7 @@ model customer_transactions {
   id            Uuid               @id @onCreate(uuid())
   shop          shops              @relation(fields: [shopId], references: [id])
   shopId        Uuid
+  customer      customers?         @relation(fields: [customerId], references: [id])
   customerId    Uuid?
   invoice       invoices           @relation(fields: [invoiceId], references: [id])
   invoiceId     Uuid
