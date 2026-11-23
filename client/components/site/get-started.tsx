@@ -532,6 +532,21 @@ function GetStartedForm() {
                   )}
                 </div>
 
+                {/* log in only: fills the demo account, then the shopkeeper presses Log me in */}
+                {mode === "in" && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmail("sidd@email.com")
+                      setPw("12345678")
+                      setErrs({})
+                    }}
+                    className="mt-3 w-full rounded-full border border-foreground/20 py-2 text-sm font-semibold text-foreground/80 transition-colors hover:bg-foreground/5"
+                  >
+                    Use demo credentials
+                  </button>
+                )}
+
                 <button
                   type="submit"
                   disabled={status === "busy" || blocked}
