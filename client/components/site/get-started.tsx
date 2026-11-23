@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { EMAIL_DOMAINS, isAllowedEmail } from "@/lib/email-domains"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import gsap from "gsap"
@@ -39,7 +40,7 @@ function rate(pw: string) {
     "Short. Like a Sunday shift.",
     "Getting there. Add a number, a symbol, some attitude.",
     "Respectable. Your cousin will still try your birthday.",
-    "Fort Knox called. They want tips.",
+    "Watch Dogs: Hacker hai bhai, Hacker.",
   ][s]
   return { score: s, say }
 }
@@ -48,6 +49,8 @@ const IDLE: Record<Mode, string> = {
   up: "Hi, I’m BolBhai. From now on, I do the typing. You do the talking.",
   in: "Back already? The rice didn’t count itself.",
 }
+const BAD_EMAIL = 'Accha ji, humse hoshiyari? Apne "dev" pe chalana.'
+
 const FOCUS: Record<Mode, Record<"name" | "email", string>> = {
   up: {
     name: "Your name first. We’re not animals.",
@@ -113,6 +116,12 @@ function GetStartedForm() {
   const rating = rate(pw)
   const first = name.trim().split(" ")[0]
 
+  // the email, checked as it is typed (sign up only): the part after the @ must become one of the allowed domains
+  const domain = email.trim().toLowerCase().split("@")[1] ?? ""
+  const typing = mode === "up" && email.includes("@") && domain !== ""
+  const wrongDomain = typing && !EMAIL_DOMAINS.some((d) => d.startsWith(domain)) // can never become an allowed one
+  const blocked = typing && !isAllowedEmail(email) // not allowed (yet): no account
+
   // what the bubble says right now
   const fromFocus =
     focus === "pw"
@@ -124,6 +133,7 @@ function GetStartedForm() {
         : ""
   const say =
     Object.values(errs)[0] ||
+    (wrongDomain ? BAD_EMAIL : "") ||
     fromFocus ||
     (mode === "up" && first
       ? `Nice to meet you, ${first}. Try not to make it weird.`
@@ -233,6 +243,10 @@ function GetStartedForm() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (blocked) {
+      shake() // the bubble at the top already says why
+      return
+    }
     const next: Record<string, string> = {}
     if (mode === "up" && !name.trim())
       next.name = "We need something to call you. “Boss” is taken."
@@ -520,8 +534,8 @@ function GetStartedForm() {
 
                 <button
                   type="submit"
-                  disabled={status === "busy"}
-                  className="group mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-foreground text-base font-semibold text-background transition-all hover:-translate-y-px hover:shadow-xl active:translate-y-0 active:scale-[.98] disabled:opacity-80 sm:mt-5 sm:h-12 md:mt-6 md:h-14 md:text-lg lg:h-14 lg:text-lg"
+                  disabled={status === "busy" || blocked}
+                  className="group mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-foreground text-base font-semibold text-background transition-all hover:-translate-y-px hover:shadow-xl active:translate-y-0 active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-80 sm:mt-5 sm:h-12 md:mt-6 md:h-14 md:text-lg lg:h-14 lg:text-lg"
                 >
                   {status === "busy" ? (
                     <>
