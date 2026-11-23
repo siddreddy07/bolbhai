@@ -73,6 +73,11 @@ export async function getAnalytics(shopId: string) {
     .toISOString()
     .slice(0, 19)
     .replace("T", " ");
+  const todayFrom = new Date(todayStart)
+    .toISOString()
+    .slice(0, 19)
+    .replace("T", " ");
+  // ONE statement, ONE row back: the sales per hour (for the graphs) and today's bills (for the lists)
   const plan = db.raw.sql`
     WITH bill AS (
       SELECT inv.id, inv.date, inv.payment,
@@ -83,33 +88,45 @@ export async function getAnalytics(shopId: string) {
       WHERE inv."shopId" = ${shopId}::uuid
         AND inv.date >= (${from}::timestamp AT TIME ZONE 'Asia/Kolkata')
       GROUP BY inv.id
+    ),
+    hourly AS (
+      SELECT to_char(date_trunc('hour', date AT TIME ZONE 'Asia/Kolkata'), 'YYYY-MM-DD"T"HH24') AS hour,
+        sum(total)::float8 AS total,
+        count(*)::int AS bills,
+        coalesce(sum(total) FILTER (WHERE payment = 'LEDGER'), 0)::float8 AS unpaid
+      FROM bill
+      GROUP BY 1
     )
-    SELECT to_char(date_trunc('hour', date AT TIME ZONE 'Asia/Kolkata'), 'YYYY-MM-DD"T"HH24') AS hour,
-      sum(total)::text AS total,
-      count(*)::text AS bills,
-      coalesce(sum(total) FILTER (WHERE payment = 'LEDGER'), 0)::text AS unpaid
-    FROM bill
-    GROUP BY 1
-    ORDER BY 1
+    SELECT
+      (SELECT coalesce(json_agg(h ORDER BY h.hour), '[]'::json) FROM hourly h)::text AS hours,
+      (SELECT coalesce(json_agg(json_build_object(
+          'id', i.id, 'shopId', i."shopId", 'date', i.date, 'items', i.items,
+          'payment', i.payment, 'paymentType', i."paymentType", 'transactionId', i."transactionId"
+        ) ORDER BY i.date DESC), '[]'::json)
+        FROM invoices i
+        WHERE i."shopId" = ${shopId}::uuid
+          AND i.date >= (${todayFrom}::timestamp AT TIME ZONE 'Asia/Kolkata'))::text AS today
   `
-    .returnsRow({
-      hour: "pg/text@1",
-      total: "pg/text@1",
-      bills: "pg/text@1",
-      unpaid: "pg/text@1",
-    })
+    .returnsRow({ hours: "pg/text@1", today: "pg/text@1" })
     .build();
 
-  const hours: Hour[] = (await db.query(plan)).map((r) => ({
+  const [row] = await db.query(plan);
+  const hourRows = JSON.parse(row.hours) as {
+    hour: string;
+    total: number;
+    bills: number;
+    unpaid: number;
+  }[];
+  const hours: Hour[] = hourRows.map((r) => ({
     t: Date.UTC(
       Number(r.hour.slice(0, 4)),
       Number(r.hour.slice(5, 7)) - 1,
       Number(r.hour.slice(8, 10)),
       Number(r.hour.slice(11, 13)),
     ),
-    total: Number(r.total),
-    bills: Number(r.bills),
-    unpaid: Number(r.unpaid),
+    total: r.total,
+    bills: r.bills,
+    unpaid: r.unpaid,
   }));
 
   const make = (
@@ -137,6 +154,8 @@ export async function getAnalytics(shopId: string) {
   };
 
   return {
+    // today's bills (the unpaid ones have payment = LEDGER), newest first
+    bills: JSON.parse(row.today) as unknown[],
     day: make(
       "today",
       "yesterday",
