@@ -30,6 +30,14 @@ export const updateInvoiceSchema = z.object({
 export type InvoiceInput = z.infer<typeof invoiceSchema>;
 export type UpdateInvoiceInput = z.infer<typeof updateInvoiceSchema>;
 
+// The bills list: one day (YYYY-MM-DD), or the bills whose number starts with `q`, or only the unpaid ones.
+// With none of them, it is today.
+export const listQuerySchema = z.object({
+  day: z.iso.date().optional(),
+  q: z.string().regex(/^[0-9a-fA-F-]{1,36}$/).optional(),
+  unpaid: z.enum(["1", "true"]).optional(),
+});
+
 // The khata list: how many of the newest unpaid bills to send (the totals always cover all of them).
 export const unpaidQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(100),

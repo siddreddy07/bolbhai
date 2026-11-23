@@ -103,13 +103,24 @@ export async function getInvoice(id: string) {
   return row ? publicInvoice(row) : null;
 }
 
-// All invoices of one shop, newest first, in ONE query.
-export async function getInvoices(shopId: string) {
+// Some invoices of one shop, newest first, in ONE query: one day, or a bill number, or only the unpaid ones.
+// An empty text / 0 means "do not filter on this". Days are India days.
+export type InvoiceFilter = { day?: string; q?: string; unpaid?: boolean };
+
+export async function getInvoices(shopId: string, filter: InvoiceFilter = {}) {
+  const day = filter.day ?? "";
+  const q = (filter.q ?? "").toLowerCase();
+  const unpaid = filter.unpaid ? 1 : 0;
+  const limit = q ? 30 : unpaid ? 500 : 300; // never send everything
   const plan = db.raw.sql`
     SELECT id::text AS id, "shopId"::text AS shop_id, date::text AS date, items::text AS items, payment, "paymentType" AS payment_type, "transactionId" AS transaction_id
     FROM invoices
     WHERE "shopId" = ${shopId}::uuid
+      AND (${day}::text = '' OR (date AT TIME ZONE 'Asia/Kolkata')::date = NULLIF(${day}::text, '')::date)
+      AND (${q}::text = '' OR id::text LIKE (${q}::text || '%'))
+      AND (${unpaid}::int = 0 OR payment = 'LEDGER')
     ORDER BY date DESC
+    LIMIT ${limit}::int
   `
     .returnsRow({
       id: "pg/text@1",

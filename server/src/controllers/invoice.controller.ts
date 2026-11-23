@@ -3,6 +3,7 @@ import { z } from "zod";
 import { idSchema } from "../schemas/id.schema.js";
 import {
   invoiceSchema,
+  listQuerySchema,
   unpaidQuerySchema,
   updateInvoiceSchema,
 } from "../schemas/invoice.schema.js";
@@ -34,14 +35,26 @@ async function ownInvoice(req: Request, res: Response) {
   return invoice;
 }
 
-// GET /api/invoices/shop/:shopId   every invoice of this shop, newest first
+// GET /api/invoices/shop/:shopId?day=2026-11-20  or  ?q=3fa2  or  ?unpaid=1   (nothing = today), newest first
 export async function listInvoices(req: Request, res: Response) {
   try {
     const shopId = idSchema.safeParse(req.params.shopId);
     if (!shopId.success) return res.status(400).json({ message: "Invalid id" });
     if (!(await getShopById(shopId.data, req.user!.id)))
       return res.status(404).json({ message: "Shop not found" });
-    res.json(await getInvoices(shopId.data));
+    const query = listQuerySchema.safeParse(req.query);
+    if (!query.success)
+      return res.status(400).json({ message: z.prettifyError(query.error) });
+    const { day, q, unpaid } = query.data;
+    // nothing asked for: today (the India date)
+    const today = new Date(Date.now() + 5.5 * 3600e3).toISOString().slice(0, 10);
+    res.json(
+      await getInvoices(shopId.data, {
+        day: day ?? (q || unpaid ? undefined : today),
+        q,
+        unpaid: !!unpaid,
+      }),
+    );
   } catch (error) {
     console.error("Could not list invoices:", error);
     res.status(500).json({ message: "Could not get invoices" });
