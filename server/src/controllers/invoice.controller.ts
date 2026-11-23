@@ -141,6 +141,14 @@ export async function editInvoice(req: Request, res: Response) {
       });
     const saved = await updateInvoice(invoice.id, body.data);
     if (!saved) return res.status(404).json({ message: "Invoice not found" });
+    // more than the shelf has: nothing was changed; the shelf as it is now is sent back
+    if ("short" in saved && saved.short)
+      return res.status(409).json({
+        message: `Only ${saved.short.left} left in stock`,
+        left: saved.short.left,
+        pid: saved.short.pid,
+        stock: saved.stock,
+      });
     res.json({ ...saved.invoice, stock: saved.stock });
   } catch (error) {
     console.error("Could not update invoice:", error);

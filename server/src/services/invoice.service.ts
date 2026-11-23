@@ -223,14 +223,19 @@ export async function updateInvoice(id: string, data: UpdateInvoiceInput) {
   if (!before) return null;
 
   if (data.items) {
+    // Asking for MORE of a product than the shelf has is refused: say how many are left.
+    const pids = pidsOf(before.items, data.items);
+    const shelf = await stockOf(before.shopId, pids);
+    const count = (lines: Line[], pid: string) =>
+      lines.filter((l) => l.pid === pid).reduce((n, l) => n + l.quantity, 0);
+    for (const row of shelf) {
+      const more = count(data.items, row.productId) - count(before.items, row.productId);
+      if (more > row.stock)
+        return { short: { pid: row.productId, left: Math.max(0, row.stock) }, stock: shelf };
+    }
     const plan = db.raw.sql`
       WITH old AS (
         SELECT id, "shopId", items::jsonb AS items FROM invoices WHERE id = ${id}::uuid FOR UPDATE
-      ),
-      changed AS (
-        UPDATE invoices SET items = (${JSON.stringify(data.items)}::jsonb)::json
-        FROM old WHERE invoices.id = old.id
-        RETURNING invoices.id
       ),
       delta AS (
         SELECT coalesce(o.pid, n.pid) AS pid, coalesce(o.quantity, 0) - coalesce(n.quantity, 0) AS diff
@@ -245,11 +250,25 @@ export async function updateInvoice(id: string, data: UpdateInvoiceInput) {
           GROUP BY pid
         ) n ON n.pid = o.pid
       ),
+      -- the same check again inside the statement, in case the shelf changed a moment ago
+      enough AS (
+        SELECT NOT EXISTS (
+          SELECT 1 FROM delta JOIN shop_inventory i
+            ON i."productId" = delta.pid AND i."shopId" = (SELECT "shopId" FROM old)
+          WHERE delta.diff < 0 AND i.stock + delta.diff < 0
+        ) AS ok
+      ),
+      changed AS (
+        UPDATE invoices SET items = (${JSON.stringify(data.items)}::jsonb)::json
+        FROM old WHERE invoices.id = old.id AND (SELECT ok FROM enough)
+        RETURNING invoices.id
+      ),
       moved AS (
         UPDATE shop_inventory i
         SET stock = i.stock + delta.diff, "updatedAt" = now()
         FROM delta, old
         WHERE i."shopId" = old."shopId" AND i."productId" = delta.pid AND delta.diff <> 0
+          AND (SELECT ok FROM enough)
         RETURNING 1
       )
       SELECT count(*)::text AS changed FROM changed
@@ -257,7 +276,10 @@ export async function updateInvoice(id: string, data: UpdateInvoiceInput) {
       .returnsRow({ changed: "pg/text@1" })
       .build();
     const [row] = await db.query(plan);
-    if (!Number(row?.changed ?? 0)) return null; // deleted meanwhile
+    if (!Number(row?.changed ?? 0)) {
+      if (!(await getInvoice(id))) return null; // deleted meanwhile
+      return { short: { pid: "", left: 0 }, stock: await stockOf(before.shopId, pids) };
+    }
   }
 
   const rest = {
