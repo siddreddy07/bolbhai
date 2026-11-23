@@ -151,7 +151,7 @@ export const useHomeStore = create<HomeState>((set, get) => ({
   billsLoading: false,
   billError: null,
   savingBill: false,
-  draftPayment: "PAID",
+  draftPayment: "LEDGER", // every new bill starts as not paid
   draftPaymentType: "CASH",
   setDraftPayment: (draftPayment, draftPaymentType) =>
     set({ draftPayment, draftPaymentType }),
@@ -368,7 +368,14 @@ export const useHomeStore = create<HomeState>((set, get) => ({
   dismiss: () => {
     clearTimeout(timer)
     cancelRecording()
-    set({ phase: "idle", order: null, orderError: null, transcript: "" })
+    set({
+      phase: "idle",
+      order: null,
+      orderError: null,
+      transcript: "",
+      draftPayment: "LEDGER",
+      draftPaymentType: "CASH",
+    })
   },
   pickMatch: (query, index) =>
     set((s) => ({
@@ -412,6 +419,8 @@ export const useHomeStore = create<HomeState>((set, get) => ({
         phase: "idle",
         order: null,
         transcript: "",
+        draftPayment: "LEDGER",
+        draftPaymentType: "CASH",
       }))
       const count = bill.items.reduce((n, l) => n + l.quantity, 0)
       toast.success("Bill saved", {
