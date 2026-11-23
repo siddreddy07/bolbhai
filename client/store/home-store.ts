@@ -98,8 +98,15 @@ type HomeState = {
   /** change a line's quantity (0 removes it). Saved on the server a moment after the last change. */
   setBillQty: (billId: string, pid: string, quantity: number) => void
   /** paid or in the ledger, and cash or UPI. Saved at once. */
-  /** put a customer on a bill, or take them off (null). Saved at once. */
-  setBillCustomer: (billId: string, customer: Customer | null) => Promise<void>
+  /** Done on a bill slip: its edited items, payment and customer go to the server in ONE request. */
+  saveBill: (
+    billId: string,
+    draft: {
+      payment: Payment
+      paymentType: PaymentType
+      customer: Customer | null
+    }
+  ) => Promise<void>
   setBillPayment: (
     billId: string,
     payment: Payment,
@@ -586,6 +593,7 @@ export const useHomeStore = create<HomeState>((set, get) => ({
     if (get().deleteAsk) return
     if (!get().invoices.some((b) => b.id === billId)) return
     if (!moveShelf(pid, 1)) return // none left on the shelf
+    rememberBill(billId)
     set((s) => ({
       invoices: s.invoices.map((b) => {
         if (b.id !== billId) return b
@@ -600,7 +608,6 @@ export const useHomeStore = create<HomeState>((set, get) => ({
         }
       }),
     }))
-    scheduleBillSave(billId)
   },
   setBillQty: (billId, pid, quantity) => {
     if (get().deleteAsk) return
@@ -608,6 +615,7 @@ export const useHomeStore = create<HomeState>((set, get) => ({
       .invoices.find((b) => b.id === billId)
       ?.items.find((l) => l.pid === pid)
     if (!moveShelf(pid, quantity - (line?.quantity ?? 0))) return // not enough on the shelf
+    rememberBill(billId)
     set((s) => ({
       invoices: s.invoices.map((b) => {
         if (b.id !== billId) return b
@@ -620,36 +628,68 @@ export const useHomeStore = create<HomeState>((set, get) => ({
         }
       }),
     }))
-    scheduleBillSave(billId)
   },
-  setBillCustomer: async (billId, customer) => {
+  saveBill: async (billId, draft) => {
     if (get().deleteAsk) return
     const before = get().invoices.find((b) => b.id === billId)
     if (!before) return
-    const put = (c: Customer | null, id: string | null) =>
-      set((s) => ({
-        invoices: s.invoices.map((b) =>
-          b.id === billId
-            ? {
-                ...b,
-                customerId: id,
-                customerName: c?.name ?? null,
-                customerPhone: c?.phone ?? null,
-              }
-            : b
-        ),
-      }))
-    put(customer, customer?.id ?? null)
+    const original = originals.get(billId) // set when the items were changed
+    originals.delete(billId) // from here on the slip is saved, not a draft
+
+    // only what changed is sent
+    const changes: Parameters<typeof updateInvoice>[1] = {}
+    if (original) changes.items = before.items
+    if (
+      draft.payment !== before.payment ||
+      draft.paymentType !== before.paymentType
+    ) {
+      changes.payment = draft.payment
+      changes.paymentType = draft.paymentType
+    }
+    if ((draft.customer?.id ?? null) !== (before.customerId ?? null))
+      changes.customerId = draft.customer?.id ?? null
+    if (!Object.keys(changes).length) return
+
+    set((s) => ({
+      invoices: s.invoices.map((b) =>
+        b.id === billId
+          ? {
+              ...b,
+              payment: draft.payment,
+              paymentType: draft.paymentType,
+              customerId: draft.customer?.id ?? null,
+              customerName: draft.customer?.name ?? null,
+              customerPhone: draft.customer?.phone ?? null,
+            }
+          : b
+      ),
+    }))
     try {
-      await updateInvoice(billId, { customerId: customer?.id ?? null })
-    } catch {
-      // not saved: put it back
+      const { stock } = await updateInvoice(billId, changes)
+      applyStock(stock)
+      analyticsStale = true // the graphs are fetched again when the dashboard is looked at
+      set({ billError: null })
+    } catch (error) {
+      // not saved: the bill is put back as it was, and the shelf is read again from the server
       set((s) => ({
         invoices: s.invoices.map((b) => (b.id === billId ? before : b)),
       }))
-      toast.error("Could not change the customer", {
-        description: "It was put back as it was.",
-      })
+      const reply = (
+        error as {
+          response?: {
+            status?: number
+            data?: { message?: string; stock?: StockNow }
+          }
+        }
+      ).response
+      if (reply?.data?.stock) applyStock(reply.data.stock)
+      else if (get().stockShopId) void get().loadStock(get().stockShopId!, true)
+      toast.error(
+        reply?.status === 409
+          ? (reply.data?.message ?? "Not enough in stock")
+          : "Could not save the bill",
+        { description: "The bill was put back as it was." }
+      )
     }
   },
   setBillPayment: async (billId, payment, paymentType) => {
@@ -681,8 +721,7 @@ export const useHomeStore = create<HomeState>((set, get) => ({
   },
   removeBill: async (billId) => {
     if (get().deleteAsk !== billId) return // only after the question was asked
-    clearTimeout(billTimers.get(billId))
-    billTimers.delete(billId)
+    originals.delete(billId)
     try {
       await syncStock()
       applyStock(await deleteInvoice(billId)) // its items are back on the shelf, on the server
@@ -761,56 +800,32 @@ function applyStock(rows: StockNow) {
   }))
 }
 
-// ---- saving a bill after +, - or an added product: one call, a moment after the last change ----
-const BILL_SAVE_AFTER = 600
-const billTimers = new Map<string, ReturnType<typeof setTimeout>>()
+// ---- a bill's items are a DRAFT until Done ----
+// The first + / - on a bill remembers how it was. Done sends the new items (saveBill); closing the slip any other way
+// puts the bill, and the shelf numbers in the app, back as they were (discardBill).
+const originals = new Map<string, BillLine[]>()
 
-function scheduleBillSave(billId: string) {
-  clearTimeout(billTimers.get(billId))
-  billTimers.set(
-    billId,
-    setTimeout(() => void flushBill(billId), BILL_SAVE_AFTER)
-  )
+function rememberBill(billId: string) {
+  if (originals.has(billId)) return
+  const bill = useHomeStore.getState().invoices.find((b) => b.id === billId)
+  if (bill) originals.set(billId, bill.items)
 }
 
-/** Sends a bill's items now (if a change is waiting). Called when the bill drawer closes. */
-export async function flushBill(billId: string) {
-  if (!billTimers.has(billId)) return
-  clearTimeout(billTimers.get(billId))
-  billTimers.delete(billId)
+/** The slip was closed without Done: the items and the shelf go back to how they were. */
+export function discardBill(billId: string) {
+  const original = originals.get(billId)
+  originals.delete(billId)
   const bill = useHomeStore.getState().invoices.find((b) => b.id === billId)
-  if (!bill) return
-  // a bill must keep at least one line: with none left, the shopkeeper deletes the bill instead
-  if (!bill.items.length) return
-  try {
-    await syncStock()
-    const { stock } = await updateInvoice(billId, { items: bill.items })
-    applyStock(stock)
-    useHomeStore.setState({ billError: null })
-    analyticsStale = true // the graphs are fetched again when the dashboard is looked at
-  } catch (error) {
-    // the server said "not enough on the shelf": show its shelf numbers, nothing was saved
-    const reply = (
-      error as {
-        response?: {
-          status?: number
-          data?: { message?: string; stock?: StockNow }
-        }
-      }
-    ).response
-    if (reply?.status === 409) {
-      applyStock(reply.data?.stock ?? [])
-      useHomeStore.setState({ billError: reply.data?.message ?? null })
-      toast.error(reply.data?.message ?? "Not enough in stock", {
-        description: "The bill was not changed on the server.",
-      })
-      return
-    }
-    useHomeStore.setState({ billError: "Could not save the change. Try again" })
-    toast.error("Could not save the change", {
-      description: "Your last edit to the bill was not saved.",
-    })
-  }
+  if (!original || !bill) return
+  const count = (lines: BillLine[], pid: string) =>
+    lines.filter((l) => l.pid === pid).reduce((n, l) => n + l.quantity, 0)
+  for (const pid of new Set([...original, ...bill.items].map((l) => l.pid)))
+    moveShelf(pid, count(original, pid) - count(bill.items, pid))
+  useHomeStore.setState((s) => ({
+    invoices: s.invoices.map((b) =>
+      b.id === billId ? { ...b, items: original } : b
+    ),
+  }))
 }
 
 // ---- saving the + / - counts on the server ----

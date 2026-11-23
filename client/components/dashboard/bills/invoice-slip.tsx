@@ -33,7 +33,7 @@ import {
   isPaid,
   lineInfo,
 } from "@/lib/bill"
-import { flushBill, useHomeStore } from "@/store/home-store"
+import { discardBill, useHomeStore } from "@/store/home-store"
 import type { Invoice, Payment, PaymentType } from "@/lib/types"
 import { useShopStore } from "@/store/shop-store"
 
@@ -88,14 +88,8 @@ function Slip({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
   const shop = useShopStore((s) => s.shop)
   const stock = useHomeStore((s) => s.stock)
   const error = useHomeStore((s) => s.billError)
-  const {
-    addBillItem,
-    setBillQty,
-    setBillPayment,
-    setBillCustomer,
-    removeBill,
-    loadStock,
-  } = useHomeStore.getState()
+  const { addBillItem, setBillQty, saveBill, removeBill, loadStock } =
+    useHomeStore.getState()
   const box = React.useRef<HTMLDivElement>(null)
   const [deleting, setDeleting] = React.useState(false) // the server is deleting it: nothing on the slip works
   // paid or not, and how: only a DRAFT until Done is pressed (closing any other way keeps the bill as it was)
@@ -115,17 +109,17 @@ function Slip({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
       : null
   )
   const paid = payment === "PAID"
-  const locked = isLocked(inv) // saved state, so ticking Paid does not lock it until Done
+  const online = !!inv.paidOnline // paid online: nothing on it changes
+  const locked = online || isLocked(inv) // saved state, so ticking Paid does not lock it until Done
   const stamp = STAMP[payment]
-  const changed = payment !== inv.payment || paymentType !== inv.paymentType
-  const customerChanged = (customer?.id ?? null) !== (inv.customerId ?? null)
   const done = () => {
     if (asking) return
-    // the customer first: once the bill is marked paid it can no longer be edited
-    void (async () => {
-      if (customerChanged) await setBillCustomer(inv.id, customer)
-      if (changed) await setBillPayment(inv.id, payment, paymentType)
-    })()
+    // a bill must keep at least one line: with none left, delete the bill instead
+    if (!inv.items.length) {
+      useHomeStore.setState({ billError: "A bill needs at least one item" })
+      return
+    }
+    void saveBill(inv.id, { payment, paymentType, customer }) // ONE request, with everything that changed
     onClose()
   }
 
@@ -336,9 +330,11 @@ function Slip({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
         {/* add an item to this bill: the same search as the stock page, on this shop's inventory */}
         {locked && (
           <p className="mb-3 text-center text-[13px] font-medium opacity-70">
-            {isPaid(inv)
-              ? "Paid bills can’t be changed."
-              : "This bill is over 24 hours old, so it can’t be changed."}
+            {online
+              ? "Paid online. This bill can’t be changed."
+              : isPaid(inv)
+                ? "Paid bills can’t be changed."
+                : "This bill is over 24 hours old, so it can’t be changed."}
           </p>
         )}
         {shop && !locked && (
@@ -487,22 +483,24 @@ function Slip({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
         </div>
 
         {/* paid or not, and how: saved when Done is pressed */}
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <Segmented
-            compact
-            value={payment}
-            onChange={setPayment}
-            options={PAYMENTS}
-            label="Payment"
-          />
-          <Segmented
-            compact
-            value={paymentType}
-            onChange={setPaymentType}
-            options={TYPES}
-            label="Payment type"
-          />
-        </div>
+        {!online && (
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <Segmented
+              compact
+              value={payment}
+              onChange={setPayment}
+              options={PAYMENTS}
+              label="Payment"
+            />
+            <Segmented
+              compact
+              value={paymentType}
+              onChange={setPaymentType}
+              options={TYPES}
+              label="Payment type"
+            />
+          </div>
+        )}
         {error && (
           <p role="alert" className="mt-2 text-center text-sm text-destructive">
             {error}
@@ -568,7 +566,7 @@ export function InvoiceDrawer() {
     setSession({ open: !!inv, n: session.n + (inv ? 1 : 0) })
   const close = () => {
     if (useHomeStore.getState().deleteAsk) return // answer the question first
-    if (id) void flushBill(id) // a change waiting to be saved goes now
+    if (id) discardBill(id) // closed without Done: the edits are thrown away
     set(null)
   }
   return (

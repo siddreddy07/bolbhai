@@ -21,6 +21,8 @@ export type Invoice = {
   customerId?: string | null
   customerName?: string | null
   customerPhone?: string | null
+  /** paid online (a payment record exists): nothing on it can change */
+  paidOnline?: boolean
 }
 /** One thing asked for in an order, with the shelf items that fit it (taken from the saved inventory). */
 export type OrderLine = {

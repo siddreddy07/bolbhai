@@ -12,6 +12,7 @@ type InvoiceRow = {
   customerId?: string | null
   customerName?: string | null
   customerPhone?: string | null
+  paidOnline?: boolean
 }
 
 /** The stock of the products a bill change touched, as the server has it now (the shelf moves with the bill, on the server). */
@@ -27,6 +28,7 @@ const toInvoice = (r: InvoiceRow): Invoice => ({
   customerId: r.customerId,
   customerName: r.customerName,
   customerPhone: r.customerPhone,
+  paidOnline: r.paidOnline,
 })
 
 /**
