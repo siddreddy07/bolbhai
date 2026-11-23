@@ -44,7 +44,7 @@ export function BillsPanel() {
         {inr(total)}
       </p>
       <ul className="mt-1">
-        {invoices.slice(0, PREVIEW).map((i) => (
+        {today.slice(0, PREVIEW).map((i) => (
           <BillRow
             key={i.id}
             i={i}
@@ -56,6 +56,11 @@ export function BillsPanel() {
             }}
           />
         ))}
+        {today.length === 0 && (
+          <li className="py-6 text-center text-sm text-muted-foreground">
+            No bills today yet.
+          </li>
+        )}
       </ul>
       <ViewAll
         href="/dashboard/bills"
@@ -66,13 +71,16 @@ export function BillsPanel() {
 }
 
 export function KhataPanel() {
-  const { bills, count, totalDue } = useKhata()
+  const { bills: all, count } = useKhata()
   const setView = useHomeStore((s) => s.setViewInvoice)
+  // only today's unpaid bills here; the full khata is behind the button
+  const bills = all.filter((b) => daysAgo(b.date) === 0)
+  const totalDue = bills.reduce((n, b) => n + b.total, 0)
 
   return (
     <div>
       <p className="text-xs text-muted-foreground">
-        {count} unpaid {count === 1 ? "bill" : "bills"}
+        {bills.length} unpaid {bills.length === 1 ? "bill" : "bills"} today
       </p>
       <p className="text-3xl leading-none font-extrabold tabular-nums">
         {inr(totalDue)}
@@ -109,7 +117,7 @@ export function KhataPanel() {
         })}
         {bills.length === 0 && (
           <li className="py-6 text-center text-sm text-muted-foreground">
-            No unpaid bills. Everyone has paid.
+            No unpaid bills today.
           </li>
         )}
       </ul>
@@ -124,9 +132,7 @@ export function KhataPanel() {
 export function StockPanel() {
   const stock = useHomeStore((s) => s.stock)
   // two columns, so six fills the grid evenly
-  const lowest = [...stock]
-    .sort((a, b) => a.qty - b.qty)
-    .slice(0, 6)
+  const lowest = [...stock].sort((a, b) => a.qty - b.qty).slice(0, 6)
   return (
     <div>
       <ul className="grid grid-cols-2 gap-2">

@@ -11,23 +11,27 @@ import {
   ListScreen,
   SearchBox,
   Segmented,
-  Sentinel,
   inr,
-  useBatches,
 } from "@/components/dashboard/list-kit"
-import { billNumber, daysAgo, invoiceTotal, isPaid, lineInfo } from "@/lib/bill"
+import { billNumber, invoiceTotal, isPaid, lineInfo } from "@/lib/bill"
 import { useHomeStore } from "@/store/home-store"
 import type { Invoice, StockItem } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { useShopStore } from "@/store/shop-store"
 
 type Range = "today" | "week" | "month" | "year"
-const RANGES: { id: Range; name: string; max: number }[] = [
-  { id: "today", name: "Today", max: 1 },
-  { id: "week", name: "Week", max: 7 },
-  { id: "month", name: "Month", max: 30 },
-  { id: "year", name: "Year", max: 365 },
+const RANGES: { id: Range; name: string }[] = [
+  { id: "today", name: "Today" },
+  { id: "week", name: "Week" },
+  { id: "month", name: "Month" },
+  { id: "year", name: "Year" },
 ]
+
+const DAY = 864e5
+
+const hour = (h: number) =>
+  `${h % 12 || 12} ${h < 12 || h === 24 ? "am" : "pm"}`
+
 type Status = "all" | "PAID" | "LEDGER"
 
 export function dayLabel(d: number) {
@@ -115,48 +119,69 @@ export function BillsPage() {
     if (shopId) void loadBills(shopId, true)
   }, [shopId, loadBills])
 
-  const max = RANGES.find((r) => r.id === range)!.max
-  const inRange = React.useMemo(
-    () => invoices.filter((i) => daysAgo(i.date) < max),
-    [invoices, max]
-  )
-  const totals = React.useMemo(() => {
-    let paid = 0
-    let unpaid = 0
-    for (const i of inRange) {
-      const t = invoiceTotal(i, stock)
-      if (isPaid(i)) paid += t
-      else unpaid += t
-    }
-    return { paid, unpaid, all: paid + unpaid }
-  }, [inRange, stock])
+  // each card is [label, from, to]; today is cut by two hours instead
+  const now = new Date()
+  const today = new Date().setHours(0, 0, 0, 0)
+  const mon = today - ((now.getDay() + 6) % 7) * DAY
+  const mo = (n: number) =>
+    new Date(now.getFullYear(), now.getMonth() - n, 1).getTime()
+  const yr = (n: number) => new Date(now.getFullYear() - n, 0, 1).getTime()
+  const CARDS: Record<Range, [string, number, number?][]> = {
+    today: [],
+    week: [
+      ["Today", today],
+      ["This week", mon],
+      ["Last week", mon - 7 * DAY, mon],
+      ["The week before", mon - 14 * DAY, mon - 7 * DAY],
+      ["Last 5 weeks", mon - 28 * DAY],
+    ],
+    month: [
+      ["This month", mo(0)],
+      ["Last month", mo(1), mo(0)],
+      ["Last 5 months", mo(4)],
+    ],
+    year: [
+      ["This year", yr(0)],
+      ["Last 5 years", yr(4)],
+    ],
+  }
+  const cards = CARDS[range]
+  const head = range === "today" ? today : cards[range === "week" ? 1 : 0][1]
+  const start = range === "today" ? today : cards[cards.length - 1][1]
+
+  const inRange = invoices.filter((i) => i.date >= start)
+  const totals = { paid: 0, unpaid: 0, all: 0 }
+  for (const i of inRange) {
+    if (i.date < head) continue
+    const t = invoiceTotal(i, stock)
+    if (isPaid(i)) totals.paid += t
+    else totals.unpaid += t
+    totals.all += t
+  }
   const needle = q.trim().toLowerCase()
-  const list = React.useMemo(
-    () =>
-      inRange.filter(
-        (i) =>
-          (status === "all" || i.payment === status) &&
-          (!needle ||
-            billNumber(i).toLowerCase().includes(needle) ||
-            i.items.some((l) =>
-              lineInfo(l, stock).name.toLowerCase().includes(needle)
-            ))
-      ),
-    [inRange, status, needle, stock]
+  const list = inRange.filter(
+    (i) =>
+      (status === "all" || i.payment === status) &&
+      (!needle ||
+        billNumber(i).toLowerCase().includes(needle) ||
+        i.items.some((l) =>
+          lineInfo(l, stock).name.toLowerCase().includes(needle)
+        ))
   )
-  const days = React.useMemo(() => {
-    const m = new Map<number, { n: number; sum: number }>()
-    list.forEach((i) => {
-      const k = daysAgo(i.date)
-      const d = m.get(k) ?? { n: 0, sum: 0 }
-      d.n++
-      d.sum += invoiceTotal(i, stock)
-      m.set(k, d)
-    })
-    return m
-  }, [list, stock])
+  let groups = cards.map(([label, from, to = Infinity]) => ({
+    label,
+    bills: list.filter((i) => i.date >= from && i.date < to),
+  }))
+  if (range === "today") {
+    const slot = (i: Invoice) => Math.floor(new Date(i.date).getHours() / 2)
+    groups = [...new Set(list.map(slot))]
+      .sort((a, b) => b - a)
+      .map((n) => ({
+        label: `${hour(n * 2)} – ${hour(n * 2 + 2)}`,
+        bills: list.filter((i) => slot(i) === n),
+      }))
+  }
   const key = `${range}|${status}|${needle}`
-  const { shown, more, sentinel } = useBatches(list, key, 40)
 
   useGSAP(
     () => {
@@ -183,7 +208,7 @@ export function BillsPage() {
     <div ref={root}>
       <ListScreen
         title="All bills"
-        count={`${list.length.toLocaleString("en-IN")} ${list.length === 1 ? "bill" : "bills"}${needle || status !== "all" ? " match" : ""}`}
+        count={`${totals.all ? inr(totals.all) : "No sales"} ${range === "today" ? "today" : `this ${range}`}`}
         controls={
           <>
             <Segmented
@@ -225,33 +250,44 @@ export function BillsPage() {
           <div className="bg-signal" style={{ width: `${100 - paidPct}%` }} />
         </div>
 
-        <ul className="mt-1 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 pb-[max(1rem,env(safe-area-inset-bottom))]">
-          {shown.map((i, idx) => {
-            const first =
-              idx === 0 || daysAgo(shown[idx - 1].date) !== daysAgo(i.date)
-            const d = days.get(daysAgo(i.date))
-            return (
-              <React.Fragment key={i.id}>
-                {first && (
-                  <li
-                    suppressHydrationWarning
-                    className="sticky top-0 z-10 flex justify-between bg-background/95 py-1.5 text-xs font-bold text-muted-foreground backdrop-blur"
-                  >
-                    <span>{dayLabel(daysAgo(i.date))}</span>
-                    <span className="font-medium">
-                      {d?.n} · {inr(d?.sum ?? 0)}
+        <ul className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pr-1 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          {groups.map((g) => (
+            <li key={g.label} data-line>
+              <details className="group rounded-2xl bg-foreground/[0.06]">
+                <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-3.5">
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[15px] font-bold">
+                      {g.label}
                     </span>
-                  </li>
-                )}
-                <BillRow i={i} stock={stock} onOpen={() => setView(i.id)} />
-              </React.Fragment>
-            )
-          })}
-          <Sentinel
-            more={more}
-            innerRef={sentinel}
-            left={list.length - shown.length}
-          />
+                    <span className="block text-xs text-muted-foreground">
+                      {g.bills.length} {g.bills.length === 1 ? "bill" : "bills"}
+                    </span>
+                  </span>
+                  <span className="text-lg font-extrabold tabular-nums">
+                    {inr(
+                      g.bills.reduce((a, i) => a + invoiceTotal(i, stock), 0)
+                    )}
+                  </span>
+                  <ChevronRight className="size-4 opacity-50 transition-transform group-open:rotate-90" />
+                </summary>
+                <ul className="px-3 pb-2">
+                  {g.bills.slice(0, 50).map((i) => (
+                    <BillRow
+                      key={i.id}
+                      i={i}
+                      stock={stock}
+                      onOpen={() => setView(i.id)}
+                    />
+                  ))}
+                  {g.bills.length > 50 && (
+                    <li className="py-2 text-center text-xs text-muted-foreground">
+                      Showing the latest 50. Search to find an older one.
+                    </li>
+                  )}
+                </ul>
+              </details>
+            </li>
+          ))}
           {loading && invoices.length === 0 ? (
             <li className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
               <LoaderCircle className="size-4 animate-spin" /> Loading your
@@ -262,11 +298,11 @@ export function BillsPage() {
               {error}
             </li>
           ) : (
-            list.length === 0 && (
+            groups.length === 0 && (
               <li className="py-10 text-center text-sm text-muted-foreground">
                 {invoices.length === 0
                   ? "No bills yet. Say an order on the home page and tap Done."
-                  : "Nothing matches."}
+                  : "No bills in this range."}
               </li>
             )
           )}
