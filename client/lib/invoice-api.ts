@@ -9,7 +9,6 @@ type InvoiceRow = {
   items: BillLine[]
   payment: Payment
   paymentType: PaymentType
-  transactionId: string | null
 }
 
 /** The stock of the products a bill change touched, as the server has it now (the shelf moves with the bill, on the server). */
@@ -22,7 +21,6 @@ const toInvoice = (r: InvoiceRow): Invoice => ({
   items: r.items,
   payment: r.payment,
   paymentType: r.paymentType,
-  transactionId: r.transactionId,
 })
 
 /**
