@@ -12,6 +12,7 @@ import {
   getInvoice,
   getInvoices,
   getUnpaidInvoices,
+  isLocked,
   updateInvoice,
 } from "../services/invoice.service.js";
 import { getAnalytics } from "../services/analytics.service.js";
@@ -118,6 +119,13 @@ export async function editInvoice(req: Request, res: Response) {
 
     const invoice = await ownInvoice(req, res);
     if (!invoice) return;
+    // paid bills never change; unpaid ones only for 24 hours. (Marking one paid is still fine.)
+    if (body.data.items && isLocked(invoice))
+      return res.status(403).json({
+        message: invoice.payment === "PAID"
+          ? "A paid bill cannot be edited"
+          : "A bill cannot be edited after 24 hours",
+      });
     const saved = await updateInvoice(invoice.id, body.data);
     if (!saved) return res.status(404).json({ message: "Invoice not found" });
     res.json({ ...saved.invoice, stock: saved.stock });

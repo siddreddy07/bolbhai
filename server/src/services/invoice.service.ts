@@ -202,6 +202,11 @@ export async function getUnpaidInvoices(shopId: string, limit = 100) {
   };
 }
 
+// A bill can be edited (its items) only while it is not paid AND it is under 24 hours old.
+export const EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
+export const isLocked = (inv: { payment: string; date: Date | string | number }) =>
+  inv.payment === "PAID" || Date.now() - new Date(inv.date).getTime() >= EDIT_WINDOW_MS;
+
 export async function updateInvoice(id: string, data: UpdateInvoiceInput) {
   const before = await getInvoice(id);
   if (!before) return null;

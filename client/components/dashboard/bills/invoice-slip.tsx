@@ -20,7 +20,14 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer"
 import { SearchBox } from "@/components/ui/search-box"
-import { billNumber, daysAgo, invoiceTotal, isPaid, lineInfo } from "@/lib/bill"
+import {
+  billNumber,
+  daysAgo,
+  invoiceTotal,
+  isLocked,
+  isPaid,
+  lineInfo,
+} from "@/lib/bill"
 import { flushBill, useHomeStore } from "@/store/home-store"
 import type { Invoice, Payment, PaymentType } from "@/lib/types"
 import { useShopStore } from "@/store/shop-store"
@@ -82,6 +89,7 @@ function Slip({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
     inv.paymentType
   )
   const paid = payment === "PAID"
+  const locked = isLocked(inv) // saved state, so ticking Paid does not lock it until Done
   const stamp = STAMP[payment]
   const changed = payment !== inv.payment || paymentType !== inv.paymentType
   const done = () => {
@@ -167,7 +175,14 @@ function Slip({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
 
       <div className="mx-auto max-w-[420px]">
         {/* add an item to this bill: the same search as the stock page, on this shop's inventory */}
-        {shop && (
+        {locked && (
+          <p className="mb-3 text-center text-[13px] font-medium opacity-70">
+            {isPaid(inv)
+              ? "Paid bills can’t be changed."
+              : "This bill is over 24 hours old, so it can’t be changed."}
+          </p>
+        )}
+        {shop && !locked && (
           <SearchBox<InventoryHit>
             className="mb-3"
             url="/api/inventory/search"
@@ -227,35 +242,41 @@ function Slip({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
                           </span>
                         )}
                       </span>
-                      <span className="flex shrink-0 items-center rounded-full bg-[#1d2a22]/10">
-                        <button
-                          type="button"
-                          aria-label={`One less ${l.name}`}
-                          onClick={() =>
-                            setBillQty(inv.id, l.pid, l.quantity - 1)
-                          }
-                          className="grid size-7 place-items-center rounded-full active:bg-[#1d2a22]/15"
-                        >
-                          {l.quantity === 1 ? (
-                            <Trash2 className="size-3.5" />
-                          ) : (
-                            <Minus className="size-3.5" />
-                          )}
-                        </button>
-                        <span className="min-w-6 text-center font-mono text-[13px] font-bold tabular-nums">
-                          {l.quantity}
+                      {locked ? (
+                        <span className="shrink-0 font-mono text-[13px] font-bold tabular-nums">
+                          × {l.quantity}
                         </span>
-                        <button
-                          type="button"
-                          aria-label={`One more ${l.name}`}
-                          onClick={() =>
-                            setBillQty(inv.id, l.pid, l.quantity + 1)
-                          }
-                          className="grid size-7 place-items-center rounded-full active:bg-[#1d2a22]/15"
-                        >
-                          <Plus className="size-3.5" />
-                        </button>
-                      </span>
+                      ) : (
+                        <span className="flex shrink-0 items-center rounded-full bg-[#1d2a22]/10">
+                          <button
+                            type="button"
+                            aria-label={`One less ${l.name}`}
+                            onClick={() =>
+                              setBillQty(inv.id, l.pid, l.quantity - 1)
+                            }
+                            className="grid size-7 place-items-center rounded-full active:bg-[#1d2a22]/15"
+                          >
+                            {l.quantity === 1 ? (
+                              <Trash2 className="size-3.5" />
+                            ) : (
+                              <Minus className="size-3.5" />
+                            )}
+                          </button>
+                          <span className="min-w-6 text-center font-mono text-[13px] font-bold tabular-nums">
+                            {l.quantity}
+                          </span>
+                          <button
+                            type="button"
+                            aria-label={`One more ${l.name}`}
+                            onClick={() =>
+                              setBillQty(inv.id, l.pid, l.quantity + 1)
+                            }
+                            className="grid size-7 place-items-center rounded-full active:bg-[#1d2a22]/15"
+                          >
+                            <Plus className="size-3.5" />
+                          </button>
+                        </span>
+                      )}
                       <span className="w-16 shrink-0 text-right font-mono text-[13px] font-bold tabular-nums">
                         {inr(l.quantity * l.price)}
                       </span>

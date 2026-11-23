@@ -42,10 +42,14 @@ export function daysAgo(date: number) {
 
 export const isPaid = (inv: Invoice) => inv.payment === "PAID"
 
-/** A short bill number to show, from its id. */
-export const billNumber = (inv: Invoice) => inv.id.slice(0, 4).toUpperCase()
+/** Items can change only while the bill is unpaid and under 24 hours old (the server checks it too). */
+export const isLocked = (inv: Invoice) =>
+  isPaid(inv) || Date.now() - inv.date >= 24 * 60 * 60 * 1000
 
-export type LineInfo = {
+/** A short bill number to show, from its id. */
+export const billNumber = (inv: { id: string }) => inv.id.slice(0, 4).toUpperCase()
+
+type LineInfo = {
   pid: string
   quantity: number
   name: string
