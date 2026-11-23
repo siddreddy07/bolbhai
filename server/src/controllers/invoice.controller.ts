@@ -17,7 +17,7 @@ import {
   updateInvoice,
 } from "../services/invoice.service.js";
 import { getAnalytics } from "../services/analytics.service.js";
-import { customerOfShop } from "../services/customer.service.js";
+import { customerOfShop, hasTransaction } from "../services/customer.service.js";
 import { getShopById } from "../services/shop.service.js";
 
 // An invoice belongs to a shop, and a shop to its owner: only the owner may touch it.
@@ -172,6 +172,9 @@ export async function removeInvoice(req: Request, res: Response) {
   try {
     const invoice = await ownInvoice(req, res);
     if (!invoice) return;
+    // only a bill that is not paid can be deleted (a paid one is a record of money received)
+    if (invoice.payment === "PAID" || (await hasTransaction(invoice.id)))
+      return res.status(403).json({ message: "A paid bill cannot be deleted" });
     const gone = await deleteInvoice(invoice.id);
     if (!gone) return res.status(404).json({ message: "Invoice not found" });
     res.json({ message: "Invoice deleted", stock: gone.stock });
