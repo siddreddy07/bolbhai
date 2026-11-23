@@ -6,6 +6,7 @@ import { Camera, Plus, SlidersHorizontal, X } from "lucide-react"
 import {
   ListScreen,
   Sentinel,
+  SkeletonRows,
   useBatches,
 } from "@/components/dashboard/list-kit"
 import {
@@ -54,12 +55,15 @@ export function StockManager() {
   const busy = useHomeStore((s) => !!s.deletingId)
   const stockShopId = useHomeStore((s) => s.stockShopId)
   const loadStock = useHomeStore((s) => s.loadStock)
+  const stockLoading = useHomeStore((s) => s.stockLoading)
+  // nothing to show yet: the shelf has not been asked for, or is on its way
+  const loading = (stockLoading || !stockShopId) && stock.length === 0
 
-  // Leaving the stock page (or hiding the tab) sends the latest counts at once, without waiting for the 10 seconds.
+  // Leaving the stock page (or hiding the tab) sends the latest counts at once, without waiting for the timer.
   React.useEffect(() => {
     const hidden = () =>
-      document.visibilityState === "hidden" && void syncStock()
-    const closing = () => void syncStock()
+      document.visibilityState === "hidden" && void syncStock(true)
+    const closing = () => void syncStock(true)
     document.addEventListener("visibilitychange", hidden)
     window.addEventListener("pagehide", closing)
     return () => {
@@ -174,7 +178,7 @@ export function StockManager() {
     <div>
       <ListScreen
         title="Stock"
-        count={`${stock.length} items · ${lowCount} running low`}
+        count={loading ? "Loading…" : `${stock.length} items · ${lowCount} running low`}
         controls={
           <>
             <div className="flex gap-2">
@@ -243,6 +247,9 @@ export function StockManager() {
               busy && "pointer-events-none"
             )}
           >
+            {loading && (
+              <SkeletonRows count={6} className="h-24" />
+            )}
             {shown.map((i) => (
               <StockTile
                 key={i.id}
@@ -256,7 +263,7 @@ export function StockManager() {
             innerRef={sentinel}
             left={held.length - shown.length}
           />
-          {held.length === 0 && (
+          {!loading && held.length === 0 && (
             <div className="grid place-items-center py-16 text-center">
               <p className="font-hand text-3xl">Nothing here.</p>
               <p className="mt-1 text-sm text-muted-foreground">
@@ -339,7 +346,7 @@ export function StockManager() {
           setQ("")
           setStatus("all")
           setCats([])
-          if (stockShopId) void loadStock(stockShopId, true) // the new products show up in the list
+          if (stockShopId) void loadStock(stockShopId) // the new products show up in the list
         }}
         onManual={() => {
           setFromPicker(true)

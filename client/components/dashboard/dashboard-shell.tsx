@@ -35,8 +35,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   // stock counts (changed by bills too) are saved when the tab is hidden or closed, on any dashboard page
   React.useEffect(() => {
     const hidden = () =>
-      document.visibilityState === "hidden" && void syncStock()
-    const closing = () => void syncStock()
+      document.visibilityState === "hidden" && void syncStock(true)
+    const closing = () => void syncStock(true)
     document.addEventListener("visibilitychange", hidden)
     window.addEventListener("pagehide", closing)
     return () => {

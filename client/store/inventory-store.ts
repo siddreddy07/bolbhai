@@ -38,35 +38,6 @@ const CATEGORY: Record<string, CatId> = {
   "Meat & eggs": "meat",
 }
 
-// The shop's stock is kept in localStorage, one entry per shop, so opening the stock page again does not ask the server again.
-// The + / - counts live there too (they are not saved on the server yet).
-const stockKey = (shopId: string) => `bolbhai:stock:${shopId}`
-
-/** What localStorage keeps for a shop: the stock, when it was last saved on the server (ms), and the ids whose count changed since. */
-export type StockCache = {
-  stock: StockItem[]
-  syncedAt: number
-  dirtyIds: string[]
-}
-
-export function readStockCache(shopId: string): StockCache | null {
-  try {
-    const saved = JSON.parse(localStorage.getItem(stockKey(shopId)) ?? "null")
-    if (Array.isArray(saved)) return { stock: saved, syncedAt: 0, dirtyIds: [] } // the older format: a plain list
-    return saved?.stock ? ({ dirtyIds: [], ...saved } as StockCache) : null
-  } catch {
-    return null // unreadable: ask the server
-  }
-}
-
-export function writeStockCache(shopId: string, cache: StockCache) {
-  try {
-    localStorage.setItem(stockKey(shopId), JSON.stringify(cache))
-  } catch {
-    // storage full or blocked: the page still works for this visit
-  }
-}
-
 /** The same text always gives the same key: "  ATA " and "ata" are one search. */
 export const searchKey = (text: string) =>
   text.trim().toLowerCase().replace(/\s+/g, " ")
@@ -83,10 +54,11 @@ type InventoryState = {
     shopId: string,
     items: { productId: string; stock: number }[]
   ) => Promise<number>
-  /** Saves new counts (many at once). */
+  /** Saves new counts (many at once). `leaving`: the page may be closing, so the request is sent in a way the browser finishes even then. */
   saveStock: (
     shopId: string,
-    items: { id: string; stock: number }[]
+    items: { id: string; stock: number }[],
+    leaving?: boolean
   ) => Promise<void>
   /** Takes one product off this shop's shelf. */
   removeProduct: (shopId: string, itemId: string) => Promise<void>
@@ -112,7 +84,18 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
     )
     return data.added
   },
-  saveStock: async (shopId, items) => {
+  saveStock: async (shopId, items, leaving = false) => {
+    if (leaving) {
+      // keepalive: the browser finishes this request even when the page is closing or reloading
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/shops/${shopId}/inventory`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items }),
+        credentials: "include",
+        keepalive: true,
+      })
+      return
+    }
     await api.patch(`/api/shops/${shopId}/inventory`, { items })
   },
   removeProduct: async (shopId, itemId) => {

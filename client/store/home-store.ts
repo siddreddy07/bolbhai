@@ -12,9 +12,7 @@ import {
   transcribe,
 } from "@/lib/stt"
 import {
-  readStockCache,
   useInventoryStore,
-  writeStockCache,
 } from "@/store/inventory-store"
 import { khataOf, packsFor } from "@/lib/bill"
 import type { Customer } from "@/lib/customer-api"
@@ -140,12 +138,10 @@ type HomeState = {
   /** the shop whose stock is loaded */
   stockShopId: string | null
   stockLoading: boolean
-  /** when this shop's counts were last saved on the server (ms) */
-  stockSyncedAt: number
-  /** the products whose count changed since then. Only these are sent; once saved they leave this list. */
+  /** the products whose count changed and is not saved yet. Only these are sent; once saved they leave this list. */
   dirtyIds: string[]
-  /** Opens a shop's stock. It comes from localStorage if it is there; refresh = true asks the server again. */
-  loadStock: (shopId: string, refresh?: boolean) => Promise<void>
+  /** Opens a shop's stock: the server (Redis) is asked. */
+  loadStock: (shopId: string) => Promise<void>
   /** stock came in by hand (no voice needed) */
   addStock: (id: string, qty: number) => void
   /** stock manager: type it, or snap a photo, both end up here */
@@ -202,56 +198,27 @@ export const useHomeStore = create<HomeState>((set, get) => ({
   stock: [],
   stockShopId: null,
   stockLoading: false,
-  stockSyncedAt: 0,
   dirtyIds: [],
   deletingId: null,
-  // the stock page: the saved copy if there is one, else ask the server for everything this shop sells
-  loadStock: async (shopId, refresh = false) => {
-    if (get().stockShopId && get().stockShopId !== shopId) void syncStock() // leaving a shop: save its counts first
-    const saved = readStockCache(shopId)
-    if (saved && !refresh) {
-      set({
-        stockShopId: shopId,
-        stock: saved.stock,
-        stockSyncedAt: saved.syncedAt,
-        dirtyIds: saved.dirtyIds,
-        stockLoading: false,
-      }) // no route hit
-      void syncStock() // counts changed before the page was closed are saved now
-      return
-    }
-    set({
+  // the stock page: ask the server (it answers from Redis)
+  loadStock: async (shopId) => {
+    await syncStock() // counts pressed and not saved yet are sent first, so the answer below has them
+    set((s) => ({
       stockShopId: shopId,
-      stock: refresh && saved ? saved.stock : [],
-      stockSyncedAt: saved?.syncedAt ?? Date.now(),
-      dirtyIds: saved?.dirtyIds ?? [],
+      stock: s.stockShopId === shopId ? s.stock : [],
+      dirtyIds: [],
       stockLoading: true,
-    })
+    }))
     try {
-      const fresh = await useInventoryStore.getState().fetchStock(shopId)
-      // counts in dirtyIds were changed here and are not saved yet, so they win over the server's
-      const mine = new Map(
-        (saved?.stock ?? [])
-          .filter((i) => saved!.dirtyIds.includes(i.id))
-          .map((i) => [i.id, i.qty])
-      )
-      const stock = fresh.map((i) =>
-        mine.has(i.id) ? { ...i, qty: mine.get(i.id)! } : i
-      )
-      if (get().stockShopId === shopId)
-        set({
-          stock,
-          dirtyIds: (saved?.dirtyIds ?? []).filter((id) =>
-            stock.some((i) => i.id === id)
-          ),
-        }) // ignore it if the shopkeeper switched shops meanwhile
+      const stock = await useInventoryStore.getState().fetchStock(shopId)
+      if (get().stockShopId === shopId) set({ stock }) // ignore it if the shopkeeper switched shops meanwhile
     } catch {
       // the page just shows no products
     } finally {
       if (get().stockShopId === shopId) set({ stockLoading: false })
     }
   },
-  // + / -: saved in localStorage at once (see the subscribe below); everything changed is sent in ONE call 10 seconds after the last press
+  // + / -: shown at once; everything changed is sent in ONE call a second and a half after the last press
   adjust: (id, delta) => {
     set((s) => ({
       stock: s.stock.map((i) =>
@@ -683,7 +650,7 @@ export const useHomeStore = create<HomeState>((set, get) => ({
         }
       ).response
       if (reply?.data?.stock) applyStock(reply.data.stock)
-      else if (get().stockShopId) void get().loadStock(get().stockShopId!, true)
+      else if (get().stockShopId) void get().loadStock(get().stockShopId!)
       toast.error(
         reply?.status === 409
           ? (reply.data?.message ?? "Not enough in stock")
@@ -830,7 +797,7 @@ export function discardBill(billId: string) {
 
 // ---- saving the + / - counts on the server ----
 const IS_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const SYNC_AFTER = 10_000 // ten seconds after the LAST press of any product
+const SYNC_AFTER = 1500 // a second and a half after the LAST press: a burst of taps is one request, and Redis has the count right after
 let syncTimer: ReturnType<typeof setTimeout> | undefined
 let sending = false
 
@@ -840,24 +807,23 @@ function scheduleSync() {
   syncTimer = setTimeout(() => void syncStock(), SYNC_AFTER)
 }
 
-/** Sends the products in dirtyIds in one call (each with its latest count), then empties the list and moves the saved-at time. */
-export async function syncStock() {
+/** Sends the products in dirtyIds in one call (each with its latest count), then empties the list. */
+export async function syncStock(leaving = false) {
   clearTimeout(syncTimer)
   const { stockShopId: shopId, stock, dirtyIds } = useHomeStore.getState()
   if (!shopId || sending) return
   const sent = stock.filter((i) => dirtyIds.includes(i.id) && IS_ID.test(i.id))
   if (!sent.length) return
 
-  const startedAt = Date.now()
   sending = true
   try {
     await useInventoryStore.getState().saveStock(
       shopId,
-      sent.map((i) => ({ id: i.id, stock: i.qty }))
+      sent.map((i) => ({ id: i.id, stock: i.qty })),
+      leaving
     )
     if (useHomeStore.getState().stockShopId === shopId) {
       useHomeStore.setState((s) => ({
-        stockSyncedAt: startedAt,
         // a product pressed again while we were sending has a new count: it stays in the list
         dirtyIds: s.dirtyIds.filter((id) => {
           const was = sent.find((i) => i.id === id)
@@ -871,22 +837,6 @@ export async function syncStock() {
     sending = false
   }
 }
-
-// Every stock change (+ / -, add, delete) is saved for the shop that is on screen.
-useHomeStore.subscribe((state, prev) => {
-  if (
-    state.stockShopId &&
-    state.stockShopId === prev.stockShopId &&
-    (state.stock !== prev.stock ||
-      state.stockSyncedAt !== prev.stockSyncedAt ||
-      state.dirtyIds !== prev.dirtyIds)
-  )
-    writeStockCache(state.stockShopId, {
-      stock: state.stock,
-      syncedAt: state.stockSyncedAt,
-      dirtyIds: state.dirtyIds,
-    })
-})
 
 /** The khata (unpaid bills, how many, how much): worked out from the bills and the saved inventory in this store. No request. */
 export function useKhata() {

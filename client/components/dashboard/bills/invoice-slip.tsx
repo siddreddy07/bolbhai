@@ -358,7 +358,7 @@ function Slip({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
               if (!i.productId) return // the shop's own items have no product id, so a bill cannot hold them yet
               // the line shows its name and price from the saved inventory: refresh it if this item is not in there
               if (!stock.some((s) => s.productId === i.productId))
-                void loadStock(shop.id, true)
+                void loadStock(shop.id)
               addBillItem(inv.id, i.productId)
             }}
           />
