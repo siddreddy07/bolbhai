@@ -27,6 +27,7 @@ import {
   type StockNow,
 } from "@/lib/invoice-api"
 import type {
+  BillLine,
   Invoice,
   OrderLine,
   Payment,
@@ -64,6 +65,15 @@ type HomeState = {
   draftPayment: Payment
   draftPaymentType: PaymentType
   setDraftPayment: (payment: Payment, type: PaymentType) => void
+  /** the "Add new bill" slip (a bill made by hand, for when the voice did not work) */
+  newBillOpen: boolean
+  setNewBillOpen: (open: boolean) => void
+  /** Confirm on that slip: saved on the server exactly like a voice bill. Gives its id, or null if it could not be saved. */
+  saveNewBill: (
+    lines: BillLine[],
+    payment: Payment,
+    paymentType: PaymentType
+  ) => Promise<string | null>
   /** close the slip and forget the order */
   dismiss: () => void
   /** the shop whose bills are loaded */
@@ -103,6 +113,9 @@ type HomeState = {
   sheet: SheetKey
   /** the bill whose invoice is open (any screen) */
   viewInvoice: string | null
+  /** the bill whose "delete this bill?" question is open. While it is open the bill cannot be changed or closed, whatever the screen shows. */
+  deleteAsk: string | null
+  setDeleteAsk: (id: string | null) => void
   period: Period
   /** sales for today, this week and this month: ONE request, kept here, so switching the tabs asks nothing */
   analytics: Analytics | null
@@ -156,6 +169,8 @@ export const useHomeStore = create<HomeState>((set, get) => ({
   micError: null,
   sheet: null,
   viewInvoice: null,
+  deleteAsk: null,
+  newBillOpen: false,
   period: "day",
   analytics: null,
   analyticsShopId: null,
@@ -284,7 +299,50 @@ export const useHomeStore = create<HomeState>((set, get) => ({
       stock: s.stock.map((i) => (i.id === id ? { ...i, qty: i.qty + qty } : i)),
     })),
   setSheet: (sheet) => set({ sheet }),
-  setViewInvoice: (viewInvoice) => set({ viewInvoice }),
+  setNewBillOpen: (newBillOpen) => set({ newBillOpen }),
+  saveNewBill: async (lines, payment, paymentType) => {
+    const shopId = useShopStore.getState().shop?.id
+    if (!shopId || !lines.length || get().savingBill) return null
+    set({ savingBill: true })
+    try {
+      await syncStock() // counts pressed by hand go first
+      const { invoice: bill, stock } = await createInvoice(
+        shopId,
+        lines,
+        payment,
+        paymentType
+      )
+      applyStock(stock) // the shelf already moved on the server
+      analyticsStale = true
+      set((s) => ({
+        invoices: [bill, ...s.invoices],
+        billsShopId: s.billsShopId ?? shopId,
+        newBillOpen: false,
+      }))
+      const count = bill.items.reduce((n, l) => n + l.quantity, 0)
+      toast.success("Bill saved", {
+        description: `${count} ${count === 1 ? "item" : "items"} added to Bills`,
+        action: {
+          label: "Open",
+          onClick: () => get().setViewInvoice(bill.id),
+        },
+      })
+      return bill.id
+    } catch {
+      toast.error("Could not save the bill", {
+        description:
+          "Nothing was changed. Check your connection and try again.",
+      })
+      return null
+    } finally {
+      set({ savingBill: false })
+    }
+  },
+  setDeleteAsk: (deleteAsk) => set({ deleteAsk }),
+  setViewInvoice: (viewInvoice) => {
+    if (get().deleteAsk) return // answer the question first
+    set({ viewInvoice })
+  },
   setPeriod: (period) => set({ period }),
   tapMic: async () => {
     const { phase } = get()
@@ -497,7 +555,9 @@ export const useHomeStore = create<HomeState>((set, get) => ({
     }
   },
   addBillItem: (billId, pid) => {
+    if (get().deleteAsk) return
     if (!get().invoices.some((b) => b.id === billId)) return
+    if (!moveShelf(pid, 1)) return // none left on the shelf
     set((s) => ({
       invoices: s.invoices.map((b) => {
         if (b.id !== billId) return b
@@ -515,6 +575,11 @@ export const useHomeStore = create<HomeState>((set, get) => ({
     scheduleBillSave(billId)
   },
   setBillQty: (billId, pid, quantity) => {
+    if (get().deleteAsk) return
+    const line = get()
+      .invoices.find((b) => b.id === billId)
+      ?.items.find((l) => l.pid === pid)
+    if (!moveShelf(pid, quantity - (line?.quantity ?? 0))) return // not enough on the shelf
     set((s) => ({
       invoices: s.invoices.map((b) => {
         if (b.id !== billId) return b
@@ -530,6 +595,7 @@ export const useHomeStore = create<HomeState>((set, get) => ({
     scheduleBillSave(billId)
   },
   setBillPayment: async (billId, payment, paymentType) => {
+    if (get().deleteAsk) return
     const before = get().invoices.find((b) => b.id === billId)
     if (!before) return
     set((s) => ({
@@ -556,6 +622,7 @@ export const useHomeStore = create<HomeState>((set, get) => ({
     }
   },
   removeBill: async (billId) => {
+    if (get().deleteAsk !== billId) return // only after the question was asked
     clearTimeout(billTimers.get(billId))
     billTimers.delete(billId)
     try {
@@ -568,10 +635,14 @@ export const useHomeStore = create<HomeState>((set, get) => ({
       set((s) => ({
         invoices: s.invoices.filter((b) => b.id !== billId),
         viewInvoice: s.viewInvoice === billId ? null : s.viewInvoice,
+        deleteAsk: null,
         billError: null,
       }))
     } catch {
-      set({ billError: "Could not delete the bill. Try again" })
+      set({
+        deleteAsk: null,
+        billError: "Could not delete the bill. Try again",
+      })
       toast.error("Could not delete the bill", {
         description: "It is still in your bills.",
       })
@@ -591,6 +662,32 @@ export function refreshIfStale() {
   analyticsStale = false
   const { billsShopId, loadAnalytics } = useHomeStore.getState()
   if (billsShopId) void loadAnalytics(billsShopId)
+}
+
+/**
+ * A bill takes `take` of a product off the shelf (a negative number gives some back).
+ * The shelf number changes AT ONCE, here in the app (it is not marked as changed: the server moves the shelf itself when the bill is saved).
+ * Asking for more than is left changes nothing and says so. Gives true when the change is fine.
+ */
+function moveShelf(pid: string, take: number) {
+  if (take === 0) return true
+  const item = useHomeStore.getState().stock.find((i) => i.productId === pid)
+  if (!item) return true // not a shelf product: nothing to count
+  if (take > item.qty) {
+    toast.error(
+      item.qty === 0
+        ? `${item.name} is out of stock`
+        : `Only ${item.qty} ${item.name} left`,
+      { description: "Add more to the stock first." }
+    )
+    return false
+  }
+  useHomeStore.setState((s) => ({
+    stock: s.stock.map((i) =>
+      i.productId === pid ? { ...i, qty: i.qty - take } : i
+    ),
+  }))
+  return true
 }
 
 /** Puts the server's stock counts (by product id) into the saved inventory. Not marked as changed here: the server already has them. */
@@ -633,7 +730,24 @@ export async function flushBill(billId: string) {
     applyStock(stock)
     useHomeStore.setState({ billError: null })
     analyticsStale = true // the graphs are fetched again when the dashboard is looked at
-  } catch {
+  } catch (error) {
+    // the server said "not enough on the shelf": show its shelf numbers, nothing was saved
+    const reply = (
+      error as {
+        response?: {
+          status?: number
+          data?: { message?: string; stock?: StockNow }
+        }
+      }
+    ).response
+    if (reply?.status === 409) {
+      applyStock(reply.data?.stock ?? [])
+      useHomeStore.setState({ billError: reply.data?.message ?? null })
+      toast.error(reply.data?.message ?? "Not enough in stock", {
+        description: "The bill was not changed on the server.",
+      })
+      return
+    }
     useHomeStore.setState({ billError: "Could not save the change. Try again" })
     toast.error("Could not save the change", {
       description: "Your last edit to the bill was not saved.",

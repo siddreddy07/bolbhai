@@ -8,6 +8,7 @@ import { useGSAP } from "@gsap/react"
 import { Logo } from "@/components/site/doodles"
 import { ShopMenu } from "@/components/dashboard/header-menus"
 import { InvoiceDrawer } from "@/components/dashboard/bills/invoice-slip"
+import { NewBillDrawer } from "@/components/dashboard/bills/new-bill"
 import { MicButton } from "@/components/dashboard/home-parts/mic-button"
 import { QuickSheet } from "@/components/dashboard/home-parts/quick-sheet"
 import { SalesSection } from "@/components/dashboard/home-parts/sales-section"
@@ -110,6 +111,7 @@ export function Home() {
       <MicButton />
 
       <InvoiceDrawer />
+      <NewBillDrawer />
       <QuickSheet />
     </main>
   )

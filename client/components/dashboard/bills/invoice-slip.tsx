@@ -3,16 +3,10 @@
 import * as React from "react"
 import gsap from "gsap"
 import { useGSAP } from "@gsap/react"
-import { Minus, Plus, Trash2 } from "lucide-react"
+import { Check, Loader2, Minus, Plus, Trash2, X } from "lucide-react"
 
 import { Segmented, inr } from "@/components/dashboard/list-kit"
 import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import {
   Drawer,
   DrawerContent,
@@ -75,14 +69,17 @@ const TYPES: { id: PaymentType; name: string }[] = [
 ]
 
 function Slip({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
+  // "delete this bill?" is kept in the store, so the lock does not depend on anything drawn on the screen
+  const asking = useHomeStore((s) => s.deleteAsk === inv.id)
+  const setAsking = (open: boolean) =>
+    useHomeStore.getState().setDeleteAsk(open ? inv.id : null)
   const shop = useShopStore((s) => s.shop)
   const stock = useHomeStore((s) => s.stock)
   const error = useHomeStore((s) => s.billError)
   const { addBillItem, setBillQty, setBillPayment, removeBill, loadStock } =
     useHomeStore.getState()
   const box = React.useRef<HTMLDivElement>(null)
-  const [asking, setAsking] = React.useState(false) // "are you sure?" is open
-  const [deleting, setDeleting] = React.useState(false)
+  const [deleting, setDeleting] = React.useState(false) // the server is deleting it: nothing on the slip works
   // paid or not, and how: only a DRAFT until Done is pressed (closing any other way keeps the bill as it was)
   const [payment, setPayment] = React.useState<Payment>(inv.payment)
   const [paymentType, setPaymentType] = React.useState<PaymentType>(
@@ -93,6 +90,7 @@ function Slip({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
   const stamp = STAMP[payment]
   const changed = payment !== inv.payment || paymentType !== inv.paymentType
   const done = () => {
+    if (asking) return
     if (changed) void setBillPayment(inv.id, payment, paymentType)
     onClose()
   }
@@ -163,8 +161,135 @@ function Slip({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
     { scope: box, dependencies: [payment] }
   )
 
+  // the bill fades out first, then the other view takes its place (so it never just jumps)
+  const swap = (open: boolean) => {
+    if (
+      !box.current ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    )
+      return setAsking(open)
+    gsap.to(box.current, {
+      autoAlpha: 0,
+      y: open ? -8 : 8,
+      duration: 0.2,
+      ease: "power2.in",
+      onComplete: () => setAsking(open),
+    })
+  }
+
+  // the slip folds into the summary and back: the card drops in, the question pops up under it; going back fades the bill in
+  const firstAsk = React.useRef(true)
+  useGSAP(
+    () => {
+      if (firstAsk.current) {
+        firstAsk.current = false
+        return
+      }
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
+      if (asking) {
+        gsap
+          .timeline({ defaults: { ease: "power3.out" } })
+          .from("[data-ask-card]", {
+            y: 16,
+            scale: 0.96,
+            autoAlpha: 0,
+            duration: 0.35,
+          })
+          .from(
+            "[data-ask-bar]",
+            { y: 24, autoAlpha: 0, duration: 0.45, ease: "back.out(1.6)" },
+            "-=0.2"
+          )
+      } else {
+        gsap.from(box.current, {
+          autoAlpha: 0,
+          y: 10,
+          duration: 0.35,
+          ease: "power2.out",
+        })
+      }
+    },
+    { scope: box, dependencies: [asking] }
+  )
+
+  // "delete this bill?": the slip folds into a short summary and nothing else is drawn, so there is nothing else to click
+  if (asking) {
+    return (
+      <div
+        key="ask"
+        ref={box}
+        className="px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
+      >
+        <DrawerTitle className="sr-only">
+          Delete bill #{billNumber(inv)}
+        </DrawerTitle>
+        <DrawerDescription className="sr-only">
+          Are you sure you want to delete this bill?
+        </DrawerDescription>
+        <div className="mx-auto max-w-[420px] pt-1">
+          <div
+            data-ask-card
+            className="rounded-2xl bg-foreground/5 px-4 py-3.5"
+          >
+            <p className="text-sm font-semibold">Bill #{billNumber(inv)}</p>
+            <p className="text-xs text-muted-foreground">
+              {new Date(inv.date).toLocaleString("en-IN", {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+                hour: "numeric",
+                minute: "2-digit",
+                hour12: true,
+              })}
+            </p>
+            <p className="mt-2 text-3xl leading-none font-extrabold tabular-nums">
+              {inr(invoiceTotal(inv, stock))}
+            </p>
+          </div>
+          {asking ? (
+            <div
+              data-ask-bar
+              className="mt-3 flex h-12 items-center gap-3 rounded-full bg-destructive/10 pr-1.5 pl-5"
+            >
+              <span className="min-w-0 flex-1 truncate text-sm font-semibold text-destructive">
+                {deleting ? "Deleting…" : "Delete this bill?"}
+              </span>
+              <button
+                type="button"
+                aria-label="Yes, delete it"
+                onClick={async () => {
+                  setDeleting(true)
+                  await removeBill(inv.id) // closes the bill when it is gone
+                  setDeleting(false)
+                  setAsking(false)
+                }}
+                className="grid size-9 place-items-center rounded-full bg-destructive text-white active:scale-95"
+              >
+                {deleting ? (
+                  <Loader2 className="size-[18px] animate-spin" />
+                ) : (
+                  <Check className="size-[18px]" />
+                )}
+              </button>
+              <button
+                type="button"
+                aria-label="No, keep it"
+                disabled={deleting}
+                onClick={() => swap(false)}
+                className="grid size-9 place-items-center rounded-full bg-foreground/10 active:scale-95"
+              >
+                <X className="size-[18px]" />
+              </button>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div
+      key="slip"
       ref={box}
       className="max-h-[88dvh] overflow-y-auto overscroll-contain px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
     >
@@ -199,6 +324,7 @@ function Slip({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
               i.productId ? inr(i.price) : "cannot be billed yet"
             }
             onSelect={(i) => {
+              if (asking) return
               if (!i.productId) return // the shop's own items have no product id, so a bill cannot hold them yet
               // the line shows its name and price from the saved inventory: refresh it if this item is not in there
               if (!stock.some((s) => s.productId === i.productId))
@@ -222,7 +348,7 @@ function Slip({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
 
             {inv.items.length === 0 ? (
               <p className="mt-3 border-t border-dashed border-[#1d2a22]/35 py-6 text-center font-mono text-[12px] opacity-60">
-                Nothing on this bill. Search above to add an item.
+                Bol bhai, kya chahiye?
               </p>
             ) : (
               <ul className="mt-3 border-t border-dashed border-[#1d2a22]/35 py-2">
@@ -338,46 +464,13 @@ function Slip({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
           </Button>
           <Button
             variant="ghost"
-            onClick={() => setAsking(true)}
+            onClick={() => swap(true)}
             className="h-12 rounded-full text-base text-destructive hover:text-destructive"
           >
             Delete bill
           </Button>
         </div>
       </div>
-
-      <Dialog open={asking} onOpenChange={(o) => !deleting && setAsking(o)}>
-        <DialogContent>
-          <DialogTitle>Delete this bill?</DialogTitle>
-          <DialogDescription className="mt-1.5">
-            Bill #{billNumber(inv)} will be removed for good, and its items go
-            back on your shelf.
-          </DialogDescription>
-          <div className="mt-5 grid grid-cols-2 gap-2">
-            <Button
-              variant="outline"
-              disabled={deleting}
-              onClick={() => setAsking(false)}
-              className="h-11 rounded-full text-base"
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              disabled={deleting}
-              onClick={async () => {
-                setDeleting(true)
-                await removeBill(inv.id) // closes the bill when it is gone
-                setDeleting(false)
-                setAsking(false)
-              }}
-              className="h-11 rounded-full text-base"
-            >
-              {deleting ? "Deleting…" : "Delete"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
@@ -397,6 +490,7 @@ export function InvoiceDrawer() {
   if (!!inv !== session.open)
     setSession({ open: !!inv, n: session.n + (inv ? 1 : 0) })
   const close = () => {
+    if (useHomeStore.getState().deleteAsk) return // answer the question first
     if (id) void flushBill(id) // a change waiting to be saved goes now
     set(null)
   }

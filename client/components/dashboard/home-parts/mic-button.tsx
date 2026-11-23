@@ -3,7 +3,7 @@
 import * as React from "react"
 import gsap from "gsap"
 import { useGSAP } from "@gsap/react"
-import { Mic } from "lucide-react"
+import { FilePlus2, Mic } from "lucide-react"
 
 import { MicBars } from "@/components/dashboard/mic-bars"
 import { useHomeStore } from "@/store/home-store"
@@ -13,6 +13,7 @@ export function MicButton() {
   const phase = useHomeStore((s) => s.phase)
   const micError = useHomeStore((s) => s.micError)
   const tapMic = useHomeStore((s) => s.tapMic)
+  const setNewBillOpen = useHomeStore((s) => s.setNewBillOpen)
   const root = React.useRef<HTMLDivElement>(null)
 
   // the mic changes shape: a circle while idle, a rounded square (the stop shape) while it records
@@ -52,6 +53,17 @@ export function MicButton() {
           ) : (
             <Mic className="size-[calc(var(--u)*2.5)]" />
           )}
+        </button>
+        {/* a bill made by hand, for when the voice did not work */}
+        <button
+          type="button"
+          onClick={() => setNewBillOpen(true)}
+          disabled={phase !== "idle"}
+          aria-label="Add new bill"
+          title="Add new bill"
+          className="absolute top-1/2 left-[calc(50%+var(--u)*5)] grid size-[calc(var(--u)*3.4)] -translate-y-1/2 place-items-center rounded-full border border-foreground/15 bg-card text-foreground transition-transform active:scale-90 disabled:opacity-40"
+        >
+          <FilePlus2 className="size-[calc(var(--u)*1.5)]" />
         </button>
       </div>
       <p className="-mt-1 text-sm font-semibold text-muted-foreground">
