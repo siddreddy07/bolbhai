@@ -819,6 +819,15 @@
               "indexes": [
                 {
                   "columns": [
+                    "shopId",
+                    "date"
+                  ],
+                  "name": "invoices_shopId_date_idx_7c8f3022",
+                  "prefix": "invoices_shopId_date_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
                     "shopId"
                   ],
                   "name": "invoices_shopId_idx_e9207c6b",
@@ -1251,7 +1260,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "296bbe7436b6d5b6f0b8eab2dd0b21f74416a9fe4b9dc7137eff6791cc0c1a7b"
+    "storageHash": "7cdf7dbc115d0ae8257b672e0ab471b4510143de6dcc1f5dfd4542480afafa5c"
   },
   "execution": {
     "executionHash": "b8227bec2a7449ead378099bda5123c16011e167fcc413381c40cfd570db6b88",

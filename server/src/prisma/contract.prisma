@@ -89,4 +89,7 @@ model invoices {
   paymentType   PaymentType   @default(CASH)
   // the payment id, if there is one (optional)
   transactionId String?
+
+  // the bills lists and the analytics always ask for one shop's bills by date
+  @@index([shopId, date])
 }
