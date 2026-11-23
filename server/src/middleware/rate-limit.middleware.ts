@@ -1,17 +1,9 @@
 import type { NextFunction, Request, Response } from "express";
-import { Redis } from "@upstash/redis";
 import { Ratelimit } from "@upstash/ratelimit";
-import { env } from "../config/env.js";
+import { redis } from "../config/redis.js";
 
 // Rate limits kept in Upstash Redis, one counter per logged-in user, so they hold even when the server runs more than once.
 // Put it AFTER `auth` on a route. Without the Upstash settings the limits are simply off (and say so once).
-const redis =
-  env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN
-    ? new Redis({
-        url: env.UPSTASH_REDIS_REST_URL,
-        token: env.UPSTASH_REDIS_REST_TOKEN,
-      })
-    : null;
 if (!redis) console.warn("Rate limits are OFF: no UPSTASH_REDIS_REST_URL / TOKEN");
 
 type Window = `${number} ${"s" | "m" | "h"}`;
