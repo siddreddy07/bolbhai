@@ -121,3 +121,11 @@ export async function fetchAnalytics(shopId: string) {
   const { bills, ...analytics } = data
   return { analytics: analytics as Analytics, bills: bills.map(toInvoice) }
 }
+
+/** POST /api/invoices/:id/pay-link: the Stripe page where the customer pays this bill. */
+export async function payLink(id: string) {
+  const { data } = await api.post<{ url: string; total: number }>(
+    `/api/invoices/${id}/pay-link`
+  )
+  return data
+}

@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Check, ChevronRight, X } from "lucide-react"
+import { Check, ChevronRight, CreditCard, Loader2, X } from "lucide-react"
 import { toast } from "sonner"
 
 import { InvoiceDrawer } from "@/components/dashboard/bills/invoice-slip"
@@ -13,6 +13,7 @@ import {
 } from "@/components/dashboard/list-kit"
 import { billNumber, daysAgo, type KhataBill } from "@/lib/bill"
 import { useHomeStore, useKhata } from "@/store/home-store"
+import { payLink } from "@/lib/invoice-api"
 import { useShopStore } from "@/store/shop-store"
 
 /* ================================================================== */
@@ -44,6 +45,17 @@ export function KhataPage() {
     toast.success("Marked as paid", {
       description: `${inr(b.total)} received by ${how === "UPI" ? "UPI" : "cash"}.`,
     })
+  }
+
+  // pay online: open this bill's Stripe page
+  async function payNow(b: KhataBill) {
+    setBusy(b.id)
+    try {
+      window.location.assign((await payLink(b.id)).url)
+    } catch {
+      setBusy(null)
+      toast.error("Could not open the payment page")
+    }
   }
 
   const needle = q.trim().toLowerCase()
@@ -150,13 +162,27 @@ export function KhataPage() {
             >
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-semibold">
-                  Bill #{billNumber(b)}
+                  {b.customerName ?? `Bill #${billNumber(b)}`}
                 </span>
                 <span className="block truncate text-xs text-muted-foreground">
+                  {b.customerName ? `#${billNumber(b)} · ` : ""}
                   {when}
                 </span>
               </span>
               <span className="font-bold tabular-nums">{inr(b.total)}</span>
+            </button>
+            <button
+              type="button"
+              aria-label="Pay now"
+              disabled={busy === b.id}
+              onClick={() => payNow(b)}
+              className="grid size-9 shrink-0 place-items-center rounded-full border border-foreground/20 active:scale-95 disabled:opacity-50"
+            >
+              {busy === b.id ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <CreditCard className="size-4" />
+              )}
             </button>
             <button
               type="button"

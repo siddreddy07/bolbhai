@@ -3,7 +3,15 @@
 import * as React from "react"
 import gsap from "gsap"
 import { useGSAP } from "@gsap/react"
-import { Check, Loader2, Minus, Plus, Trash2, X } from "lucide-react"
+import {
+  Check,
+  CreditCard,
+  Loader2,
+  Minus,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react"
 
 import { Segmented, inr } from "@/components/dashboard/list-kit"
 import { Button } from "@/components/ui/button"
@@ -15,6 +23,7 @@ import {
 } from "@/components/ui/drawer"
 import { CustomerPick } from "@/components/dashboard/bills/customer-pick"
 import type { Customer } from "@/lib/customer-api"
+import { payLink } from "@/lib/invoice-api"
 import { SearchBox } from "@/components/ui/search-box"
 import {
   billNumber,
@@ -72,6 +81,7 @@ const TYPES: { id: PaymentType; name: string }[] = [
 
 function Slip({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
   // "delete this bill?" is kept in the store, so the lock does not depend on anything drawn on the screen
+  const [paying, setPaying] = React.useState(false) // opening the Stripe page
   const asking = useHomeStore((s) => s.deleteAsk === inv.id)
   const setAsking = (open: boolean) =>
     useHomeStore.getState().setDeleteAsk(open ? inv.id : null)
@@ -499,17 +509,43 @@ function Slip({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
           </p>
         )}
 
-        <div className="mt-4 grid grid-cols-2 gap-2">
+        {!isPaid(inv) && !paid && (
+          <Button
+            variant="outline"
+            disabled={paying || asking}
+            onClick={async () => {
+              setPaying(true)
+              try {
+                window.location.assign((await payLink(inv.id)).url)
+              } catch {
+                setPaying(false)
+                useHomeStore.setState({
+                  billError: "Could not open the payment page",
+                })
+              }
+            }}
+            className="mt-4 h-12 w-full rounded-full text-base"
+          >
+            {paying ? <Loader2 className="animate-spin" /> : <CreditCard />}
+            {paying ? "Opening…" : "Pay now"}
+          </Button>
+        )}
+
+        <div
+          className={`mt-4 grid gap-2 ${isPaid(inv) ? "grid-cols-1" : "grid-cols-2"}`}
+        >
           <Button onClick={done} className="h-12 rounded-full text-base">
             Done
           </Button>
-          <Button
-            variant="ghost"
-            onClick={() => swap(true)}
-            className="h-12 rounded-full text-base text-destructive hover:text-destructive"
-          >
-            Delete bill
-          </Button>
+          {!isPaid(inv) && (
+            <Button
+              variant="ghost"
+              onClick={() => swap(true)}
+              className="h-12 rounded-full text-base text-destructive hover:text-destructive"
+            >
+              Delete bill
+            </Button>
+          )}
         </div>
       </div>
     </div>
