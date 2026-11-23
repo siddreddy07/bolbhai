@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import { forgetUser } from "../services/user-cache.service.js";
 import { z } from "zod";
 import { idSchema } from "../schemas/id.schema.js";
 import { COOKIE_OPTIONS } from "../config/constant.js";
@@ -93,7 +94,9 @@ export async function editUser(req: Request, res: Response) {
     if (!body.success) return res.status(400).json({ message: z.prettifyError(body.error) });
 
     if (!(await getUserById(id.data))) return res.status(404).json({ message: "User not found" });
-    res.json(await updateUser(id.data, body.data));
+    const updated = await updateUser(id.data, body.data);
+    await forgetUser(id.data);
+    res.json(updated);
   } catch (error) {
     console.error("Could not update user:", error);
     res.status(500).json({ message: "Could not update user" });
@@ -107,6 +110,7 @@ export async function removeUser(req: Request, res: Response) {
 
     if (!(await getUserById(id.data))) return res.status(404).json({ message: "User not found" });
     await deleteUser(id.data);
+    await forgetUser(id.data);
     res.json({ message: "User deleted" });
   } catch (error) {
     console.error("Could not delete user:", error);
