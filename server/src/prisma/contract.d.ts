@@ -23,7 +23,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'712167cadf5909e34d957bb3863907cd307693e78b409c31990e96095b6c1ed5'>;
+  StorageHashBase<'6be9db0e6183bdb1d49277156c7c36e05d5b50937d1ed1a626246f096b45ca1c'>;
 export type ExecutionHash =
   ExecutionHashBase<'ecb4e2a40ac148a43f91259a636fdafdcf2740174cf057fdae433fde3d219d6c'>;
 export type ProfileHash =
@@ -340,6 +340,7 @@ export namespace Models {
     shopId: FieldOutputTypes['public']['customer_transactions']['shopId'];
     status: FieldOutputTypes['public']['customer_transactions']['status'];
     subtotal: FieldOutputTypes['public']['customer_transactions']['subtotal'];
+    transactionId: FieldOutputTypes['public']['customer_transactions']['transactionId'];
     updatedAt: FieldOutputTypes['public']['customer_transactions']['updatedAt'];
     customer: public_customers | null;
     invoice: public_invoices;
@@ -510,6 +511,12 @@ type ContractBase = Omit<
                   readonly nullable: false;
                   readonly many: false;
                 };
+                readonly transactionId: {
+                  readonly dataType: 'pg/text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                  readonly many: false;
+                };
                 readonly updatedAt: {
                   readonly dataType: 'pg/timestamptz';
                   readonly codecId: 'pg/timestamptz-date@1';
@@ -519,7 +526,10 @@ type ContractBase = Omit<
                 };
               };
               primaryKey: { readonly columns: readonly ['id'] };
-              uniques: readonly [{ readonly columns: readonly ['id', 'invoiceId'] }];
+              uniques: readonly [
+                { readonly columns: readonly ['transactionId'] },
+                { readonly columns: readonly ['id', 'invoiceId'] },
+              ];
               indexes: readonly [
                 {
                   readonly name: 'customer_transactions_customerId_idx_b2a8a46c';
@@ -1145,6 +1155,10 @@ type ContractBase = Omit<
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/numeric@1' };
               };
+              readonly transactionId: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
               readonly updatedAt: {
                 readonly nullable: false;
                 readonly type: {
@@ -1204,6 +1218,7 @@ type ContractBase = Omit<
                 readonly shopId: { readonly column: 'shopId' };
                 readonly status: { readonly column: 'status' };
                 readonly subtotal: { readonly column: 'subtotal' };
+                readonly transactionId: { readonly column: 'transactionId' };
                 readonly updatedAt: { readonly column: 'updatedAt' };
               };
             };

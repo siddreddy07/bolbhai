@@ -139,6 +139,13 @@
                   "kind": "scalar"
                 }
               },
+              "transactionId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
               "updatedAt": {
                 "nullable": false,
                 "type": {
@@ -225,6 +232,9 @@
                 },
                 "subtotal": {
                   "column": "subtotal"
+                },
+                "transactionId": {
+                  "column": "transactionId"
                 },
                 "updatedAt": {
                   "column": "updatedAt"
@@ -1116,6 +1126,11 @@
                   "dataType": "pg/numeric",
                   "nullable": false
                 },
+                "transactionId": {
+                  "codecId": "pg/text@1",
+                  "dataType": "pg/text",
+                  "nullable": true
+                },
                 "updatedAt": {
                   "codecId": "pg/timestamptz-date@1",
                   "dataType": "pg/timestamptz",
@@ -1216,6 +1231,11 @@
                 ]
               },
               "uniques": [
+                {
+                  "columns": [
+                    "transactionId"
+                  ]
+                },
                 {
                   "columns": [
                     "id",
@@ -1881,7 +1901,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "712167cadf5909e34d957bb3863907cd307693e78b409c31990e96095b6c1ed5"
+    "storageHash": "6be9db0e6183bdb1d49277156c7c36e05d5b50937d1ed1a626246f096b45ca1c"
   },
   "execution": {
     "executionHash": "ecb4e2a40ac148a43f91259a636fdafdcf2740174cf057fdae433fde3d219d6c",

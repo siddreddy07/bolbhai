@@ -125,6 +125,7 @@ model customer_transactions {
   invoice       invoices           @relation(fields: [invoiceId], references: [id])
   invoiceId     Uuid
 
+  transactionId String?            @unique
   subtotal      Decimal
   paymentStatus String
   status        String
