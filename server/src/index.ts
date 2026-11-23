@@ -17,6 +17,11 @@ import { paymentReceipt, stripeWebhook } from './controllers/payment.controller.
 
 const app = express();
 
+// Render (and anyone else) pings this to see that the server is up. It sits before the logger so the pings don't fill the log.
+app.get('/health', (req, res) => {
+  res.json({ ok: true });
+});
+
 app.use(morgan(':date[iso] :method :url :status :response-time ms'));
 app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
 // Stripe's webhook needs the body exactly as sent (to check the signature), so it comes BEFORE express.json()
