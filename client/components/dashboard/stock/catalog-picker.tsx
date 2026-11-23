@@ -1,23 +1,23 @@
 "use client"
 
 import * as React from "react"
-import { Check, Minus, Plus, Search, X } from "lucide-react"
+import { Check, LoaderCircle, Minus, Plus, Search, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer"
 import { useHomeStore } from "@/store/home-store"
 import { searchKey, useInventoryStore, type CatalogProduct } from "@/store/inventory-store"
 
-const DEBOUNCE_MS = 350
+const DEBOUNCE_MS = 400
 const MIN_LETTERS = 2
 
 type Picked = { product: CatalogProduct; qty: number }
 
 /** - 3 +  : how many the shop has right now (0 is fine, it can be raised later from the stock page). */
-function Qty({ value, onChange, name }: { value: number; onChange: (n: number) => void; name: string }) {
-  const b = "grid size-8 place-items-center rounded-full border border-foreground/15 bg-card active:scale-90 disabled:opacity-30"
+function Qty({ value, onChange, name, small = false }: { value: number; onChange: (n: number) => void; name: string; small?: boolean }) {
+  const b = `grid ${small ? "size-7" : "size-8"} place-items-center rounded-full border border-foreground/15 bg-card active:scale-90 disabled:opacity-30`
   return (
-    <span className="flex shrink-0 items-center gap-1">
+    <span className={`flex items-center gap-1 ${small ? "w-full" : "shrink-0"}`}>
       <button type="button" aria-label={`One less ${name}`} disabled={value <= 0} onClick={() => onChange(Math.max(0, value - 1))} className={b}>
         <Minus className="size-3.5" />
       </button>
@@ -29,7 +29,7 @@ function Qty({ value, onChange, name }: { value: number; onChange: (n: number) =
           const n = Number(e.target.value.replace(/[^\d.]/g, ""))
           onChange(Number.isFinite(n) ? Math.min(n, 1_000_000) : 0)
         }}
-        className="h-8 w-12 rounded-lg bg-transparent text-center text-sm font-bold outline-none focus:bg-foreground/5"
+        className={`${small ? "h-7 w-full min-w-0" : "h-8 w-12"} rounded-lg bg-transparent text-center text-sm font-bold outline-none focus:bg-foreground/5`}
       />
       <button type="button" aria-label={`One more ${name}`} onClick={() => onChange(value + 1)} className={b}>
         <Plus className="size-3.5" />
@@ -103,7 +103,7 @@ export function CatalogPicker({
   const choose = (product: CatalogProduct) => {
     const qty = rowQty[product.id] ?? 0
     setPicked((now) => (now.some((p) => p.product.id === product.id) ? now : [...now, { product, qty }]))
-    setText("") // clears the box and closes the results, so the next product can be typed
+    // the search stays as it is: the same results are still there to pick more from
   }
 
   const finish = () => {
@@ -132,6 +132,8 @@ export function CatalogPicker({
   // an empty answer, or one for older text, shows nothing: the results are closed
   const results = answer.key === searchKey(text) ? answer.items : []
   const showResults = results.length > 0
+  // typed enough, and the answer for this text has not come yet (waiting for the pause, or for the server)
+  const searching = searchKey(text).length >= MIN_LETTERS && answer.key !== searchKey(text)
 
   return (
     <Drawer open={open} onOpenChange={(o) => !o && finish()} showSwipeHandle>
@@ -149,34 +151,50 @@ export function CatalogPicker({
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder="Search a product, like atta"
-              className="h-11 w-full rounded-full border border-foreground/15 bg-card pr-4 pl-10 text-base outline-none transition-[border-color] placeholder:text-foreground/40 focus:border-foreground"
+              className="h-11 w-full rounded-full border border-foreground/15 bg-card pr-10 pl-10 text-base outline-none transition-[border-color] placeholder:text-foreground/40 focus:border-foreground"
             />
+            {searching && <LoaderCircle aria-label="Searching" className="absolute top-1/2 right-3.5 size-[18px] -translate-y-1/2 animate-spin opacity-60" />}
           </label>
 
+          {searching && !showResults && <p className="mt-2 px-1 text-sm text-muted-foreground">Searching…</p>}
+
           {showResults && (
-            <ul className="mt-2 max-h-60 overflow-y-auto overscroll-contain rounded-2xl border border-foreground/10 bg-card">
+            <ul className="mt-2 max-h-52 overflow-y-auto overscroll-contain rounded-2xl border border-foreground/10 bg-card">
               {results.map((p) => {
                 const isOwned = ownedIds.has(p.id)
-                const isPicked = picked.some((x) => x.product.id === p.id)
+                const pick = picked.find((x) => x.product.id === p.id)
+                const isPicked = !!pick
                 return (
-                  <li key={p.id} className="flex items-center justify-between gap-2 px-3.5 py-2.5 text-sm">
+                  <li key={p.id} className={`flex items-center justify-between gap-2 px-3.5 py-2.5 text-sm ${isPicked ? "bg-foreground/8" : ""}`}>
                     <span className="min-w-0">
                       <span className="line-clamp-1 font-semibold">{label(p)}</span>
                       <span className="text-xs text-muted-foreground">{[p.size, p.category].filter(Boolean).join(" · ")}</span>
                     </span>
-                    {isOwned || isPicked ? (
+                    {isOwned ? (
                       <span className="flex shrink-0 items-center gap-1 rounded-full bg-foreground/8 px-2.5 py-1 text-xs font-bold">
-                        <Check className="size-3.5" /> {isOwned ? "Already added" : "Picked"}
+                        <Check className="size-3.5" /> Already added
                       </span>
                     ) : (
                       <span className="flex shrink-0 items-center gap-2">
-                        <Qty value={rowQty[p.id] ?? 0} onChange={(n) => setRowQty((now) => ({ ...now, [p.id]: n }))} name={p.name} />
+                        <Qty
+                          value={pick ? pick.qty : (rowQty[p.id] ?? 0)}
+                          onChange={(n) =>
+                            pick
+                              ? setPicked((now) => now.map((x) => (x.product.id === p.id ? { ...x, qty: n } : x)))
+                              : setRowQty((now) => ({ ...now, [p.id]: n }))
+                          }
+                          name={p.name}
+                        />
                         <button
                           type="button"
-                          onClick={() => choose(p)}
-                          className="h-8 rounded-full bg-foreground px-3 text-xs font-bold text-background active:scale-95"
+                          aria-pressed={isPicked}
+                          aria-label={isPicked ? `Unpick ${p.name}` : `Pick ${p.name}`}
+                          onClick={() => (isPicked ? setPicked((now) => now.filter((x) => x.product.id !== p.id)) : choose(p))}
+                          className={`flex h-8 items-center gap-1 rounded-full px-3 text-xs font-bold active:scale-95 ${
+                            isPicked ? "border border-foreground bg-transparent" : "bg-foreground text-background"
+                          }`}
                         >
-                          Pick
+                          {isPicked ? <><Check className="size-3.5" /> Picked</> : "Pick"}
                         </button>
                       </span>
                     )}
@@ -187,28 +205,28 @@ export function CatalogPicker({
           )}
 
           {picked.length > 0 && (
-            <div className="mt-4">
-              <p className="mb-2 text-xs font-semibold text-muted-foreground">
+            <div className="mt-3">
+              <p className="mb-1.5 text-xs font-semibold text-muted-foreground">
                 {picked.length} {picked.length === 1 ? "product" : "products"} picked
               </p>
-              <ul className="grid gap-2">
+              {/* every card is the same size; 2 columns on a phone, 3 from a tablet up; only this list scrolls */}
+              <ul className="grid max-h-32 grid-cols-2 gap-1.5 overflow-y-auto overscroll-contain sm:grid-cols-3">
                 {picked.map(({ product: p, qty }) => (
-                  <li key={p.id} className="flex items-center justify-between gap-2 rounded-2xl bg-foreground/8 py-1.5 pr-1.5 pl-3 text-sm">
-                    <span className="min-w-0 font-semibold">
-                      <span className="line-clamp-1">{label(p)}</span>
-                      {p.size && <span className="text-xs font-normal text-muted-foreground">{p.size}</span>}
-                    </span>
-                    <span className="flex shrink-0 items-center gap-1">
-                      <Qty value={qty} onChange={(n) => setPicked((now) => now.map((x) => (x.product.id === p.id ? { ...x, qty: n } : x)))} name={p.name} />
+                  <li key={p.id} className="rounded-xl bg-foreground/8 px-2 py-1.5">
+                    <div className="flex h-6 items-center justify-between gap-1">
+                      <span className="min-w-0 truncate text-xs font-semibold" title={label(p)}>
+                        {label(p)}
+                      </span>
                       <button
                         type="button"
                         aria-label={`Remove ${p.name}`}
                         onClick={() => setPicked((now) => now.filter((x) => x.product.id !== p.id))}
-                        className="grid size-8 place-items-center rounded-full hover:bg-foreground/10"
+                        className="grid size-5 shrink-0 place-items-center rounded-full hover:bg-foreground/10"
                       >
-                        <X className="size-4" />
+                        <X className="size-3.5" />
                       </button>
-                    </span>
+                    </div>
+                    <Qty small value={qty} onChange={(n) => setPicked((now) => now.map((x) => (x.product.id === p.id ? { ...x, qty: n } : x)))} name={p.name} />
                   </li>
                 ))}
               </ul>
