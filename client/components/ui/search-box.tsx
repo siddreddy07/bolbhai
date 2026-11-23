@@ -59,7 +59,36 @@ export type SearchBoxProps<T> = {
 }
 
 // answers already fetched, shared by every box; key = route + params + text
-const cache = new Map<string, unknown[]>()
+// What a search found is kept in the browser's localStorage for 1 minute, so the same search is not asked twice.
+const KEEP_MS = 60_000
+const cache = {
+  get(key: string): unknown[] | undefined {
+    if (typeof window === "undefined") return undefined
+    try {
+      const raw = window.localStorage.getItem(`bb-search:${key}`)
+      if (!raw) return undefined
+      const saved = JSON.parse(raw) as { at: number; list: unknown[] }
+      if (Date.now() - saved.at < KEEP_MS) return saved.list
+      window.localStorage.removeItem(`bb-search:${key}`) // older than a minute
+    } catch {
+      // storage full or blocked: just search again
+    }
+    return undefined
+  },
+  has(key: string) {
+    return this.get(key) !== undefined
+  },
+  set(key: string, list: unknown[]) {
+    try {
+      window.localStorage.setItem(
+        `bb-search:${key}`,
+        JSON.stringify({ at: Date.now(), list })
+      )
+    } catch {
+      // storage full or blocked: it is simply not remembered
+    }
+  },
+}
 
 function defaultPick(data: unknown): unknown[] {
   if (Array.isArray(data)) return data
