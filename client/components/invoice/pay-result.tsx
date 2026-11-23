@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import gsap from "gsap"
 import { useGSAP } from "@gsap/react"
 
+import { Mascot } from "@/components/site/mascot"
 import { api } from "@/lib/proxy"
 
 const GO_HOME_AFTER = 8 // seconds
@@ -27,25 +28,46 @@ export function PayResult({
   kind,
   id,
   sessionId,
+  demo = false,
 }: {
   kind: "success" | "cancel"
   id: string
   sessionId?: string
+  /** a made-up paid receipt, to look at the page (development only) */
+  demo?: boolean
 }) {
   const router = useRouter()
   const box = React.useRef<HTMLElement>(null)
   // undefined: still asking Stripe, null: could not read it
   const [receipt, setReceipt] = React.useState<Receipt | null | undefined>(
-    kind === "success" && sessionId ? undefined : null
+    demo
+      ? {
+          invoiceId: id,
+          customerName: "Siddharth",
+          amount: 300,
+          transactionId: "pi_3Demo1234567890abcdef",
+          paid: true,
+        }
+      : kind === "success" && sessionId
+        ? undefined
+        : null
   )
+  const [problem, setProblem] = React.useState("") // why a success could not be shown
 
   React.useEffect(() => {
-    if (kind !== "success" || !sessionId) return
+    if (demo || kind !== "success" || !sessionId) return
     api
       .get<Receipt>(`/api/stripe/session/${sessionId}`)
       .then((r) => setReceipt(r.data))
-      .catch(() => setReceipt(null))
-  }, [kind, sessionId])
+      .catch((e) => {
+        setProblem(
+          e?.response?.status === 404
+            ? "Stripe has no payment with this id."
+            : "Could not reach the server."
+        )
+        setReceipt(null)
+      })
+  }, [demo, kind, sessionId])
 
   const ready = receipt !== undefined
   // the receipt must be for THIS bill
@@ -99,20 +121,36 @@ export function PayResult({
 
   // the one line, in BolBhai's voice
   const line = done
-    ? "Paisa aa gaya, bhai."
+    ? "Payment ho gaya, bhai."
     : kind === "success"
-      ? "Pata nahi chala, bhai."
-      : `Bill #${billNo(id)} cancel. Kanjoosi, bhai?`
-  const small = done
-    ? [receipt?.customerName, `Bill #${billNo(id)}`, receipt?.transactionId]
-    : kind === "success"
-      ? ["Paisa kata ho toh bill thodi der mein paid ho jayega."]
-      : ["Koi paisa nahi kata."]
+      ? "Payment confirm nahi hua."
+      : "Payment cancel ho gaya."
+  // what is shown under it: the receipt rows when it was paid, else one short sentence
+  const rows: [string, string][] = done
+    ? [
+        ...(receipt?.customerName && receipt.customerName !== "Customer"
+          ? ([["Customer", receipt.customerName]] as [string, string][])
+          : []),
+        ["Bill number", `#${billNo(id)}`],
+        ["Transaction id", receipt?.transactionId ?? "-"],
+      ]
+    : []
+  // the reason, so a success that cannot be shown says why
+  const why = !sessionId
+    ? "This link has no payment in it."
+    : problem ||
+      (receipt && !receipt.paid
+        ? "Stripe says this is not paid yet."
+        : "This payment is for another bill.")
+  const note =
+    kind === "success"
+      ? `${why} If money was taken, the bill turns paid in a minute.`
+      : `Bill #${billNo(id)}`
 
   return (
     <main
       ref={box}
-      className={`relative flex min-h-svh flex-col justify-between px-6 py-6 text-[#10301f] sm:px-12 sm:py-10 ${
+      className={`flex min-h-dvh flex-col px-5 pt-5 text-[#10301f] sm:px-12 sm:pt-8 ${
         done
           ? "bg-[#bfe8c4]"
           : kind === "success"
@@ -120,10 +158,14 @@ export function PayResult({
             : "bg-[#f25c2a]"
       }`}
     >
-      <p className="font-display text-xl font-bold">BolBhai</p>
+      <p className="font-display text-center text-lg font-bold sm:text-xl">
+        BolBhai
+      </p>
 
-      <div>
-        <h1 className="font-display text-5xl leading-[1.02] font-bold sm:text-7xl md:text-8xl">
+      <div className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center py-6 text-center">
+        <Mascot className="mb-3 h-28 w-auto max-w-none sm:mb-5 sm:h-44" />
+
+        <h1 className="font-display text-[2.4rem] leading-[1.05] font-bold text-balance sm:text-6xl">
           {line.split(" ").map((w, i) => (
             <span
               key={i}
@@ -136,21 +178,45 @@ export function PayResult({
           ))}
         </h1>
 
-        {done && (
-          <p
-            data-fade
-            data-amount
-            className="font-display mt-6 text-4xl font-bold tabular-nums sm:text-5xl"
-          >
-            ₹{Math.round(receipt?.amount ?? 0)}
+        {done ? (
+          <>
+            <p data-fade className="mt-4 text-sm font-semibold opacity-70">
+              Amount paid
+            </p>
+            <p
+              data-fade
+              data-amount
+              className="font-display text-5xl font-bold tabular-nums sm:text-6xl"
+            >
+              ₹{Math.round(receipt?.amount ?? 0)}
+            </p>
+            <dl
+              data-fade
+              className="mt-5 w-full divide-y divide-[#10301f]/15 rounded-2xl bg-[#10301f]/[0.07] px-4 text-left text-base"
+            >
+              {rows.map(([k, v]) => (
+                <div key={k} className="flex justify-between gap-4 py-2.5">
+                  <dt className="shrink-0 opacity-60">{k}</dt>
+                  <dd className="min-w-0 truncate font-semibold">{v}</dd>
+                </div>
+              ))}
+            </dl>
+          </>
+        ) : (
+          <p data-fade className="mt-3 text-base opacity-80">
+            {note}
           </p>
         )}
-        <p data-fade className="mt-3 max-w-md text-sm break-all opacity-75">
-          {small.filter(Boolean).join(" · ")}
-        </p>
       </div>
 
-      <div className="h-1 bg-[#10301f]/15" aria-hidden="true">
+      <p className="pb-2 text-center text-xs opacity-70">
+        Going back to BolBhai…
+      </p>
+      <div
+        className="mb-5 h-1 bg-[#10301f]/15 sm:mb-8"
+        aria-hidden="true"
+        style={{ marginBottom: "max(1.25rem, env(safe-area-inset-bottom))" }}
+      >
         <div data-bar className="h-full origin-left bg-[#10301f]" />
       </div>
     </main>
