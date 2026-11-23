@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Check, ChevronRight } from "lucide-react"
+import { Check, ChevronRight, X } from "lucide-react"
 import { toast } from "sonner"
 
 import { InvoiceDrawer } from "@/components/dashboard/bills/invoice-slip"
@@ -9,52 +9,178 @@ import {
   Chips,
   ListScreen,
   SearchBox,
-  Sentinel,
   inr,
-  useBatches,
 } from "@/components/dashboard/list-kit"
-import { daysAgo, type KhataBill } from "@/lib/bill"
+import { billNumber, daysAgo, type KhataBill } from "@/lib/bill"
 import { useHomeStore, useKhata } from "@/store/home-store"
-import { cn } from "@/lib/utils"
 
 /* ================================================================== */
 /* Khata: the shop's unpaid bills, newest first, settled by hand       */
 /* ================================================================== */
 
-type KFilter = "all" | "late"
+type KFilter = "week" | "month"
 
 export function KhataPage() {
   const setView = useHomeStore((s) => s.setViewInvoice)
   const setPayment = useHomeStore((s) => s.setBillPayment)
   const { bills, count, totalDue } = useKhata()
-  const [f, setF] = React.useState<KFilter>("all")
+  const [f, setF] = React.useState<KFilter>("week")
   const [q, setQ] = React.useState("")
-  const [openId, setOpenId] = React.useState<string | null>(null)
+  const [askId, setAskId] = React.useState<string | null>(null) // the bill asking "paid by cash?"
   const [busy, setBusy] = React.useState<string | null>(null)
 
   async function settle(b: KhataBill, how: "CASH" | "UPI") {
     setBusy(b.id)
     await setPayment(b.id, "PAID", how) // one request; the khata follows from the bills
     setBusy(null)
-    setOpenId(null)
+    setAskId(null)
     toast.success("Marked as paid", {
       description: `${inr(b.total)} received by ${how === "UPI" ? "UPI" : "cash"}.`,
     })
   }
 
   const needle = q.trim().toLowerCase()
-  const list = React.useMemo(
-    () =>
-      bills
-        .filter((b) => f === "all" || daysAgo(b.date) >= 14)
-        .filter(
-          (b) =>
-            !needle ||
-            b.items.some((l) => l.name.toLowerCase().includes(needle))
-        ),
-    [bills, f, needle]
+  // Week: this week and the 4 before it (5 weeks). Month: this month and the 4 before it (5 months).
+  const now = new Date()
+  const today = new Date().setHours(0, 0, 0, 0)
+  const monday = today - ((now.getDay() + 6) % 7) * 864e5
+  const from =
+    f === "week"
+      ? monday - 28 * 864e5
+      : new Date(now.getFullYear(), now.getMonth() - 4, 1).getTime()
+  const inRange = bills.filter((b) => b.date >= from)
+  const list = inRange.filter(
+    (b) => !needle || b.items.some((l) => l.name.toLowerCase().includes(needle))
   )
-  const { shown, more, sentinel } = useBatches(list, `${f}|${needle}`)
+  // Week view: a card per week. Month view: a card per month, and inside it a card per week.
+  const dayMs = 864e5
+  const weekOf = (t: number) => {
+    const d = new Date(t).setHours(0, 0, 0, 0)
+    return d - ((new Date(d).getDay() + 6) % 7) * dayMs
+  }
+  const monthOf = (t: number) => {
+    const d = new Date(t)
+    return new Date(d.getFullYear(), d.getMonth(), 1).getTime()
+  }
+  const short = (t: number) =>
+    new Date(t).toLocaleDateString("en-IN", { day: "numeric", month: "short" })
+  const weeksOf = (bs: KhataBill[]) =>
+    [...new Set(bs.map((x) => weekOf(x.date)))]
+      .sort((x, y) => y - x)
+      .map((t) => ({
+        t,
+        label: `${short(t)} – ${short(t + 6 * dayMs)}`,
+        bills: bs.filter((x) => weekOf(x.date) === t),
+      }))
+  const months = [...new Set(list.map((x) => monthOf(x.date)))]
+    .sort((x, y) => y - x)
+    .map((t) => {
+      const bs = list.filter((x) => monthOf(x.date) === t)
+      return {
+        t,
+        label: new Date(t).toLocaleDateString("en-IN", {
+          month: "long",
+          year: "numeric",
+        }),
+        bills: bs,
+        weeks: weeksOf(bs),
+      }
+    })
+  const sum = (bs: KhataBill[]) => bs.reduce((n, x) => n + x.total, 0)
+  const billsText = (bs: KhataBill[]) =>
+    `${bs.length} unpaid ${bs.length === 1 ? "bill" : "bills"}`
+
+  // one bill
+  const billRow = (b: KhataBill) => {
+    const days = daysAgo(b.date)
+    return (
+      <li
+        key={b.id}
+        className="flex items-center gap-2 rounded-xl bg-background px-1.5 py-2 ring-1 ring-foreground/10"
+      >
+        <button
+          type="button"
+          onClick={() => setView(b.id)}
+          className="-my-1 flex min-w-0 flex-1 items-center gap-2 rounded-xl px-2 py-1 text-left transition-colors hover:bg-foreground/[0.07] focus-visible:bg-foreground/[0.07] active:bg-foreground/10"
+        >
+          <span className="min-w-0 flex-1 truncate">
+            <span className="text-[15px] font-semibold">
+              Bill #{billNumber(b)}
+            </span>{" "}
+            <span className="text-xs text-muted-foreground">
+              ·{" "}
+              {days === 0
+                ? "today"
+                : days === 1
+                  ? "yesterday"
+                  : `${days} days ago`}
+              {" · "}
+              {new Date(b.date).toLocaleTimeString("en-IN", {
+                hour: "numeric",
+                minute: "2-digit",
+                hour12: true,
+              })}
+            </span>
+          </span>
+          <span className="font-bold tabular-nums">{inr(b.total)}</span>
+        </button>
+        {askId === b.id ? (
+          // ✓ confirms "paid by cash", ✗ cancels
+          <span className="flex shrink-0 items-center gap-1">
+            <span className="mr-1 text-xs font-semibold">Paid by cash?</span>
+            <button
+              type="button"
+              aria-label="Yes, paid by cash"
+              disabled={busy === b.id}
+              onClick={() => settle(b, "CASH")}
+              className="grid size-8 place-items-center rounded-full bg-foreground text-background active:scale-95 disabled:opacity-50"
+            >
+              <Check className="size-4" />
+            </button>
+            <button
+              type="button"
+              aria-label="Cancel"
+              onClick={() => setAskId(null)}
+              className="grid size-8 place-items-center rounded-full border border-foreground/20 active:scale-95"
+            >
+              <X className="size-4" />
+            </button>
+          </span>
+        ) : (
+          <span className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              aria-label="Mark as paid"
+              onClick={() => setAskId(b.id)}
+              className="grid size-8 place-items-center rounded-full border border-foreground/20 active:scale-95"
+            >
+              <Check className="size-4" />
+            </button>
+          </span>
+        )}
+      </li>
+    )
+  }
+  // a week: smaller, with a coloured bar on its left
+  const weekCard = (w: { t: number; label: string; bills: KhataBill[] }) => (
+    <li key={w.t}>
+      <details className="group rounded-xl bg-foreground/[0.05]">
+        <summary className="flex cursor-pointer list-none items-center gap-3 px-3 py-2.5">
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-bold">Week {w.label}</span>
+            <span className="block text-xs text-muted-foreground">
+              {billsText(w.bills)}
+            </span>
+          </span>
+          <span className="text-base font-bold tabular-nums">
+            {inr(sum(w.bills))}
+          </span>
+          <ChevronRight className="size-4 opacity-50 transition-transform group-open:rotate-90" />
+        </summary>
+        <ul className="space-y-1.5 px-2 pb-2">{w.bills.map(billRow)}</ul>
+      </details>
+    </li>
+  )
 
   return (
     <ListScreen
@@ -71,8 +197,8 @@ export function KhataPage() {
             value={f}
             onChange={setF}
             options={[
-              { id: "all", name: "All unpaid" },
-              { id: "late", name: "14+ days late" },
+              { id: "week", name: "Last 5 weeks" },
+              { id: "month", name: "Last 5 months" },
             ]}
           />
         </>
@@ -83,88 +209,42 @@ export function KhataPage() {
         <p className="text-3xl leading-none font-extrabold tabular-nums">
           {inr(totalDue)}
         </p>
+        {inRange.length < count && (
+          <p className="mt-1 text-xs text-muted-foreground">
+            {count - inRange.length} older unpaid{" "}
+            {count - inRange.length === 1 ? "bill is" : "bills are"} not in this
+            range.
+          </p>
+        )}
       </div>
 
-      <ul className="mt-2 min-h-0 flex-1 divide-y divide-foreground/10 overflow-y-auto overscroll-contain pr-1 pb-[max(1rem,env(safe-area-inset-bottom))]">
-        {shown.map((b) => {
-          const days = daysAgo(b.date)
-          return (
-            <li key={b.id}>
-              <button
-                type="button"
-                onClick={() => setOpenId(openId === b.id ? null : b.id)}
-                aria-expanded={openId === b.id}
-                className="flex w-full items-center justify-between gap-3 py-3 text-left"
-              >
-                <span className="min-w-0">
-                  <span className="block truncate text-[15px] font-semibold">
-                    {b.items.map((l) => l.name).join(", ")}
-                  </span>
-                  <span className="block text-xs text-muted-foreground">
-                    {b.itemCount} {b.itemCount === 1 ? "item" : "items"} ·{" "}
-                    {days === 0
-                      ? "today"
-                      : days === 1
-                        ? "yesterday"
-                        : `${days} days ago`}
-                  </span>
-                </span>
-                <span className="flex shrink-0 items-center gap-1.5">
-                  <span className="font-bold tabular-nums">{inr(b.total)}</span>
-                  <ChevronRight
-                    className={cn(
-                      "size-4 opacity-50 transition-transform",
-                      openId === b.id && "rotate-90"
-                    )}
-                  />
-                </span>
-              </button>
-              {openId === b.id && (
-                <div className="mb-3 rounded-2xl bg-foreground/[0.05] p-3">
-                  <ul className="space-y-1 text-sm">
-                    {b.items.map((l) => (
-                      <li key={l.pid} className="flex justify-between gap-3">
-                        <span className="min-w-0 truncate">
-                          {l.quantity} × {l.name}
-                          {l.size ? ` ${l.size}` : ""}
-                        </span>
-                        <span className="tabular-nums">
-                          {inr(l.quantity * l.price)}
-                        </span>
-                      </li>
-                    ))}
+      <ul className="mt-2 min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pr-1 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        {f === "week"
+          ? weeksOf(list).map(weekCard)
+          : months.map((m) => (
+              <li key={m.t}>
+                {/* a month: bigger and bold, and its weeks are inside it */}
+                <details className="group rounded-2xl bg-foreground/[0.09]">
+                  <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-4">
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-lg font-extrabold">
+                        {m.label}
+                      </span>
+                      <span className="block text-xs text-muted-foreground">
+                        {billsText(m.bills)}
+                      </span>
+                    </span>
+                    <span className="text-xl font-extrabold tabular-nums">
+                      {inr(sum(m.bills))}
+                    </span>
+                    <ChevronRight className="size-5 opacity-60 transition-transform group-open:rotate-90" />
+                  </summary>
+                  <ul className="space-y-2 px-2 pb-2">
+                    {m.weeks.map(weekCard)}
                   </ul>
-                  <div className="mt-3 grid grid-cols-3 gap-2">
-                    {(["CASH", "UPI"] as const).map((how) => (
-                      <button
-                        key={how}
-                        type="button"
-                        disabled={busy === b.id}
-                        onClick={() => settle(b, how)}
-                        className="flex h-10 items-center justify-center gap-1 rounded-full bg-foreground text-sm font-semibold text-background active:scale-95 disabled:opacity-50"
-                      >
-                        <Check className="size-4" />{" "}
-                        {how === "CASH" ? "Cash" : "UPI"}
-                      </button>
-                    ))}
-                    <button
-                      type="button"
-                      onClick={() => setView(b.id)}
-                      className="h-10 rounded-full border border-foreground/20 text-sm font-semibold active:scale-95"
-                    >
-                      Open bill
-                    </button>
-                  </div>
-                </div>
-              )}
-            </li>
-          )
-        })}
-        <Sentinel
-          more={more}
-          innerRef={sentinel}
-          left={list.length - shown.length}
-        />
+                </details>
+              </li>
+            ))}
         {list.length === 0 && (
           <li className="py-10 text-center text-sm text-muted-foreground">
             {bills.length === 0
