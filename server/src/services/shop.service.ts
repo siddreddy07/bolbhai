@@ -4,6 +4,8 @@ import type { ShopInput, UpdateShopInput } from "../schemas/shop.schema.js";
 const shops = db.orm.public.shops;
 const inventory = db.orm.public.shop_inventory;
 const invoices = db.orm.public.invoices;
+const customers = db.orm.public.customers;
+const transactions = db.orm.public.customer_transactions;
 
 // The only shop fields that ever leave the server.
 function publicShop(shop: { id: string; name: string | null; type: string; gstin: string }) {
@@ -21,8 +23,10 @@ export async function updateShop(id: string, data: UpdateShopInput) {
 
 // A shop's inventory and invoices go with it (they cannot exist without a shop).
 export async function deleteShop(id: string) {
+  await transactions.where({ shopId: id }).delete();
   await inventory.where({ shopId: id }).delete();
   await invoices.where({ shopId: id }).delete();
+  await customers.where({ shopId: id }).delete();
   return shops.where({ id }).delete();
 }
 
