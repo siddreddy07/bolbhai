@@ -110,7 +110,7 @@ export function SearchBox<T>({
   onSelect,
   placeholder = "Search",
   minChars = 2,
-  delay = 350,
+  delay = 400,
   clearOnSelect = false,
   autoFocus,
   className,
@@ -151,6 +151,8 @@ export function SearchBox<T>({
     (ready ? (cache.get(key) as T[] | undefined) : undefined) ?? null
   const error = failed?.key === key ? failed.message : null
   const loading = ready && !items && !error
+  // typed something new and still waiting for the pause: show the spinner already
+  const waiting = text.trim() !== clean && text.trim().length >= minChars
 
   // wait for a pause in typing
   React.useEffect(() => {
@@ -260,7 +262,7 @@ export function SearchBox<T>({
           className="h-11 w-full rounded-full border border-foreground/15 bg-card pr-10 pl-9 text-base transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-foreground/50 focus-visible:ring-3 focus-visible:ring-ring/30"
         />
         <span className="absolute top-1/2 right-3 grid size-6 -translate-y-1/2 place-items-center">
-          {loading ? (
+          {loading || waiting ? (
             <LoaderCircle
               className="size-4 animate-spin text-muted-foreground"
               aria-label="Searching"

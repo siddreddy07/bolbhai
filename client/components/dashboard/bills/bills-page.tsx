@@ -110,7 +110,7 @@ export function BillsPage() {
   const key = searching ? `find:${word}` : `day:${day}`
   const known = key in asked
 
-  // ask the server, once per day and once per search. A search waits 350 ms after the last key.
+  // ask the server, once per day and once per search. A search waits 400 ms after the last key.
   React.useEffect(() => {
     if (!shopId || fromToday || known) return
     const run = () =>
@@ -121,7 +121,7 @@ export function BillsPage() {
         }))
       )
     if (!searching) return run()
-    const t = window.setTimeout(run, 350)
+    const t = window.setTimeout(run, 400)
     return () => window.clearTimeout(t)
   }, [shopId, fromToday, known, searching, word, day, key, findBills])
 
