@@ -7,7 +7,23 @@ export const alt = "BolBhai: don't type, bol de bhai"
 export const size = { width: 1200, height: 630 }
 export const contentType = "image/png"
 
+// The same font as the website (Bricolage Grotesque), so the picture and the site match.
+async function loadFont(weight: number) {
+  const css = await (
+    await fetch(
+      `https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@${weight}`,
+      { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 6.1)" } }
+    )
+  ).text()
+  const url = css.match(
+    /src: url\((.+?)\) format\('(?:opentype|truetype)'\)/
+  )?.[1]
+  if (!url) throw new Error("font not found")
+  return (await fetch(url)).arrayBuffer()
+}
+
 export default async function Image() {
+  const [regular, bold] = await Promise.all([loadFont(500), loadFont(800)])
   const mascot = await readFile(
     join(process.cwd(), "public/mascot/bolbhai.png")
   )
@@ -24,6 +40,7 @@ export default async function Image() {
         padding: "0 90px",
         background: "#bfe8c4",
         color: "#10301f",
+        fontFamily: "Bricolage Grotesque",
       }}
     >
       <div style={{ display: "flex", flexDirection: "column" }}>
@@ -43,6 +60,12 @@ export default async function Image() {
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={src} width={378} height={480} alt="" />
     </div>,
-    { ...size }
+    {
+      ...size,
+      fonts: [
+        { name: "Bricolage Grotesque", data: regular, weight: 500 },
+        { name: "Bricolage Grotesque", data: bold, weight: 800 },
+      ],
+    }
   )
 }
