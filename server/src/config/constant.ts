@@ -18,7 +18,7 @@ export const PASSWORD_SALT_ROUNDS = 10;
 // The AI model. Change the provider here and the whole app follows.
 // "ollama" runs on your machine. "groq" needs GROQ_API_KEY in the .env file.
 export const AI_CONFIG = {
-  provider: "ollama" as "ollama" | "groq",
+  provider: "groq" as "ollama" | "groq",
   models: {
     ollama: "qwen3:4b-instruct",
     groq: "openai/gpt-oss-120b",
