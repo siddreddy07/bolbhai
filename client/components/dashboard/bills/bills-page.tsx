@@ -4,7 +4,6 @@ import * as React from "react"
 import {
   CalendarDays,
   ChevronRight,
-  LoaderCircle,
   ReceiptText,
 } from "lucide-react"
 
@@ -15,7 +14,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { ListScreen, SearchBox, inr } from "@/components/dashboard/list-kit"
+import { ListScreen, SearchBox, SkeletonRows, inr } from "@/components/dashboard/list-kit"
 import { billNumber, dayKey, daysAgo, invoiceTotal, isPaid } from "@/lib/bill"
 import { useHomeStore } from "@/store/home-store"
 import type { Invoice, StockItem } from "@/lib/types"
@@ -271,9 +270,9 @@ export function BillsPage() {
           ))}
         </ul>
         {loading ? (
-          <p className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
-            <LoaderCircle className="size-4 animate-spin" /> Loading…
-          </p>
+          <ul role="status" aria-label="Loading bills" className="grid gap-2 py-1">
+            <SkeletonRows count={4} className="h-16" />
+          </ul>
         ) : failed ? (
           <p className="py-8 text-center text-sm text-destructive">
             Could not load the bills. Check your connection.

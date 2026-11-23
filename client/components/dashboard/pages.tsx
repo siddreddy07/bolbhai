@@ -9,6 +9,7 @@ import {
   ListScreen,
   SearchBox,
   Segmented,
+  SkeletonRows,
   inr,
 } from "@/components/dashboard/list-kit"
 import { billNumber, daysAgo, type KhataBill } from "@/lib/bill"
@@ -29,9 +30,11 @@ export function KhataPage() {
   const loadBills = useHomeStore((s) => s.loadBills)
   const shopId = useShopStore((s) => s.shop?.id)
   // the khata is every unpaid bill, from any day: ask for them when the page opens
+  const [tried, setTried] = React.useState(false) // the answer has come (or failed)
   React.useEffect(() => {
-    if (shopId) void loadBills(shopId, true)
+    if (shopId) void loadBills(shopId, true).finally(() => setTried(true))
   }, [shopId, loadBills])
+  const loading = !tried && bills.length === 0
   const [f, setF] = React.useState<KFilter>("week")
   const [q, setQ] = React.useState("")
   const [askId, setAskId] = React.useState<string | null>(null) // the bill asking "paid by cash?"
@@ -221,7 +224,7 @@ export function KhataPage() {
   return (
     <ListScreen
       title="Khata"
-      count={`${count} unpaid ${count === 1 ? "bill" : "bills"}`}
+      count={loading ? "Loading…" : `${count} unpaid ${count === 1 ? "bill" : "bills"}`}
       controls={
         <>
           <SearchBox
@@ -245,9 +248,13 @@ export function KhataPage() {
       {/* this stays still, only the weeks (or months) below it scroll */}
       <div className="mt-2 rounded-2xl bg-foreground/6 px-3.5 py-3 sm:px-4 sm:py-3.5">
         <p className="text-xs text-muted-foreground">Total to collect</p>
-        <p className="text-2xl leading-tight font-extrabold tabular-nums sm:text-3xl">
-          {inr(totalDue)}
-        </p>
+        {loading ? (
+          <span className="mt-1 block h-8 w-32 animate-pulse rounded-lg bg-foreground/10" />
+        ) : (
+          <p className="text-2xl leading-tight font-extrabold tabular-nums sm:text-3xl">
+            {inr(totalDue)}
+          </p>
+        )}
         {inRange.length < count && (
           <p className="mt-1 text-xs text-muted-foreground">
             {count - inRange.length} older unpaid{" "}
@@ -258,9 +265,10 @@ export function KhataPage() {
       </div>
 
       <ul className="mt-2 min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pb-2">
-        {f === "week"
+        {loading && <SkeletonRows count={3} className="h-24" />}
+        {!loading && f === "week"
           ? weeksOf(list).map(weekCard)
-          : months.map((m) => (
+          : !loading && months.map((m) => (
               <li key={m.t}>
                 {/* a month: bigger and bold, and its weeks are inside it */}
                 <details className="group rounded-2xl bg-foreground/[0.09]">
@@ -284,7 +292,7 @@ export function KhataPage() {
                 </details>
               </li>
             ))}
-        {list.length === 0 && (
+        {!loading && list.length === 0 && (
           <li className="py-10 text-center text-sm text-muted-foreground">
             {bills.length === 0
               ? "No unpaid bills. Everyone has paid."

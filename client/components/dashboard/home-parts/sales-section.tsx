@@ -13,7 +13,11 @@ import {
   Register,
 } from "@/components/dashboard/home-parts/chart-parts"
 
-/** Total sales: the period tabs, the number, and a graph you can tap. */
+// heights of the grey bars shown while the numbers load
+const SKELETON_BARS = [40, 62, 48, 78, 55, 70, 44, 66, 82, 52, 68, 58]
+const skeleton = "animate-pulse rounded-xl bg-foreground/10"
+
+/** Total sales: the period tabs, the number, and a graph you can tap. While the server's numbers are on the way, grey skeleton blocks stand in for them. */
 export function SalesSection() {
   const user = useUserStore((s) => s.user)
   const analytics = useHomeStore((s) => s.analytics)
@@ -38,6 +42,7 @@ export function SalesSection() {
         names: real.names,
       }
     : SERIES[period]
+  const loading = !analytics
   const nowBar = analytics ? analytics.now[period] : serie.bars.length - 1
   const total = serie.total
   const max = Math.max(1, ...serie.bars)
@@ -148,19 +153,31 @@ export function SalesSection() {
         className="mt-1 text-[3.1rem] leading-[1.05] font-extrabold tabular-nums sm:text-[4.5rem] [@media(max-height:760px)]:text-[2.4rem] md:[@media(min-height:900px)]:text-[6.5rem]"
         style={{ fontVariationSettings: '"wdth" 92' }}
       >
-        <Register value={total} />
+        {loading ? (
+          <span
+            role="status"
+            aria-label="Loading sales"
+            className={cn(skeleton, "inline-block h-[0.85em] w-[5.5ch] align-middle")}
+          />
+        ) : (
+          <Register value={total} />
+        )}
       </p>
-      <p className="mt-0.5 flex items-center gap-1.5 text-sm text-muted-foreground md:text-base">
-        <span
-          className={cn(
-            "font-bold",
-            serie.up ? "text-[#3fae6a]" : "text-signal"
-          )}
-        >
-          {serie.up ? "▲" : "▼"} {serie.delta}
-        </span>
-        vs {serie.vs} · {serie.bills} bills
-      </p>
+      {loading ? (
+        <span className={cn(skeleton, "mt-1.5 block h-4 w-44 rounded-full")} />
+      ) : (
+        <p className="mt-0.5 flex items-center gap-1.5 text-sm text-muted-foreground md:text-base">
+          <span
+            className={cn(
+              "font-bold",
+              serie.up ? "text-[#3fae6a]" : "text-signal"
+            )}
+          >
+            {serie.up ? "▲" : "▼"} {serie.delta}
+          </span>
+          vs {serie.vs} · {serie.bills} bills
+        </p>
+      )}
 
       {/* the graph: tap a bar to read it */}
       <div data-chart className="min-h-[5rem] flex-[1_1_0] overflow-hidden">
@@ -182,7 +199,20 @@ export function SalesSection() {
               </span>
             </div>
           )}
-          {period === "month" ? (
+          {loading ? (
+            <div
+              aria-hidden="true"
+              className="flex min-h-0 flex-1 items-end gap-[3px] md:gap-1"
+            >
+              {SKELETON_BARS.map((h, i) => (
+                <span
+                  key={i}
+                  style={{ height: `${h}%`, animationDelay: `${i * 80}ms` }}
+                  className={cn(skeleton, "w-full rounded-t-[4px] rounded-b-none")}
+                />
+              ))}
+            </div>
+          ) : period === "month" ? (
             <AreaChart
               key="month"
               values={serie.bars}
@@ -234,8 +264,8 @@ export function SalesSection() {
               })}
             </div>
           )}
-          <div className="mt-1 flex text-[11px] text-muted-foreground md:text-xs">
-            {period === "week" ? (
+          <div className="mt-1 flex min-h-4 text-[11px] text-muted-foreground md:text-xs">
+            {loading ? null : period === "week" ? (
               serie.names.map((n) => (
                 <span key={n} className="flex-1 text-center">
                   {n.slice(0, 1)}

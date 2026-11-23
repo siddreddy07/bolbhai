@@ -14,6 +14,18 @@ import { cn } from "@/lib/utils"
 
 export const inr = (n: number) => "₹" + Math.round(n).toLocaleString("en-IN")
 
+/** Grey pulsing placeholders (list items) shown while a list loads. Give them the height of the real rows. */
+export function SkeletonRows({ count = 4, className }: { count?: number; className?: string }) {
+  return Array.from({ length: count }, (_, i) => (
+    <li
+      key={i}
+      aria-hidden="true"
+      style={{ animationDelay: `${i * 90}ms` }}
+      className={cn("animate-pulse rounded-2xl bg-foreground/10", className)}
+    />
+  ))
+}
+
 /* ---------- the full-page frame every "view all" screen shares ---------- */
 
 export function ListScreen({
