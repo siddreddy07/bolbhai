@@ -12,6 +12,24 @@ export function createCustomer(shopId: string, data: CustomerInput) {
   return customers.create({ shopId, ...data });
 }
 
+// A payment that went through (from Stripe): the bill, the customer on it, the amount and Stripe's transaction id.
+// The same transaction id is saved only once, so Stripe calling again changes nothing.
+export async function saveTransaction(data: {
+  shopId: string;
+  invoiceId: string;
+  customerId: string | null;
+  transactionId: string;
+  subtotal: number;
+}) {
+  if (await transactions.first({ transactionId: data.transactionId })) return;
+  await transactions.create({ ...data, subtotal: String(data.subtotal), paymentStatus: "PAID", status: "SUCCESS" });
+}
+
+// Was this bill paid online? (then it has a payment record)
+export async function hasTransaction(invoiceId: string) {
+  return !!(await transactions.first({ invoiceId }));
+}
+
 export function getCustomer(id: string) {
   return customers.first({ id });
 }

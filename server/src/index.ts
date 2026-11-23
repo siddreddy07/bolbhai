@@ -12,12 +12,16 @@ import productRoutes from './routes/product.routes.js';
 import inventoryRoutes from './routes/inventory.routes.js';
 import invoiceRoutes from './routes/invoice.routes.js';
 import customerRoutes from './routes/customer.routes.js';
+import { paymentReceipt, stripeWebhook } from './controllers/payment.controller.js';
 
 
 const app = express();
 
 app.use(morgan(':date[iso] :method :url :status :response-time ms'));
 app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
+// Stripe's webhook needs the body exactly as sent (to check the signature), so it comes BEFORE express.json()
+app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), stripeWebhook);
+app.get('/api/stripe/session/:sessionId', paymentReceipt);
 app.use(express.json());
 app.use(cookieParser());
 
