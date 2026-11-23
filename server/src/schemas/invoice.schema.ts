@@ -13,6 +13,8 @@ export const invoiceSchema = z.object({
   paymentType: z.enum(["CASH", "UPI"]).default("CASH"),
   // when the bill was made (leave it out for "now")
   date: z.iso.datetime().optional(),
+  // who the bill is for: one of this shop's customers (leave it out if it is not noted down)
+  customerId: z.uuid().optional(),
 });
 
 // Editing: send only what changes.
@@ -22,16 +24,18 @@ export const updateInvoiceSchema = z.object({
   payment: z.enum(["PAID", "LEDGER"]).optional(),
   paymentType: z.enum(["CASH", "UPI"]).optional(),
   date: invoiceSchema.shape.date,
+  // who the bill is for; null takes the customer off
+  customerId: z.uuid().nullable().optional(),
 });
 
 export type InvoiceInput = z.infer<typeof invoiceSchema>;
 export type UpdateInvoiceInput = z.infer<typeof updateInvoiceSchema>;
 
-// The bills list: one day (YYYY-MM-DD), or the bills whose number starts with `q`, or only the unpaid ones.
+// The bills list: one day (YYYY-MM-DD), or a search `q` (bill number, customer name or phone), or only the unpaid ones.
 // With none of them, it is today.
 export const listQuerySchema = z.object({
   day: z.iso.date().optional(),
-  q: z.string().regex(/^[0-9a-fA-F-]{1,36}$/).optional(),
+  q: z.string().trim().min(1).max(50).optional(),
   unpaid: z.enum(["1", "true"]).optional(),
 });
 

@@ -17,6 +17,7 @@ import {
   updateInvoice,
 } from "../services/invoice.service.js";
 import { getAnalytics } from "../services/analytics.service.js";
+import { customerOfShop } from "../services/customer.service.js";
 import { getShopById } from "../services/shop.service.js";
 
 // An invoice belongs to a shop, and a shop to its owner: only the owner may touch it.
@@ -103,6 +104,11 @@ export async function addInvoice(req: Request, res: Response) {
 
     if (!(await getShopById(shopId.data, req.user!.id)))
       return res.status(404).json({ message: "Shop not found" });
+    if (
+      body.data.customerId &&
+      !(await customerOfShop(shopId.data, body.data.customerId))
+    )
+      return res.status(404).json({ message: "Customer not found" });
     // the new bill, and the stock of its products now (the shelf moved with it)
     const { invoice, stock } = await createInvoice(shopId.data, body.data);
     res.status(201).json({ ...invoice, stock });
@@ -133,12 +139,17 @@ export async function editInvoice(req: Request, res: Response) {
     const invoice = await ownInvoice(req, res);
     if (!invoice) return;
     // paid bills never change; unpaid ones only for 24 hours. (Marking one paid is still fine.)
-    if (body.data.items && isLocked(invoice))
+    if ((body.data.items || body.data.customerId !== undefined) && isLocked(invoice))
       return res.status(403).json({
         message: invoice.payment === "PAID"
           ? "A paid bill cannot be edited"
           : "A bill cannot be edited after 24 hours",
       });
+    if (
+      body.data.customerId &&
+      !(await customerOfShop(invoice.shopId, body.data.customerId))
+    )
+      return res.status(404).json({ message: "Customer not found" });
     const saved = await updateInvoice(invoice.id, body.data);
     if (!saved) return res.status(404).json({ message: "Invoice not found" });
     // more than the shelf has: nothing was changed; the shelf as it is now is sent back

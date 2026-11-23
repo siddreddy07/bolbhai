@@ -15,6 +15,7 @@ type InvoiceRow = {
   items: unknown;
   payment: string;
   paymentType: string;
+  customerId: string | null;
 };
 
 // What leaves the server for one invoice.
@@ -26,6 +27,7 @@ function publicInvoice(row: InvoiceRow) {
     items: row.items as Line[],
     payment: row.payment as "PAID" | "LEDGER",
     paymentType: row.paymentType as "CASH" | "UPI",
+    customerId: row.customerId,
   };
 }
 
@@ -62,8 +64,8 @@ const pidsOf = (...lists: Line[][]) => [
 export async function createInvoice(shopId: string, data: InvoiceInput) {
   const plan = db.raw.sql`
     WITH created AS (
-      INSERT INTO invoices (id, "shopId", items, payment, "paymentType")
-      VALUES (gen_random_uuid(), ${shopId}::uuid, (${JSON.stringify(data.items)}::jsonb)::json, ${data.payment}, ${data.paymentType})
+      INSERT INTO invoices (id, "shopId", "customerId", items, payment, "paymentType")
+      VALUES (gen_random_uuid(), ${shopId}::uuid, NULLIF(${data.customerId ?? ""}::text, '')::uuid, (${JSON.stringify(data.items)}::jsonb)::json, ${data.payment}, ${data.paymentType})
       RETURNING id
     ),
     moved AS (
@@ -108,13 +110,15 @@ export async function getInvoices(shopId: string, filter: InvoiceFilter = {}) {
   const unpaid = filter.unpaid ? 1 : 0;
   const limit = q ? 30 : unpaid ? 500 : 300; // never send everything
   const plan = db.raw.sql`
-    SELECT id::text AS id, "shopId"::text AS shop_id, date::text AS date, items::text AS items, payment, "paymentType" AS payment_type
-    FROM invoices
-    WHERE "shopId" = ${shopId}::uuid
-      AND (${day}::text = '' OR (date AT TIME ZONE 'Asia/Kolkata')::date = NULLIF(${day}::text, '')::date)
-      AND (${q}::text = '' OR id::text LIKE (${q}::text || '%'))
-      AND (${unpaid}::int = 0 OR payment = 'LEDGER')
-    ORDER BY date DESC
+    SELECT i.id::text AS id, i."shopId"::text AS shop_id, i.date::text AS date, i.items::text AS items, i.payment, i."paymentType" AS payment_type,
+      i."customerId"::text AS customer_id, c.name AS customer_name, c.phone AS customer_phone
+    FROM invoices i
+    LEFT JOIN customers c ON c.id = i."customerId"
+    WHERE i."shopId" = ${shopId}::uuid
+      AND (${day}::text = '' OR (i.date AT TIME ZONE 'Asia/Kolkata')::date = NULLIF(${day}::text, '')::date)
+      AND (${q}::text = '' OR i.id::text LIKE (${q}::text || '%') OR c.name ILIKE ('%' || ${q}::text || '%') OR c.phone LIKE ('%' || ${q}::text || '%'))
+      AND (${unpaid}::int = 0 OR i.payment = 'LEDGER')
+    ORDER BY i.date DESC
     LIMIT ${limit}::int
   `
     .returnsRow({
@@ -124,6 +128,9 @@ export async function getInvoices(shopId: string, filter: InvoiceFilter = {}) {
       items: "pg/text@1",
       payment: "pg/text@1",
       payment_type: "pg/text@1",
+      customer_id: { codecId: "pg/text@1", nullable: true },
+      customer_name: { codecId: "pg/text@1", nullable: true },
+      customer_phone: { codecId: "pg/text@1", nullable: true },
     })
     .build();
 
@@ -135,6 +142,9 @@ export async function getInvoices(shopId: string, filter: InvoiceFilter = {}) {
     items: JSON.parse(r.items) as Line[],
     payment: r.payment as "PAID" | "LEDGER",
     paymentType: r.payment_type as "CASH" | "UPI",
+    customerId: r.customer_id,
+    customerName: r.customer_name,
+    customerPhone: r.customer_phone,
   }));
 }
 
@@ -279,6 +289,7 @@ export async function updateInvoice(id: string, data: UpdateInvoiceInput) {
     ...(data.payment ? { payment: data.payment } : {}),
     ...(data.paymentType ? { paymentType: data.paymentType } : {}),
     ...(data.date ? { date: new Date(data.date) } : {}),
+    ...(data.customerId !== undefined ? { customerId: data.customerId } : {}),
   };
   if (Object.keys(rest).length) await invoices.where({ id }).update(rest);
 

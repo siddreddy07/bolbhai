@@ -101,9 +101,10 @@ export async function getAnalytics(shopId: string) {
       (SELECT coalesce(json_agg(h ORDER BY h.hour), '[]'::json) FROM hourly h)::text AS hours,
       (SELECT coalesce(json_agg(json_build_object(
           'id', i.id, 'shopId', i."shopId", 'date', i.date, 'items', i.items,
-          'payment', i.payment, 'paymentType', i."paymentType"
+          'payment', i.payment, 'paymentType', i."paymentType", 'customerId', i."customerId", 'customerName', c.name, 'customerPhone', c.phone
         ) ORDER BY i.date DESC), '[]'::json)
         FROM invoices i
+        LEFT JOIN customers c ON c.id = i."customerId"
         WHERE i."shopId" = ${shopId}::uuid
           AND i.date >= (${todayFrom}::timestamp AT TIME ZONE 'Asia/Kolkata'))::text AS today
   `
