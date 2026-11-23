@@ -22,5 +22,12 @@ jobs:
           npm ci
           npm run typecheck
 
+      - name: Website compiles and passes lint
+        working-directory: client
+        run: |
+          npm ci
+          npm run typecheck
+          npm run lint
+
       - name: Docker image builds
         run: docker build ./server
