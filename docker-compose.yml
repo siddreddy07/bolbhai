@@ -4,7 +4,8 @@ services:
       context: ./server
     container_name: bolbhai-app
     env_file:
-      - ./server/.env
+      - path: ./server/.env
+        required: false # a fresh checkout has no .env: that is fine
     ports:
       - "8080:8080"
     environment:
