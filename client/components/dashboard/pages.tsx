@@ -57,7 +57,12 @@ export function KhataPage() {
       : new Date(now.getFullYear(), now.getMonth() - 4, 1).getTime()
   const inRange = bills.filter((b) => b.date >= from)
   const list = inRange.filter(
-    (b) => !needle || b.items.some((l) => l.name.toLowerCase().includes(needle))
+    (b) =>
+      !needle ||
+      billNumber(b).toLowerCase().includes(needle) ||
+      b.customerName?.toLowerCase().includes(needle) ||
+      b.customerPhone?.includes(needle) ||
+      b.items.some((l) => l.name.toLowerCase().includes(needle))
   )
   // Week view: a card per week. Month view: a card per month, and inside it a card per week.
   const dayMs = 864e5
@@ -196,7 +201,7 @@ export function KhataPage() {
           <SearchBox
             value={q}
             onChange={setQ}
-            placeholder="Search an item on a bill"
+            placeholder="Bill number, customer, phone or item"
           />
           <Segmented
             compact

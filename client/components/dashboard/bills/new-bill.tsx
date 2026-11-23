@@ -12,6 +12,8 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer"
 import { SearchBox } from "@/components/ui/search-box"
+import { CustomerPick } from "@/components/dashboard/bills/customer-pick"
+import type { Customer } from "@/lib/customer-api"
 import { useHomeStore } from "@/store/home-store"
 import { useShopStore } from "@/store/shop-store"
 import type { Payment, PaymentType } from "@/lib/types"
@@ -55,6 +57,7 @@ function Form({ onClose }: { onClose: () => void }) {
   const [lines, setLines] = React.useState<Line[]>([])
   const [payment, setPayment] = React.useState<Payment>("LEDGER") // a new bill starts as not paid
   const [paymentType, setPaymentType] = React.useState<PaymentType>("CASH")
+  const [customer, setCustomer] = React.useState<Customer | null>(null)
 
   const total = lines.reduce((n, l) => n + l.quantity * l.price, 0)
 
@@ -103,7 +106,8 @@ function Form({ onClose }: { onClose: () => void }) {
     const id = await saveNewBill(
       lines.map((l) => ({ pid: l.pid, quantity: l.quantity })),
       payment,
-      paymentType
+      paymentType,
+      customer
     )
     if (id) onClose()
   }
@@ -146,6 +150,11 @@ function Form({ onClose }: { onClose: () => void }) {
             <p className="mt-1 text-center font-mono text-[11px] opacity-60">
               new bill
             </p>
+            {customer && (
+              <p className="mt-1.5 text-center font-hand text-2xl leading-none">
+                for {customer.name}
+              </p>
+            )}
 
             {lines.length === 0 ? (
               <p className="mt-3 border-t border-dashed border-[#1d2a22]/35 py-6 text-center font-mono text-[12px] opacity-60">
@@ -206,6 +215,11 @@ function Form({ onClose }: { onClose: () => void }) {
             </div>
           </div>
           <div aria-hidden="true" className="zig-b paper h-3" />
+        </div>
+
+        {/* who it is for (optional) */}
+        <div className="mt-4">
+          <CustomerPick value={customer} onChange={setCustomer} />
         </div>
 
         {/* paid or not, and how */}

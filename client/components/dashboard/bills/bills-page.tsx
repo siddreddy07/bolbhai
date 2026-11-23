@@ -65,6 +65,7 @@ export function BillRow({
           </span>
           <span className="block text-xs text-muted-foreground">
             {count} {count === 1 ? "item" : "items"} · {when(i.date)}
+            {i.customerName ? ` · ${i.customerName}` : ""}
           </span>
         </span>
         <span className="flex shrink-0 flex-col items-end gap-0.5">
@@ -105,14 +106,13 @@ export function BillsPage() {
 
   const word = q.trim().toLowerCase()
   const searching = word !== ""
-  const validWord = /^[0-9a-f-]+$/.test(word) // a bill number is the letters a-f and digits
   const fromToday = !searching && day === today // came with the dashboard's request
   const key = searching ? `find:${word}` : `day:${day}`
   const known = key in asked
 
   // ask the server, once per day and once per search. A search waits 350 ms after the last key.
   React.useEffect(() => {
-    if (!shopId || fromToday || known || (searching && !validWord)) return
+    if (!shopId || fromToday || known) return
     const run = () =>
       void findBills(shopId, searching ? { q: word } : { day }).then((bills) =>
         setAsked((a) => ({
@@ -123,17 +123,7 @@ export function BillsPage() {
     if (!searching) return run()
     const t = window.setTimeout(run, 350)
     return () => window.clearTimeout(t)
-  }, [
-    shopId,
-    fromToday,
-    known,
-    searching,
-    validWord,
-    word,
-    day,
-    key,
-    findBills,
-  ])
+  }, [shopId, fromToday, known, searching, word, day, key, findBills])
 
   // the bills themselves always come from the store (so an edit shows at once)
   const ids = asked[key]
@@ -142,7 +132,7 @@ export function BillsPage() {
     : (ids ?? [])
         .map((id) => invoices.find((i) => i.id === id))
         .filter((i): i is Invoice => !!i)
-  const loading = fromToday ? !analytics : !known && (!searching || validWord)
+  const loading = fromToday ? !analytics : !known
   const failed = known && ids === null
 
   const total = list.reduce((n, i) => n + invoiceTotal(i, stock), 0)
@@ -181,7 +171,7 @@ export function BillsPage() {
               <SearchBox
                 value={q}
                 onChange={setQ}
-                placeholder="Find a bill number, like 3FA2"
+                placeholder="Bill number, customer or phone"
               />
             </div>
             <Popover open={calendar} onOpenChange={setCalendar}>
@@ -241,7 +231,7 @@ export function BillsPage() {
         <div className="flex items-end justify-between gap-3">
           <div className="min-w-0">
             <p className="truncate text-xs text-muted-foreground">
-              {searching ? `Starting with “${word.toUpperCase()}”` : "Sales"}
+              {searching ? `Matching “${q.trim()}”` : "Sales"}
             </p>
             <p className="text-2xl leading-tight font-extrabold tabular-nums sm:text-3xl">
               {inr(total)}
@@ -288,16 +278,10 @@ export function BillsPage() {
           <p className="py-8 text-center text-sm text-destructive">
             Could not load the bills. Check your connection.
           </p>
-        ) : searching && !validWord ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">
-            A bill number is letters A to F and digits, like 3FA2.
-          </p>
         ) : (
           list.length === 0 && (
             <p className="py-8 text-center text-sm text-muted-foreground">
-              {searching
-                ? "No bill with that number."
-                : "No bills on this day."}
+              {searching ? "No bill matches that." : "No bills on this day."}
             </p>
           )
         )}

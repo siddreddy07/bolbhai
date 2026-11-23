@@ -13,6 +13,7 @@ import {
   DrawerDescription,
   DrawerTitle,
 } from "@/components/ui/drawer"
+import { CustomerPick } from "@/components/dashboard/bills/customer-pick"
 import { SearchBox } from "@/components/ui/search-box"
 import {
   billNumber,
@@ -76,8 +77,14 @@ function Slip({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
   const shop = useShopStore((s) => s.shop)
   const stock = useHomeStore((s) => s.stock)
   const error = useHomeStore((s) => s.billError)
-  const { addBillItem, setBillQty, setBillPayment, removeBill, loadStock } =
-    useHomeStore.getState()
+  const {
+    addBillItem,
+    setBillQty,
+    setBillPayment,
+    setBillCustomer,
+    removeBill,
+    loadStock,
+  } = useHomeStore.getState()
   const box = React.useRef<HTMLDivElement>(null)
   const [deleting, setDeleting] = React.useState(false) // the server is deleting it: nothing on the slip works
   // paid or not, and how: only a DRAFT until Done is pressed (closing any other way keeps the bill as it was)
@@ -333,6 +340,30 @@ function Slip({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
             }}
           />
         )}
+        {/* who the bill is for: can be added or changed while the bill can still be edited */}
+        {!locked && (
+          <div className="mb-3">
+            <CustomerPick
+              value={
+                inv.customerId
+                  ? {
+                      id: inv.customerId,
+                      shopId: inv.shopId,
+                      name: inv.customerName ?? "Customer",
+                      phone: inv.customerPhone ?? "",
+                    }
+                  : null
+              }
+              onChange={(c) => void setBillCustomer(inv.id, c)}
+            />
+          </div>
+        )}
+        {locked && inv.customerName && (
+          <p className="mb-3 text-center text-[13px] font-medium">
+            For {inv.customerName}
+            {inv.customerPhone ? ` · ${inv.customerPhone}` : ""}
+          </p>
+        )}
 
         <div data-slip className="drop-shadow-[0_14px_24px_rgb(0_0_0/0.45)]">
           <div aria-hidden="true" className="zig-t paper h-3" />
@@ -344,6 +375,11 @@ function Slip({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
               <p className="mt-1 font-mono text-[11px] opacity-60">
                 bill #{billNumber(inv)} · {when(inv)}
               </p>
+              {inv.customerName && (
+                <p className="mt-1.5 font-hand text-2xl leading-none">
+                  for {inv.customerName}
+                </p>
+              )}
             </div>
 
             {inv.items.length === 0 ? (
