@@ -1,0 +1,26 @@
+# CI = "check my code automatically". GitHub runs these steps on every push to main and on every pull request.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest # a fresh Linux machine that GitHub gives us for free
+    steps:
+      - uses: actions/checkout@v4 # get the code onto that machine
+
+      - uses: actions/setup-node@v4 # install Node
+        with:
+          node-version: 24
+
+      - name: Server compiles
+        working-directory: server
+        run: |
+          npm ci
+          npm run typecheck
+
+      - name: Docker image builds
+        run: docker build ./server
