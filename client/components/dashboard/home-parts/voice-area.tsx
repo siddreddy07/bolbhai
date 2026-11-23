@@ -124,7 +124,7 @@ export function VoiceArea() {
             {order?.length ? (
               <ul
                 data-line
-                className="max-h-[38dvh] overflow-y-auto overscroll-contain border-b border-dashed border-[#10301f]/30 pb-2 text-sm"
+                className="max-h-48 overflow-y-auto overscroll-contain border-b border-dashed border-[#10301f]/30 pb-2 text-sm"
               >
                 {order.map((line) => (
                   <li key={line.query} className="py-1">
