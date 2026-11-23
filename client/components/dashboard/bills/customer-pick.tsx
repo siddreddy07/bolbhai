@@ -8,6 +8,10 @@ import { SearchBox } from "@/components/ui/search-box"
 import { createCustomer, type Customer } from "@/lib/customer-api"
 import { useShopStore } from "@/store/shop-store"
 
+// The search box remembers what it found. A new customer changes the answers, so this number changes then,
+// and the old answers are forgotten (otherwise a search done before could still hide the new customer).
+let customersVersion = 0
+
 /**
  * Who the bill is for (optional). Search this shop's customers by name or phone number,
  * or add a new one. The picked customer shows as a small tag with a cross to take it off.
@@ -52,7 +56,9 @@ export function CustomerPick({
     setSaving(true)
     setError("")
     try {
-      onChange(await createCustomer(shopId!, name.trim(), phone.trim()))
+      const made = await createCustomer(shopId!, name.trim(), phone.trim())
+      customersVersion += 1
+      onChange(made)
       setAdding(false)
       setName("")
       setPhone("")
@@ -112,6 +118,7 @@ export function CustomerPick({
         <SearchBox<Customer>
           url={`/api/customers/shop/${shopId}`}
           minChars={1}
+          cacheKey={customersVersion}
           placeholder="Customer name or phone (optional)"
           clearOnSelect
           getKey={(c) => c.id}
