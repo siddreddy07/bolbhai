@@ -9,6 +9,7 @@ import {
   readInvoice,
   removeInvoice,
 } from "../controllers/invoice.controller.js";
+import { countLimit } from "../middleware/rate-limit.middleware.js";
 
 const router = Router();
 
@@ -18,7 +19,7 @@ router.get("/shop/:shopId/unpaid", listUnpaid);
 router.get("/shop/:shopId/analytics", readAnalytics);
 router.post("/shop/:shopId", addInvoice);
 router.get("/:id", readInvoice);
-router.put("/:id", editInvoice);
+router.put("/:id", countLimit, editInvoice);
 router.delete("/:id", removeInvoice);
 
 export default router;
