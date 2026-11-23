@@ -48,11 +48,12 @@ const PORT = env.PORT;
 
 
 async function startServer() {
-  await connectDB();
-
+  // listen first, so the host sees the port at once; then check the database (it logs and stops the server if it cannot connect)
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
   });
+
+  await connectDB();
 }
 
 startServer()
