@@ -77,6 +77,7 @@ export function StockManager() {
   const [draft, setDraft] = React.useState<Draft | null>(null)
   const [soon, setSoon] = React.useState(false)
   const [pickerOpen, setPickerOpen] = React.useState(false)
+  const [fromPicker, setFromPicker] = React.useState(false) // the new-item form came from "Add to your shop"
   const scroller = React.useRef<HTMLDivElement>(null)
 
   const needle = q.trim().toLowerCase()
@@ -340,12 +341,23 @@ export function StockManager() {
           setCats([])
           if (stockShopId) void loadStock(stockShopId, true) // the new products show up in the list
         }}
-        onManual={() => setDraft(blank(cats[0] ?? "cereals"))}
+        onManual={() => {
+          setFromPicker(true)
+          setDraft(blank(cats[0] ?? "cereals"))
+        }}
       />
 
       <ItemEditor
         draft={draft}
         onClose={() => setDraft(null)}
+        onBack={
+          fromPicker
+            ? () => {
+                setDraft(null)
+                setPickerOpen(true)
+              }
+            : undefined
+        }
         onSave={onSave}
         onDelete={(id) => {
           removeItem(id)

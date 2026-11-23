@@ -3,7 +3,7 @@
 import * as React from "react"
 import gsap from "gsap"
 import { useGSAP } from "@gsap/react"
-import { Minus, Plus, Trash2 } from "lucide-react"
+import { ChevronLeft, Minus, Plus, Trash2 } from "lucide-react"
 
 import { CAT, CATS, UNITS } from "@/components/dashboard/stock/kit"
 import { Button } from "@/components/ui/button"
@@ -79,10 +79,12 @@ function EditorForm({
   draft,
   onSave,
   onDelete,
+  onBack,
 }: {
   draft: Draft
   onSave: (d: Draft) => void
   onDelete?: () => void
+  onBack?: () => void
 }) {
   const [d, setD] = React.useState<Draft>(draft)
   const [sure, setSure] = React.useState(false)
@@ -122,6 +124,15 @@ function EditorForm({
       className="max-h-[78dvh] overflow-y-auto overscroll-contain px-4 pt-0 pb-[max(1rem,env(safe-area-inset-bottom))]"
     >
       <DrawerHeader className="p-0 pb-2 text-left">
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            className="mb-1 -ml-1 flex items-center gap-0.5 text-sm font-semibold underline-offset-4 hover:underline"
+          >
+            <ChevronLeft className="size-4" /> Back to the list
+          </button>
+        )}
         <DrawerTitle className="font-hand text-3xl leading-none font-semibold">
           {isNew ? "New item" : "Edit item"}
         </DrawerTitle>
@@ -269,11 +280,14 @@ export function ItemEditor({
   onClose,
   onSave,
   onDelete,
+  onBack,
 }: {
   draft: Draft | null
   onClose: () => void
   onSave: (d: Draft) => void
   onDelete?: (id: string) => void
+  /** a new item that came from "Add to your shop": a way back to it */
+  onBack?: () => void
 }) {
   // keep the content mounted through the closing animation
   const [last, setLast] = React.useState<Draft | null>(null)
@@ -292,6 +306,7 @@ export function ItemEditor({
             draft={shown}
             onSave={onSave}
             onDelete={shown.id ? () => onDelete?.(shown.id!) : undefined}
+            onBack={shown.id ? undefined : onBack}
           />
         )}
       </DrawerContent>
