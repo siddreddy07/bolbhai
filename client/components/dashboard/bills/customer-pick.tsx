@@ -76,35 +76,39 @@ export function CustomerPick({
   if (adding)
     return (
       <div className="grid gap-1.5">
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Customer name"
-          aria-label="Customer name"
-          className="h-10 rounded-full border border-foreground/15 bg-card px-4 text-sm outline-none focus-visible:border-foreground/50"
-        />
-        <input
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          inputMode="tel"
-          placeholder="Phone number"
-          aria-label="Phone number"
-          className="h-10 rounded-full border border-foreground/15 bg-card px-4 text-sm outline-none focus-visible:border-foreground/50"
-        />
+        {/* name and phone side by side, so the form is two short rows */}
+        <div className="grid grid-cols-2 gap-1.5">
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Name"
+            aria-label="Customer name"
+            autoFocus
+            className="h-9 min-w-0 rounded-full border border-foreground/15 bg-card px-3.5 text-sm outline-none focus-visible:border-foreground/50"
+          />
+          <input
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            inputMode="tel"
+            placeholder="Phone"
+            aria-label="Phone number"
+            className="h-9 min-w-0 rounded-full border border-foreground/15 bg-card px-3.5 text-sm outline-none focus-visible:border-foreground/50"
+          />
+        </div>
         {error && <p className="px-2 text-xs text-destructive">{error}</p>}
         <div className="grid grid-cols-2 gap-1.5">
           <button
             type="button"
             disabled={saving || !name.trim() || phone.trim().length < 7}
             onClick={add}
-            className="h-10 rounded-full bg-foreground text-sm font-semibold text-background disabled:opacity-40"
+            className="h-9 rounded-full bg-foreground text-sm font-semibold text-background disabled:opacity-40"
           >
             {saving ? "Adding…" : "Add customer"}
           </button>
           <button
             type="button"
             onClick={() => setAdding(false)}
-            className="h-10 rounded-full border border-foreground/15 text-sm font-semibold"
+            className="h-9 rounded-full border border-foreground/15 text-sm font-semibold"
           >
             Cancel
           </button>
