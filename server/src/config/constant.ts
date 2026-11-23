@@ -3,7 +3,7 @@ import { env } from "./env.js";
 // Change cookie and token settings here once; the whole app follows.
 export const COOKIE_OPTIONS = {
   httpOnly: true,
-  sameSite: "none", // the website and the API are on different addresses
+  sameSite: env.NODE_ENV === "production" ? "none"  : "lax", // the website and the API are on different addresses
   secure: env.NODE_ENV === "production",
 } as const;
 
