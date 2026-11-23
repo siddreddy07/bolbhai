@@ -1,5 +1,6 @@
 import { db } from "../prisma/db.js";
 import { sizeLabel } from "./pack-size.js";
+import { forgetShelf, liveStock } from "./stock-cache.service.js";
 
 const inventory = db.orm.public.shop_inventory;
 
@@ -27,6 +28,7 @@ export async function getInventory(shopId: string) {
   }).build();
 
   const rows = await db.query(plan);
+  const live = await liveStock(shopId); // the stock numbers are Redis's
   return rows.map((r) => ({
     id: r.id,
     // the catalog product this row is (null for a shop's own item). The picker uses it to mark what is already added.
@@ -37,7 +39,7 @@ export async function getInventory(shopId: string) {
     size: sizeLabel({ quantity: r.quantity, unit: r.pack_unit }),
     category: r.category,
     // how much the shop has, and what it is counted in: 12 "bags"
-    stock: Number(r.stock),
+    stock: live.get(r.id) ?? Number(r.stock),
     unit: r.stock_unit,
     price: Number(r.price),
   }));
@@ -59,29 +61,15 @@ export async function addToInventory(shopId: string, items: { productId: string;
   `.returnsRow({ added: "pg/text@1" }).build();
 
   const [row] = await db.query(plan);
+  await forgetShelf(shopId); // read again with the new products
   return Number(row?.added ?? 0);
 }
 
 // Takes one product off a shop's shelf. The shopId is part of the match, so a shop can only delete its own rows.
 export async function removeFromInventory(shopId: string, itemId: string) {
-  return inventory.where({ id: itemId, shopId }).delete();
-}
-
-// Saves many new stock counts in ONE statement. The shopId is part of the match, so a shop can only change its own rows.
-export async function updateStocks(shopId: string, items: { id: string; stock: number }[]) {
-  const plan = db.raw.sql`
-    WITH changed AS (
-      UPDATE shop_inventory i
-      SET stock = x.stock, "updatedAt" = now()
-      FROM jsonb_to_recordset(${JSON.stringify(items)}::jsonb) AS x(id uuid, stock numeric)
-      WHERE i.id = x.id AND i."shopId" = ${shopId}::uuid
-      RETURNING 1
-    )
-    SELECT count(*)::text AS changed FROM changed
-  `.returnsRow({ changed: "pg/text@1" }).build();
-
-  const [row] = await db.query(plan);
-  return Number(row?.changed ?? 0);
+  const gone = await inventory.where({ id: itemId, shopId }).delete();
+  await forgetShelf(shopId);
+  return gone;
 }
 
 // ---- search ----
@@ -150,6 +138,7 @@ export async function searchInventories(shopId: string, queries: string[], limit
       hits: "pg/text@1",
     })
     .build();
+  const live = await liveStock(shopId);
   const all = (await db.query(plan)).map((r) => ({
     idx: r.idx,
     hits: Number(r.hits),
@@ -162,7 +151,7 @@ export async function searchInventories(shopId: string, queries: string[], limit
       quantity: r.quantity,
       packUnit: r.pack_unit,
       category: r.category,
-      stock: Number(r.stock),
+      stock: live.get(r.id) ?? Number(r.stock),
       unit: r.stock_unit,
       price: Number(r.price),
     } as Found,

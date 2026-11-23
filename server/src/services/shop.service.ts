@@ -1,4 +1,5 @@
 import { db } from "../prisma/db.js";
+import { forgetShelf } from "./stock-cache.service.js";
 import type { ShopInput, UpdateShopInput } from "../schemas/shop.schema.js";
 
 const shops = db.orm.public.shops;
@@ -27,6 +28,7 @@ export async function deleteShop(id: string) {
   await inventory.where({ shopId: id }).delete();
   await invoices.where({ shopId: id }).delete();
   await customers.where({ shopId: id }).delete();
+  await forgetShelf(id);
   return shops.where({ id }).delete();
 }
 
