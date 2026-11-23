@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import { ownsShop } from "../middleware/auth.middleware.js";
 import { z } from "zod";
 import { idSchema } from "../schemas/id.schema.js";
 import {
@@ -18,7 +19,6 @@ import {
 } from "../services/invoice.service.js";
 import { getAnalytics } from "../services/analytics.service.js";
 import { customerOfShop, hasTransaction } from "../services/customer.service.js";
-import { getShopById } from "../services/shop.service.js";
 
 // An invoice belongs to a shop, and a shop to its owner: only the owner may touch it.
 // Gives the invoice, or answers the error itself and gives nothing.
@@ -29,7 +29,7 @@ async function ownInvoice(req: Request, res: Response) {
     return null;
   }
   const invoice = await getInvoice(id.data);
-  if (!invoice || !(await getShopById(invoice.shopId, req.user!.id))) {
+  if (!invoice || !ownsShop(req, invoice.shopId)) {
     res.status(404).json({ message: "Invoice not found" });
     return null;
   }
@@ -41,7 +41,7 @@ export async function listInvoices(req: Request, res: Response) {
   try {
     const shopId = idSchema.safeParse(req.params.shopId);
     if (!shopId.success) return res.status(400).json({ message: "Invalid id" });
-    if (!(await getShopById(shopId.data, req.user!.id)))
+    if (!ownsShop(req, shopId.data))
       return res.status(404).json({ message: "Shop not found" });
     const query = listQuerySchema.safeParse(req.query);
     if (!query.success)
@@ -69,7 +69,7 @@ export async function listUnpaid(req: Request, res: Response) {
     const query = unpaidQuerySchema.safeParse(req.query);
     if (!shopId.success || !query.success)
       return res.status(400).json({ message: "Invalid request" });
-    if (!(await getShopById(shopId.data, req.user!.id)))
+    if (!ownsShop(req, shopId.data))
       return res.status(404).json({ message: "Shop not found" });
     res.json(await getUnpaidInvoices(shopId.data, query.data.limit));
   } catch (error) {
@@ -84,7 +84,7 @@ export async function readAnalytics(req: Request, res: Response) {
     const shopId = idSchema.safeParse(req.params.shopId);
     if (!shopId.success)
       return res.status(400).json({ message: "Invalid request" });
-    if (!(await getShopById(shopId.data, req.user!.id)))
+    if (!ownsShop(req, shopId.data))
       return res.status(404).json({ message: "Shop not found" });
     res.json(await getAnalytics(shopId.data));
   } catch (error) {
@@ -102,7 +102,7 @@ export async function addInvoice(req: Request, res: Response) {
     if (!body.success)
       return res.status(400).json({ message: z.prettifyError(body.error) });
 
-    if (!(await getShopById(shopId.data, req.user!.id)))
+    if (!ownsShop(req, shopId.data))
       return res.status(404).json({ message: "Shop not found" });
     if (
       body.data.customerId &&
@@ -110,8 +110,16 @@ export async function addInvoice(req: Request, res: Response) {
     )
       return res.status(404).json({ message: "Customer not found" });
     // the new bill, and the stock of its products now (the shelf moved with it)
-    const { invoice, stock } = await createInvoice(shopId.data, body.data);
-    res.status(201).json({ ...invoice, stock });
+    const made = await createInvoice(shopId.data, body.data);
+    // more than the shelf has: nothing was saved; the shelf as it is now is sent back
+    if ("short" in made && made.short)
+      return res.status(409).json({
+        message: `Only ${made.short.left} left in stock`,
+        left: made.short.left,
+        pid: made.short.pid,
+        stock: made.stock,
+      });
+    res.status(201).json({ ...made.invoice!, stock: made.stock });
   } catch (error) {
     console.error("Could not create invoice:", error);
     res.status(500).json({ message: "Could not create the invoice" });
@@ -138,6 +146,9 @@ export async function editInvoice(req: Request, res: Response) {
 
     const invoice = await ownInvoice(req, res);
     if (!invoice) return;
+    // a bill paid online (it has a payment record) never changes at all
+    if (await hasTransaction(invoice.id))
+      return res.status(403).json({ message: "This bill was paid online and cannot be changed" });
     // paid bills never change; unpaid ones only for 24 hours. (Marking one paid is still fine.)
     if ((body.data.items || body.data.customerId !== undefined) && isLocked(invoice))
       return res.status(403).json({

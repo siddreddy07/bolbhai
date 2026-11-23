@@ -1,5 +1,6 @@
 import { db } from "../prisma/db.js";
 import { sizeLabel } from "./pack-size.js";
+import { moveStock, stockOfProducts, type StockNow } from "./stock-cache.service.js";
 import type {
   InvoiceInput,
   UpdateInvoiceInput,
@@ -32,66 +33,46 @@ function publicInvoice(row: InvoiceRow) {
 }
 
 // ---- the shelf follows the bill ----
-// Every change to a bill's items moves the shop's stock in the SAME SQL statement, so the two can never disagree
-// (a statement is atomic). The move is relative (stock = stock + difference), so two changes at once cannot overwrite each other,
-// and a bill that is being edited is locked (FOR UPDATE) until the first change is done.
-// Selling more than the shelf has is allowed: the stock goes below zero instead of silently losing the difference.
+// The shelf lives in Redis (stock-cache.service): a bill's items move it THERE, and "is there enough?" is checked THERE
+// (all or nothing). The database only gets the bill itself, so there are no repeated stock reads and writes.
 
-export type StockNow = { productId: string; stock: number };
+export type { StockNow };
 
-// The stock of some products of one shop, as it is now.
-async function stockOf(shopId: string, pids: string[]): Promise<StockNow[]> {
-  if (!pids.length) return [];
-  const plan = db.raw.sql`
-    SELECT "productId"::text AS product_id, stock::text AS stock
-    FROM shop_inventory
-    WHERE "shopId" = ${shopId}::uuid
-      AND "productId"::text IN (SELECT jsonb_array_elements_text(${JSON.stringify(pids)}::jsonb))
-  `
-    .returnsRow({ product_id: "pg/text@1", stock: "pg/text@1" })
-    .build();
-  return (await db.query(plan)).map((r) => ({
-    productId: r.product_id,
-    stock: Number(r.stock),
-  }));
-}
+// How many of one product the bill lines hold.
+const countOf = (lines: Line[], pid: string) =>
+  lines.filter((l) => l.pid === pid).reduce((n, l) => n + l.quantity, 0);
 
-const pidsOf = (...lists: Line[][]) => [
-  ...new Set(lists.flat().map((l) => l.pid)),
-];
+const pidsOf = (...lists: Line[][]) => [...new Set(lists.flat().map((l) => l.pid))];
 
-// A new bill: it is saved and its items come off the shelf, in one statement.
+// What the shelf gets when a bill goes from `before` to `after`: what the bill gained leaves the shelf, what it lost goes back.
+const shelfChanges = (before: Line[], after: Line[]) =>
+  pidsOf(before, after).map((pid) => ({ pid, delta: countOf(before, pid) - countOf(after, pid) }));
+
+// A new bill: its items come off the shelf (refused when there is not enough), then the bill is saved.
 export async function createInvoice(shopId: string, data: InvoiceInput) {
-  const plan = db.raw.sql`
-    WITH created AS (
+  const moved = await moveStock(shopId, shelfChanges([], data.items));
+  if (!moved.ok) return { short: moved.short, stock: await stockOfProducts(shopId, pidsOf(data.items)) };
+
+  let id: string;
+  try {
+    const plan = db.raw.sql`
       INSERT INTO invoices (id, "shopId", "customerId", items, payment, "paymentType")
       VALUES (gen_random_uuid(), ${shopId}::uuid, NULLIF(${data.customerId ?? ""}::text, '')::uuid, (${JSON.stringify(data.items)}::jsonb)::json, ${data.payment}, ${data.paymentType})
-      RETURNING id
-    ),
-    moved AS (
-      UPDATE shop_inventory i
-      SET stock = i.stock - l.quantity, "updatedAt" = now()
-      FROM (
-        SELECT pid, sum(quantity) AS quantity
-        FROM jsonb_to_recordset(${JSON.stringify(data.items)}::jsonb) AS x(pid uuid, quantity numeric)
-        GROUP BY pid
-      ) l
-      WHERE i."shopId" = ${shopId}::uuid AND i."productId" = l.pid
-      RETURNING 1
-    )
-    SELECT id::text AS id FROM created
-  `
-    .returnsRow({ id: "pg/text@1" })
-    .build();
-  const [created] = await db.query(plan);
-
-  // the optional date does not touch the stock
-  if (data.date) {
-    await invoices.where({ id: created.id }).update({ date: new Date(data.date) });
+      RETURNING id::text AS id
+    `
+      .returnsRow({ id: "pg/text@1" })
+      .build();
+    [{ id }] = await db.query(plan);
+  } catch (error) {
+    await moveStock(shopId, shelfChanges(data.items, [])); // not saved: the items go back on the shelf
+    throw error;
   }
+
+  // the optional date
+  if (data.date) await invoices.where({ id }).update({ date: new Date(data.date) });
   return {
-    invoice: (await getInvoice(created.id))!,
-    stock: await stockOf(shopId, pidsOf(data.items)),
+    invoice: (await getInvoice(id))!,
+    stock: await stockOfProducts(shopId, pidsOf(data.items)),
   };
 }
 
@@ -111,7 +92,8 @@ export async function getInvoices(shopId: string, filter: InvoiceFilter = {}) {
   const limit = q ? 30 : unpaid ? 500 : 300; // never send everything
   const plan = db.raw.sql`
     SELECT i.id::text AS id, i."shopId"::text AS shop_id, i.date::text AS date, i.items::text AS items, i.payment, i."paymentType" AS payment_type,
-      i."customerId"::text AS customer_id, c.name AS customer_name, c.phone AS customer_phone
+      i."customerId"::text AS customer_id, c.name AS customer_name, c.phone AS customer_phone,
+      EXISTS (SELECT 1 FROM customer_transactions t WHERE t."invoiceId" = i.id) AS paid_online
     FROM invoices i
     LEFT JOIN customers c ON c.id = i."customerId"
     WHERE i."shopId" = ${shopId}::uuid
@@ -131,6 +113,7 @@ export async function getInvoices(shopId: string, filter: InvoiceFilter = {}) {
       customer_id: { codecId: "pg/text@1", nullable: true },
       customer_name: { codecId: "pg/text@1", nullable: true },
       customer_phone: { codecId: "pg/text@1", nullable: true },
+      paid_online: "pg/bool@1",
     })
     .build();
 
@@ -145,6 +128,7 @@ export async function getInvoices(shopId: string, filter: InvoiceFilter = {}) {
     customerId: r.customer_id,
     customerName: r.customer_name,
     customerPhone: r.customer_phone,
+    paidOnline: r.paid_online,
   }));
 }
 
@@ -225,112 +209,43 @@ export async function updateInvoice(id: string, data: UpdateInvoiceInput) {
   const before = await getInvoice(id);
   if (!before) return null;
 
+  const pids = data.items ? pidsOf(before.items, data.items) : [];
   if (data.items) {
-    // Asking for MORE of a product than the shelf has is refused: say how many are left.
-    const pids = pidsOf(before.items, data.items);
-    const shelf = await stockOf(before.shopId, pids);
-    const count = (lines: Line[], pid: string) =>
-      lines.filter((l) => l.pid === pid).reduce((n, l) => n + l.quantity, 0);
-    for (const row of shelf) {
-      const more = count(data.items, row.productId) - count(before.items, row.productId);
-      if (more > row.stock)
-        return { short: { pid: row.productId, left: Math.max(0, row.stock) }, stock: shelf };
-    }
-    const plan = db.raw.sql`
-      WITH old AS (
-        SELECT id, "shopId", items::jsonb AS items FROM invoices WHERE id = ${id}::uuid FOR UPDATE
-      ),
-      delta AS (
-        SELECT coalesce(o.pid, n.pid) AS pid, coalesce(o.quantity, 0) - coalesce(n.quantity, 0) AS diff
-        FROM (
-          SELECT pid, sum(quantity) AS quantity
-          FROM jsonb_to_recordset((SELECT items FROM old)) AS x(pid uuid, quantity numeric)
-          GROUP BY pid
-        ) o
-        FULL JOIN (
-          SELECT pid, sum(quantity) AS quantity
-          FROM jsonb_to_recordset(${JSON.stringify(data.items)}::jsonb) AS x(pid uuid, quantity numeric)
-          GROUP BY pid
-        ) n ON n.pid = o.pid
-      ),
-      -- the same check again inside the statement, in case the shelf changed a moment ago
-      enough AS (
-        SELECT NOT EXISTS (
-          SELECT 1 FROM delta JOIN shop_inventory i
-            ON i."productId" = delta.pid AND i."shopId" = (SELECT "shopId" FROM old)
-          WHERE delta.diff < 0 AND i.stock + delta.diff < 0
-        ) AS ok
-      ),
-      changed AS (
-        UPDATE invoices SET items = (${JSON.stringify(data.items)}::jsonb)::json
-        FROM old WHERE invoices.id = old.id AND (SELECT ok FROM enough)
-        RETURNING invoices.id
-      ),
-      moved AS (
-        UPDATE shop_inventory i
-        SET stock = i.stock + delta.diff, "updatedAt" = now()
-        FROM delta, old
-        WHERE i."shopId" = old."shopId" AND i."productId" = delta.pid AND delta.diff <> 0
-          AND (SELECT ok FROM enough)
-        RETURNING 1
-      )
-      SELECT count(*)::text AS changed FROM changed
-    `
-      .returnsRow({ changed: "pg/text@1" })
-      .build();
-    const [row] = await db.query(plan);
-    if (!Number(row?.changed ?? 0)) {
-      if (!(await getInvoice(id))) return null; // deleted meanwhile
-      return { short: { pid: "", left: 0 }, stock: await stockOf(before.shopId, pids) };
-    }
+    // the shelf moves by the difference; asking for MORE than is left is refused and says how many are left
+    const moved = await moveStock(before.shopId, shelfChanges(before.items, data.items));
+    if (!moved.ok) return { short: moved.short, stock: await stockOfProducts(before.shopId, pids) };
   }
 
-  const rest = {
+  const changes = {
+    ...(data.items ? { items: data.items } : {}),
     ...(data.payment ? { payment: data.payment } : {}),
     ...(data.paymentType ? { paymentType: data.paymentType } : {}),
     ...(data.date ? { date: new Date(data.date) } : {}),
     ...(data.customerId !== undefined ? { customerId: data.customerId } : {}),
   };
-  if (Object.keys(rest).length) await invoices.where({ id }).update(rest);
+  try {
+    if (Object.keys(changes).length) await invoices.where({ id }).update(changes);
+  } catch (error) {
+    if (data.items) await moveStock(before.shopId, shelfChanges(data.items, before.items)); // not saved: the shelf goes back
+    throw error;
+  }
 
   const invoice = await getInvoice(id);
   if (!invoice) return null;
-  return {
-    invoice,
-    stock: data.items
-      ? await stockOf(before.shopId, pidsOf(before.items, data.items))
-      : [],
-  };
+  return { invoice, stock: data.items ? await stockOfProducts(before.shopId, pids) : [] };
 }
 
-// Delete a bill: its items go back on the shelf, in one statement.
+// Delete a bill: its items go back on the shelf.
 export async function deleteInvoice(id: string) {
   const plan = db.raw.sql`
-    WITH gone AS (
-      DELETE FROM invoices WHERE id = ${id}::uuid RETURNING "shopId", items::jsonb AS items
-    ),
-    moved AS (
-      UPDATE shop_inventory i
-      SET stock = i.stock + l.quantity, "updatedAt" = now()
-      FROM gone g,
-        LATERAL (
-          SELECT pid, sum(quantity) AS quantity
-          FROM jsonb_to_recordset(g.items) AS x(pid uuid, quantity numeric)
-          GROUP BY pid
-        ) l
-      WHERE i."shopId" = g."shopId" AND i."productId" = l.pid
-      RETURNING 1
-    )
-    SELECT "shopId"::text AS shop_id, items::text AS items FROM gone
+    DELETE FROM invoices WHERE id = ${id}::uuid
+    RETURNING "shopId"::text AS shop_id, items::text AS items
   `
     .returnsRow({ shop_id: "pg/text@1", items: "pg/text@1" })
     .build();
   const [gone] = await db.query(plan);
   if (!gone) return null;
-  return {
-    stock: await stockOf(
-      gone.shop_id,
-      pidsOf(JSON.parse(gone.items) as Line[]),
-    ),
-  };
+  const items = JSON.parse(gone.items) as Line[];
+  await moveStock(gone.shop_id, shelfChanges(items, []));
+  return { stock: await stockOfProducts(gone.shop_id, pidsOf(items)) };
 }

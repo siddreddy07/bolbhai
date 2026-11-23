@@ -101,7 +101,8 @@ export async function getAnalytics(shopId: string) {
       (SELECT coalesce(json_agg(h ORDER BY h.hour), '[]'::json) FROM hourly h)::text AS hours,
       (SELECT coalesce(json_agg(json_build_object(
           'id', i.id, 'shopId', i."shopId", 'date', i.date, 'items', i.items,
-          'payment', i.payment, 'paymentType', i."paymentType", 'customerId', i."customerId", 'customerName', c.name, 'customerPhone', c.phone
+          'payment', i.payment, 'paymentType', i."paymentType", 'customerId', i."customerId", 'customerName', c.name, 'customerPhone', c.phone,
+          'paidOnline', EXISTS (SELECT 1 FROM customer_transactions t WHERE t."invoiceId" = i.id)
         ) ORDER BY i.date DESC), '[]'::json)
         FROM invoices i
         LEFT JOIN customers c ON c.id = i."customerId"
