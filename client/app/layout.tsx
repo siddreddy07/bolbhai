@@ -10,6 +10,7 @@ import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Loader } from "@/components/site/loader"
 import { ScrollFade } from "@/components/site/scroll-fade"
+import { SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL } from "@/lib/site"
 import { cn } from "@/lib/utils"
 
 const display = Bricolage_Grotesque({
@@ -44,9 +45,25 @@ const hi = Noto_Sans_Devanagari({
 })
 
 export const metadata: Metadata = {
-  title: "BolBhai: don't type, bol de bhai",
-  description:
-    "Speak in Telugu, Hindi or English. BolBhai updates stock, writes invoices and tracks customer credit for shopkeepers and wholesalers.",
+  metadataBase: new URL(SITE_URL),
+  title: SITE_TITLE,
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  alternates: { canonical: "/" },
+  // the share picture comes from app/opengraph-image.tsx (the mascot)
+  openGraph: {
+    type: "website",
+    siteName: SITE_NAME,
+    locale: "en_IN",
+    url: "/",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+  },
 }
 
 export const viewport: Viewport = {
@@ -83,9 +100,7 @@ export default function RootLayout({
       <body>
         <Loader />
         <ScrollFade />
-        <ThemeProvider>
-          {children}
-        </ThemeProvider>
+        <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
   )
