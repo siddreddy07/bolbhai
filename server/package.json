@@ -24,6 +24,8 @@
     "@deepgram/sdk": "^5.20.0",
     "@langchain/langgraph": "^1.7.5",
     "@prisma/orm-postgres": "^8.0.0-rc.24",
+    "@upstash/ratelimit": "^2.2.1",
+    "@upstash/redis": "^1.41.0",
     "ai": "^7.0.178",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",

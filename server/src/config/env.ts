@@ -9,4 +9,7 @@ export const env = {
   // Where Ollama is. Leave it out to use constant.ts. In Docker it is http://host.docker.internal:11434/api
   OLLAMA_BASE_URL: process.env.OLLAMA_BASE_URL,
   DEEPGRAM_API_KEY:process.env.DEEPGRAM_API_KEY,
+  // Upstash Redis (the rate limits). Leave them out and the limits are off.
+  UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL,
+  UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,
 };
