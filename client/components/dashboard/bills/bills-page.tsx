@@ -1,54 +1,41 @@
 "use client"
 
 import * as React from "react"
-import gsap from "gsap"
-import { useGSAP } from "@gsap/react"
-import { ChevronRight, LoaderCircle, ReceiptText } from "lucide-react"
+import {
+  CalendarDays,
+  ChevronRight,
+  LoaderCircle,
+  ReceiptText,
+} from "lucide-react"
 
 import { InvoiceDrawer } from "@/components/dashboard/bills/invoice-slip"
+import { Calendar } from "@/components/ui/calendar"
 import {
-  Chips,
-  ListScreen,
-  SearchBox,
-  Segmented,
-  inr,
-} from "@/components/dashboard/list-kit"
-import { billNumber, invoiceTotal, isPaid, lineInfo } from "@/lib/bill"
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { ListScreen, SearchBox, inr } from "@/components/dashboard/list-kit"
+import { billNumber, dayKey, daysAgo, invoiceTotal, isPaid } from "@/lib/bill"
 import { useHomeStore } from "@/store/home-store"
 import type { Invoice, StockItem } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { useShopStore } from "@/store/shop-store"
 
-type Range = "today" | "week" | "month" | "year"
-const RANGES: { id: Range; name: string }[] = [
-  { id: "today", name: "Today" },
-  { id: "week", name: "Week" },
-  { id: "month", name: "Month" },
-  { id: "year", name: "Year" },
-]
-
-const DAY = 864e5
-
-const hour = (h: number) =>
-  `${h % 12 || 12} ${h < 12 || h === 24 ? "am" : "pm"}`
-
-type Status = "all" | "PAID" | "LEDGER"
-
-export function dayLabel(d: number) {
-  if (d === 0) return "Today"
-  if (d === 1) return "Yesterday"
-  return new Date(Date.now() - d * 864e5).toLocaleDateString("en-IN", {
-    weekday: "short",
+/** "3:45 pm" for today's bills, "12 Nov, 3:45 pm" for older ones */
+const when = (ms: number) => {
+  const time = new Date(ms).toLocaleTimeString("en-IN", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  })
+  if (daysAgo(ms) === 0) return time
+  const day = new Date(ms).toLocaleDateString("en-IN", {
     day: "numeric",
     month: "short",
   })
+  return `${day}, ${time}`
 }
-
-const time = (ms: number) =>
-  new Date(ms).toLocaleTimeString("en-IN", {
-    hour: "numeric",
-    minute: "2-digit",
-  })
 
 /** One bill in a list. Tap it to open the invoice. */
 export function BillRow({
@@ -63,11 +50,11 @@ export function BillRow({
   const paid = isPaid(i)
   const count = i.items.reduce((n, l) => n + l.quantity, 0)
   return (
-    <li data-line>
+    <li>
       <button
         type="button"
         onClick={onOpen}
-        className="flex w-full items-center gap-3 border-b border-foreground/10 py-3 text-left transition-colors active:bg-foreground/5"
+        className="flex w-full items-center gap-3 border-b border-foreground/10 py-3 text-left transition-colors hover:bg-foreground/[0.04] active:bg-foreground/5"
       >
         <span className="grid size-10 shrink-0 place-items-center rounded-full bg-foreground/8">
           <ReceiptText className="size-5" />
@@ -77,7 +64,7 @@ export function BillRow({
             Bill #{billNumber(i)}
           </span>
           <span className="block text-xs text-muted-foreground">
-            {count} {count === 1 ? "item" : "items"} · {time(i.date)}
+            {count} {count === 1 ? "item" : "items"} · {when(i.date)}
           </span>
         </span>
         <span className="flex shrink-0 flex-col items-end gap-0.5">
@@ -90,9 +77,7 @@ export function BillRow({
               paid ? "text-[#3fae6a]" : "text-signal"
             )}
           >
-            {paid
-              ? `paid · ${i.paymentType === "UPI" ? "UPI" : "cash"}`
-              : "not paid"}
+            {paid ? "paid" : "not paid"}
           </span>
         </span>
         <ChevronRight className="size-4 shrink-0 opacity-40" />
@@ -104,211 +89,229 @@ export function BillRow({
 export function BillsPage() {
   const invoices = useHomeStore((s) => s.invoices)
   const stock = useHomeStore((s) => s.stock)
-  const loading = useHomeStore((s) => s.billsLoading)
-  const error = useHomeStore((s) => s.billError)
-  const loadBills = useHomeStore((s) => s.loadBills)
+  const analytics = useHomeStore((s) => s.analytics)
+  const findBills = useHomeStore((s) => s.findBills)
   const setView = useHomeStore((s) => s.setViewInvoice)
   const shopId = useShopStore((s) => s.shop?.id)
-  const [range, setRange] = React.useState<Range>("today")
-  const [status, setStatus] = React.useState<Status>("all")
-  const [q, setQ] = React.useState("")
-  const root = React.useRef<HTMLDivElement>(null)
 
-  // opening the bills page asks the server for all of the shop's bills, newest first
+  const [now] = React.useState(() => Date.now()) // when the page opened
+  const today = dayKey(now)
+  const [calendar, setCalendar] = React.useState(false)
+  const [day, setDay] = React.useState(today) // the day being looked at
+  const [q, setQ] = React.useState("") // a bill number being looked up
+  // what was already asked from the server: "day:2026-11-20" or "find:3fa" -> the ids of the bills it gave.
+  // null = it failed. Asking the same thing again costs nothing: it is answered from here.
+  const [asked, setAsked] = React.useState<Record<string, string[] | null>>({})
+
+  const word = q.trim().toLowerCase()
+  const searching = word !== ""
+  const validWord = /^[0-9a-f-]+$/.test(word) // a bill number is the letters a-f and digits
+  const fromToday = !searching && day === today // came with the dashboard's request
+  const key = searching ? `find:${word}` : `day:${day}`
+  const known = key in asked
+
+  // ask the server, once per day and once per search. A search waits 350 ms after the last key.
   React.useEffect(() => {
-    if (shopId) void loadBills(shopId, true)
-  }, [shopId, loadBills])
-
-  // each card is [label, from, to]; today is cut by two hours instead
-  const now = new Date()
-  const today = new Date().setHours(0, 0, 0, 0)
-  const mon = today - ((now.getDay() + 6) % 7) * DAY
-  const mo = (n: number) =>
-    new Date(now.getFullYear(), now.getMonth() - n, 1).getTime()
-  const yr = (n: number) => new Date(now.getFullYear() - n, 0, 1).getTime()
-  const CARDS: Record<Range, [string, number, number?][]> = {
-    today: [],
-    week: [
-      ["Today", today],
-      ["This week", mon],
-      ["Last week", mon - 7 * DAY, mon],
-      ["The week before", mon - 14 * DAY, mon - 7 * DAY],
-      ["Last 5 weeks", mon - 28 * DAY],
-    ],
-    month: [
-      ["This month", mo(0)],
-      ["Last month", mo(1), mo(0)],
-      ["Last 5 months", mo(4)],
-    ],
-    year: [
-      ["This year", yr(0)],
-      ["Last 5 years", yr(4)],
-    ],
-  }
-  const cards = CARDS[range]
-  const head = range === "today" ? today : cards[range === "week" ? 1 : 0][1]
-  const start = range === "today" ? today : cards[cards.length - 1][1]
-
-  const inRange = invoices.filter((i) => i.date >= start)
-  const totals = { paid: 0, unpaid: 0, all: 0 }
-  for (const i of inRange) {
-    if (i.date < head) continue
-    const t = invoiceTotal(i, stock)
-    if (isPaid(i)) totals.paid += t
-    else totals.unpaid += t
-    totals.all += t
-  }
-  const needle = q.trim().toLowerCase()
-  const list = inRange.filter(
-    (i) =>
-      (status === "all" || i.payment === status) &&
-      (!needle ||
-        billNumber(i).toLowerCase().includes(needle) ||
-        i.items.some((l) =>
-          lineInfo(l, stock).name.toLowerCase().includes(needle)
-        ))
-  )
-  let groups = cards.map(([label, from, to = Infinity]) => ({
-    label,
-    bills: list.filter((i) => i.date >= from && i.date < to),
-  }))
-  if (range === "today") {
-    const slot = (i: Invoice) => Math.floor(new Date(i.date).getHours() / 2)
-    groups = [...new Set(list.map(slot))]
-      .sort((a, b) => b - a)
-      .map((n) => ({
-        label: `${hour(n * 2)} – ${hour(n * 2 + 2)}`,
-        bills: list.filter((i) => slot(i) === n),
-      }))
-  }
-  const key = `${range}|${status}|${needle}`
-
-  useGSAP(
-    () => {
-      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
-      gsap.fromTo(
-        "[data-line]",
-        { y: 10, autoAlpha: 0 },
-        {
-          y: 0,
-          autoAlpha: 1,
-          duration: 0.35,
-          stagger: { each: 0.015, amount: 0.3 },
-          ease: "power2.out",
-          overwrite: true,
-        }
+    if (!shopId || fromToday || known || (searching && !validWord)) return
+    const run = () =>
+      void findBills(shopId, searching ? { q: word } : { day }).then((bills) =>
+        setAsked((a) => ({
+          ...a,
+          [key]: bills ? bills.map((b) => b.id) : null,
+        }))
       )
-    },
-    { dependencies: [key, invoices.length], scope: root }
+    if (!searching) return run()
+    const t = window.setTimeout(run, 350)
+    return () => window.clearTimeout(t)
+  }, [
+    shopId,
+    fromToday,
+    known,
+    searching,
+    validWord,
+    word,
+    day,
+    key,
+    findBills,
+  ])
+
+  // the bills themselves always come from the store (so an edit shows at once)
+  const ids = asked[key]
+  const list = fromToday
+    ? invoices.filter((i) => dayKey(i.date) === today)
+    : (ids ?? [])
+        .map((id) => invoices.find((i) => i.id === id))
+        .filter((i): i is Invoice => !!i)
+  const loading = fromToday ? !analytics : !known && (!searching || validWord)
+  const failed = known && ids === null
+
+  const total = list.reduce((n, i) => n + invoiceTotal(i, stock), 0)
+  const unpaid = list.reduce(
+    (n, i) => (isPaid(i) ? n : n + invoiceTotal(i, stock)),
+    0
   )
 
-  const paidPct = totals.all ? (totals.paid / totals.all) * 100 : 0
+  // the last 7 days as buttons
+  const week = Array.from({ length: 7 }, (_, n) => {
+    const ms = now - n * 864e5
+    return {
+      key: dayKey(ms),
+      label:
+        n === 0
+          ? "Today"
+          : n === 1
+            ? "Yesterday"
+            : new Date(ms).toLocaleDateString("en-IN", {
+                weekday: "short",
+                day: "numeric",
+              }),
+    }
+  })
+  const dayName = new Date(`${day}T00:00:00`).toLocaleDateString("en-IN", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  })
 
   return (
-    <div ref={root}>
-      <ListScreen
-        title="All bills"
-        count={`${totals.all ? inr(totals.all) : "No sales"} ${range === "today" ? "today" : `this ${range}`}`}
-        controls={
-          <>
-            <Segmented
-              value={range}
-              onChange={setRange}
-              options={RANGES}
-              label="Range"
-            />
-            <SearchBox
-              value={q}
-              onChange={setQ}
-              placeholder="Search a bill number or an item"
-            />
-            <Chips
-              value={status}
-              onChange={setStatus}
-              options={[
-                { id: "all", name: "All" },
-                { id: "PAID", name: "Paid" },
-                { id: "LEDGER", name: "Not paid" },
-              ]}
-            />
-          </>
-        }
-      >
-        <div className="mt-3 flex items-end justify-between">
-          <p className="text-3xl leading-none font-extrabold tabular-nums">
-            {inr(totals.all)}
+    <ListScreen
+      title="Bills"
+      count={
+        searching
+          ? "Looking up a bill"
+          : "Pick a day, or find a bill by its number"
+      }
+      controls={
+        <>
+          <SearchBox
+            value={q}
+            onChange={setQ}
+            placeholder="Find a bill by its number, like 3FA2"
+          />
+          {!searching && (
+            <div className="flex items-center gap-1.5">
+              <div className="flex min-w-0 flex-1 [scrollbar-width:none] gap-1.5 overflow-x-auto">
+                {week.map((d) => (
+                  <button
+                    key={d.key}
+                    type="button"
+                    onClick={() => setDay(d.key)}
+                    aria-pressed={day === d.key}
+                    className={cn(
+                      "h-9 shrink-0 rounded-full border px-3.5 text-sm font-semibold transition-colors",
+                      day === d.key
+                        ? "border-foreground bg-foreground text-background"
+                        : "border-foreground/15 hover:bg-foreground/6"
+                    )}
+                  >
+                    {d.label}
+                  </button>
+                ))}
+              </div>
+              <Popover open={calendar} onOpenChange={setCalendar}>
+                <PopoverTrigger
+                  aria-label="Pick a date"
+                  className={cn(
+                    "grid size-9 shrink-0 place-items-center rounded-full border transition-colors",
+                    calendar
+                      ? "border-foreground bg-foreground text-background"
+                      : "border-foreground/15 hover:bg-foreground/6"
+                  )}
+                >
+                  <CalendarDays className="size-[18px]" />
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={new Date(`${day}T00:00:00`)}
+                    defaultMonth={new Date(`${day}T00:00:00`)}
+                    onSelect={(d) => {
+                      if (!d) return
+                      setDay(dayKey(d.getTime()))
+                      setCalendar(false)
+                    }}
+                    disabled={{ after: new Date(now) }}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+          )}
+        </>
+      }
+    >
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        {/* this week and this month, as numbers only */}
+        {!searching && analytics && (
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            {(
+              [
+                ["This week", analytics.week],
+                ["This month", analytics.month],
+              ] as const
+            ).map(([label, p]) => (
+              <div
+                key={label}
+                className="rounded-2xl border border-foreground/10 px-3.5 py-2.5"
+              >
+                <p className="text-xs text-muted-foreground">{label}</p>
+                <p className="text-lg leading-tight font-extrabold tabular-nums">
+                  {inr(p.total)}
+                </p>
+                <p className="text-xs text-muted-foreground">{p.bills} bills</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* the day (or the search) in one card */}
+        <div className="mt-3 rounded-2xl bg-foreground/[0.06] px-4 py-3.5">
+          <p className="text-sm font-semibold">
+            {searching
+              ? `Bills starting with “${word.toUpperCase()}”`
+              : dayName}
           </p>
-          <p className="text-xs text-muted-foreground">
-            {inr(totals.paid)} paid · {inr(totals.unpaid)} not paid
+          <p className="mt-0.5 text-3xl leading-none font-extrabold tabular-nums">
+            {inr(total)}
           </p>
-        </div>
-        <div
-          className="mt-2 flex h-2 overflow-hidden rounded-full bg-foreground/10"
-          aria-hidden="true"
-        >
-          <div className="bg-[#3fae6a]" style={{ width: `${paidPct}%` }} />
-          <div className="bg-signal" style={{ width: `${100 - paidPct}%` }} />
+          <p className="mt-1 text-xs text-muted-foreground">
+            {list.length} {list.length === 1 ? "bill" : "bills"}
+            {unpaid > 0 && ` · ${inr(unpaid)} not paid`}
+          </p>
         </div>
 
-        <ul className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pr-1 pb-[max(1rem,env(safe-area-inset-bottom))]">
-          {groups.map((g) => (
-            <li key={g.label} data-line>
-              <details className="group rounded-2xl bg-foreground/[0.06]">
-                <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-3.5">
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[15px] font-bold">
-                      {g.label}
-                    </span>
-                    <span className="block text-xs text-muted-foreground">
-                      {g.bills.length} {g.bills.length === 1 ? "bill" : "bills"}
-                    </span>
-                  </span>
-                  <span className="text-lg font-extrabold tabular-nums">
-                    {inr(
-                      g.bills.reduce((a, i) => a + invoiceTotal(i, stock), 0)
-                    )}
-                  </span>
-                  <ChevronRight className="size-4 opacity-50 transition-transform group-open:rotate-90" />
-                </summary>
-                <ul className="px-3 pb-2">
-                  {g.bills.slice(0, 50).map((i) => (
-                    <BillRow
-                      key={i.id}
-                      i={i}
-                      stock={stock}
-                      onOpen={() => setView(i.id)}
-                    />
-                  ))}
-                  {g.bills.length > 50 && (
-                    <li className="py-2 text-center text-xs text-muted-foreground">
-                      Showing the latest 50. Search to find an older one.
-                    </li>
-                  )}
-                </ul>
-              </details>
-            </li>
+        <ul className="mt-1">
+          {list.map((i) => (
+            <BillRow
+              key={i.id}
+              i={i}
+              stock={stock}
+              onOpen={() => setView(i.id)}
+            />
           ))}
-          {loading && invoices.length === 0 ? (
-            <li className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
-              <LoaderCircle className="size-4 animate-spin" /> Loading your
-              bills…
-            </li>
-          ) : error && invoices.length === 0 ? (
-            <li className="py-10 text-center text-sm text-destructive">
-              {error}
-            </li>
-          ) : (
-            groups.length === 0 && (
-              <li className="py-10 text-center text-sm text-muted-foreground">
-                {invoices.length === 0
-                  ? "No bills yet. Say an order on the home page and tap Done."
-                  : "No bills in this range."}
-              </li>
-            )
-          )}
         </ul>
-      </ListScreen>
+        {loading ? (
+          <p className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
+            <LoaderCircle className="size-4 animate-spin" /> Loading…
+          </p>
+        ) : failed ? (
+          <p className="py-10 text-center text-sm text-destructive">
+            Could not load the bills. Check your connection.
+          </p>
+        ) : searching && !validWord ? (
+          <p className="py-10 text-center text-sm text-muted-foreground">
+            A bill number is letters A to F and digits, like 3FA2.
+          </p>
+        ) : (
+          list.length === 0 && (
+            <p className="py-10 text-center text-sm text-muted-foreground">
+              {searching
+                ? "No bill with that number."
+                : "No bills on this day."}
+            </p>
+          )
+        )}
+      </div>
       <InvoiceDrawer />
-    </div>
+    </ListScreen>
   )
 }
