@@ -24,15 +24,13 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
   const shopId = shop?.id
   const loadStock = useHomeStore((s) => s.loadStock)
-  const loadBills = useHomeStore((s) => s.loadBills)
   const loadAnalytics = useHomeStore((s) => s.loadAnalytics)
   React.useEffect(() => {
     if (shopId) {
       loadStock(shopId) // the saved inventory: the order slip and the bills read from it
-      loadBills(shopId)
-      loadAnalytics(shopId) // today, this week and this month: one request
+      loadAnalytics(shopId) // the graphs and today's bills: ONE request, ONE database call
     }
-  }, [shopId, loadStock, loadBills, loadAnalytics])
+  }, [shopId, loadStock, loadAnalytics])
 
   // stock counts (changed by bills too) are saved when the tab is hidden or closed, on any dashboard page
   React.useEffect(() => {

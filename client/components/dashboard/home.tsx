@@ -13,9 +13,15 @@ import { QuickSheet } from "@/components/dashboard/home-parts/quick-sheet"
 import { SalesSection } from "@/components/dashboard/home-parts/sales-section"
 import { Tiles } from "@/components/dashboard/home-parts/tiles"
 import { VoiceArea } from "@/components/dashboard/home-parts/voice-area"
+import { refreshIfStale, useHomeStore } from "@/store/home-store"
 
 /** The dashboard home. Each part lives in home-parts/; this file puts them together and plays the entrance. */
 export function Home() {
+  const viewing = useHomeStore((s) => s.viewInvoice)
+  // bills edited elsewhere (or in the drawer) changed the sales: fetch the graphs again when they are in view
+  React.useEffect(() => {
+    if (!viewing) refreshIfStale()
+  }, [viewing])
   const root = React.useRef<HTMLElement>(null)
 
   // entrance: one orchestrated moment

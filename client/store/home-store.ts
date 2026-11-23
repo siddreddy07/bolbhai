@@ -34,6 +34,14 @@ import type {
   StockItem,
 } from "@/lib/types"
 
+/** Put bills into the list. A bill that is already here stays as it is (it may have an edit waiting to be saved). Newest first. */
+function addBills(have: Invoice[], more: Invoice[]) {
+  const all = new Map<string, Invoice>()
+  for (const b of more) all.set(b.id, b)
+  for (const b of have) all.set(b.id, b) // what is already here wins
+  return [...all.values()].sort((a, b) => b.date - a.date)
+}
+
 export type Phase = "idle" | "listening" | "thinking" | "confirm"
 export type SheetKey = "bills" | "stock" | "khata" | null
 export type Period = "day" | "week" | "month"
@@ -63,8 +71,13 @@ type HomeState = {
   billsLoading: boolean
   /** a bill change (add, quantity, pay, delete) that could not be saved */
   billError: string | null
-  /** all of the shop's bills, newest first. Asked from the server unless this shop is already loaded (or `refresh`). */
+  /** every unpaid bill, from any day (the khata page asks for these when it opens). */
   loadBills: (shopId: string, refresh?: boolean) => Promise<void>
+  /** ask the server for some bills (one day, or a bill number) and keep them here too, so they can be opened. null if it failed. */
+  findBills: (
+    shopId: string,
+    ask: { day?: string; q?: string }
+  ) => Promise<Invoice[] | null>
   /** add one of the shop's products to a bill (+1 if it is already on it) */
   addBillItem: (billId: string, pid: string) => void
   /** change a line's quantity (0 removes it). Saved on the server a moment after the last change. */
@@ -412,7 +425,7 @@ export const useHomeStore = create<HomeState>((set, get) => ({
         draftPaymentType
       )
       applyStock(stock) // the shelf already moved on the server
-      refreshAnalytics()
+      analyticsStale = true
       set((s) => ({
         invoices: [bill, ...s.invoices],
         billsShopId: s.billsShopId ?? shopId,
@@ -447,9 +460,12 @@ export const useHomeStore = create<HomeState>((set, get) => ({
     if (get().billsShopId !== shopId) set({ billsShopId: shopId, invoices: [] })
     set({ billsLoading: true })
     try {
-      const bills = await fetchInvoices(shopId)
+      const unpaid = await fetchInvoices(shopId, { unpaid: true })
       if (get().billsShopId === shopId)
-        set({ invoices: bills, billError: null })
+        set((s) => ({
+          invoices: addBills(s.invoices, unpaid),
+          billError: null,
+        }))
     } catch {
       if (get().billsShopId === shopId)
         set({ billError: "Could not load the bills" })
@@ -457,12 +473,25 @@ export const useHomeStore = create<HomeState>((set, get) => ({
       if (get().billsShopId === shopId) set({ billsLoading: false })
     }
   },
+  findBills: async (shopId, ask) => {
+    try {
+      const bills = await fetchInvoices(shopId, ask)
+      if (get().billsShopId === shopId)
+        set((s) => ({ invoices: addBills(s.invoices, bills) }))
+      return bills
+    } catch {
+      return null
+    }
+  },
   loadAnalytics: async (shopId) => {
     if (get().analyticsShopId !== shopId)
       set({ analyticsShopId: shopId, analytics: null })
+    if (get().billsShopId !== shopId) set({ billsShopId: shopId, invoices: [] })
     try {
-      const analytics = await fetchAnalytics(shopId)
-      if (get().analyticsShopId === shopId) set({ analytics })
+      const { analytics, bills } = await fetchAnalytics(shopId)
+      // the graphs, and today's bills for the lists, from the same answer
+      if (get().analyticsShopId === shopId)
+        set((s) => ({ analytics, invoices: addBills(s.invoices, bills) }))
     } catch {
       // the chart keeps what it had (or stays empty); the next bill change tries again
     }
@@ -532,7 +561,7 @@ export const useHomeStore = create<HomeState>((set, get) => ({
     try {
       await syncStock()
       applyStock(await deleteInvoice(billId)) // its items are back on the shelf, on the server
-      refreshAnalytics()
+      analyticsStale = true
       toast.success("Bill deleted", {
         description: "Its items are back on your shelf.",
       })
@@ -552,14 +581,16 @@ export const useHomeStore = create<HomeState>((set, get) => ({
 
 // ---- bills and the shelf: the SERVER moves the stock with every bill change (in the same statement) and sends the new counts back ----
 
-/** A bill made, deleted or edited changes the sales: ask the server again, once for a burst of changes. A payment change does not (it only moves money between paid and unpaid). */
-let analyticsTimer: ReturnType<typeof setTimeout> | undefined
-function refreshAnalytics() {
-  clearTimeout(analyticsTimer)
-  analyticsTimer = setTimeout(() => {
-    const { billsShopId, loadAnalytics } = useHomeStore.getState()
-    if (billsShopId) void loadAnalytics(billsShopId)
-  }, 1500)
+/**
+ * A bill made, edited or deleted changes the sales, but the graphs are not on screen then, so they are not fetched at once:
+ * they are only marked out of date, and the dashboard fetches them when it is looked at (`refreshIfStale`).
+ */
+let analyticsStale = false
+export function refreshIfStale() {
+  if (!analyticsStale) return
+  analyticsStale = false
+  const { billsShopId, loadAnalytics } = useHomeStore.getState()
+  if (billsShopId) void loadAnalytics(billsShopId)
 }
 
 /** Puts the server's stock counts (by product id) into the saved inventory. Not marked as changed here: the server already has them. */
@@ -601,7 +632,7 @@ export async function flushBill(billId: string) {
     const { stock } = await updateInvoice(billId, { items: bill.items })
     applyStock(stock)
     useHomeStore.setState({ billError: null })
-    refreshAnalytics()
+    analyticsStale = true // the graphs are fetched again when the dashboard is looked at
   } catch {
     useHomeStore.setState({ billError: "Could not save the change. Try again" })
     toast.error("Could not save the change", {

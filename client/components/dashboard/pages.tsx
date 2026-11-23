@@ -13,6 +13,7 @@ import {
 } from "@/components/dashboard/list-kit"
 import { billNumber, daysAgo, type KhataBill } from "@/lib/bill"
 import { useHomeStore, useKhata } from "@/store/home-store"
+import { useShopStore } from "@/store/shop-store"
 
 /* ================================================================== */
 /* Khata: the shop's unpaid bills, newest first, settled by hand       */
@@ -24,6 +25,12 @@ export function KhataPage() {
   const setView = useHomeStore((s) => s.setViewInvoice)
   const setPayment = useHomeStore((s) => s.setBillPayment)
   const { bills, count, totalDue } = useKhata()
+  const loadBills = useHomeStore((s) => s.loadBills)
+  const shopId = useShopStore((s) => s.shop?.id)
+  // the khata is every unpaid bill, from any day: ask for them when the page opens
+  React.useEffect(() => {
+    if (shopId) void loadBills(shopId, true)
+  }, [shopId, loadBills])
   const [f, setF] = React.useState<KFilter>("week")
   const [q, setQ] = React.useState("")
   const [askId, setAskId] = React.useState<string | null>(null) // the bill asking "paid by cash?"

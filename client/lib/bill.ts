@@ -32,6 +32,13 @@ export function packsFor(
   return Math.max(1, Math.round(quantity))
 }
 
+/** A day as text, like the server wants it: 2026-11-20 */
+export function dayKey(ms: number) {
+  const d = new Date(ms)
+  const two = (n: number) => String(n).padStart(2, "0")
+  return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}`
+}
+
 /** Whole days between the day a bill was made and today (0 = today). */
 export function daysAgo(date: number) {
   const day = (t: number) => new Date(t).setHours(0, 0, 0, 0)
@@ -47,7 +54,8 @@ export const isLocked = (inv: Invoice) =>
   isPaid(inv) || Date.now() - inv.date >= 24 * 60 * 60 * 1000
 
 /** A short bill number to show, from its id. */
-export const billNumber = (inv: { id: string }) => inv.id.slice(0, 4).toUpperCase()
+export const billNumber = (inv: { id: string }) =>
+  inv.id.slice(0, 4).toUpperCase()
 
 type LineInfo = {
   pid: string

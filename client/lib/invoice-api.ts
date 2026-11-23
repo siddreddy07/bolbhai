@@ -25,9 +25,21 @@ const toInvoice = (r: InvoiceRow): Invoice => ({
   transactionId: r.transactionId,
 })
 
-/** GET /api/invoices/shop/:shopId: every invoice of the shop, newest first. */
-export async function fetchInvoices(shopId: string) {
-  const { data } = await api.get<InvoiceRow[]>(`/api/invoices/shop/${shopId}`)
+/**
+ * GET /api/invoices/shop/:shopId: some of the shop's bills, newest first. Ask for ONE of these:
+ * a day ("2026-11-20"), a bill number to look up ("3fa2"), or only the unpaid bills.
+ */
+export async function fetchInvoices(
+  shopId: string,
+  params: { day?: string; q?: string; unpaid?: boolean }
+) {
+  const { data } = await api.get<InvoiceRow[]>(`/api/invoices/shop/${shopId}`, {
+    params: {
+      day: params.day,
+      q: params.q,
+      unpaid: params.unpaid ? 1 : undefined,
+    },
+  })
   return data.map(toInvoice)
 }
 
@@ -88,10 +100,14 @@ export type Analytics = {
   now: { day: number; week: number; month: number }
 }
 
-/** GET /api/invoices/shop/:shopId/analytics: today, this week and this month, all in ONE request. */
+/**
+ * GET /api/invoices/shop/:shopId/analytics: everything the dashboard needs, in ONE request
+ * (and one database call): the graphs for today, this week and this month, and today's bills.
+ */
 export async function fetchAnalytics(shopId: string) {
-  const { data } = await api.get<Analytics>(
+  const { data } = await api.get<Analytics & { bills: InvoiceRow[] }>(
     `/api/invoices/shop/${shopId}/analytics`
   )
-  return data
+  const { bills, ...analytics } = data
+  return { analytics: analytics as Analytics, bills: bills.map(toInvoice) }
 }
