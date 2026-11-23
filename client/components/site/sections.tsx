@@ -6,6 +6,7 @@ import Link from "next/link"
 import gsap from "gsap"
 import { ChartColumn, MessageSquareText, Package, Plus, Receipt, Truck, Users } from "lucide-react"
 
+import { WatchDemo } from "@/components/site/demo-video"
 import { StepsStage } from "@/components/site/steps-stage"
 import { FeatureCarousel, type CarouselItem } from "@/components/ui/feature-carousel"
 import { JOB_SAY } from "@/lib/copy"
@@ -312,12 +313,7 @@ export function Cta() {
           >
             {user ? "Go to shop" : "Start free"}
           </Link>
-          <a
-            href="#try"
-            className="inline-flex h-11 flex-1 items-center justify-center rounded-full bg-card px-5 text-sm sm:text-base font-semibold transition-all hover:-translate-y-px active:scale-[.97] lg:h-14 lg:flex-none lg:px-8 lg:text-lg"
-          >
-            Watch the demo
-          </a>
+          <WatchDemo className="inline-flex h-11 flex-1 items-center justify-center rounded-full bg-card px-5 text-sm sm:text-base font-semibold transition-all hover:-translate-y-px active:scale-[.97] lg:h-14 lg:flex-none lg:px-8 lg:text-lg" />
         </div>
       </div>
     </section>
