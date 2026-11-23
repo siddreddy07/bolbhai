@@ -35,6 +35,7 @@
     "jsonwebtoken": "^9.0.3",
     "morgan": "^1.12.1",
     "ollama-ai-provider-v2": "^4.1.0",
+    "stripe": "^23.2.0",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "zod": "^4.6.7"
