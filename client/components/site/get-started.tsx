@@ -12,7 +12,7 @@ import { isAxiosError } from "axios"
 import { AuthLoader } from "@/components/site/auth-loader"
 import { Logo, Sparkle, Squiggle } from "@/components/site/doodles"
 import { ThemeToggle } from "@/components/site/navbar"
-import { TAGLINE, langClass, useLang } from "@/lib/lang"
+import { TAGLINE } from "@/lib/copy"
 import { api } from "@/lib/proxy"
 import { useUserStore } from "@/store/user-store"
 import { cn } from "@/lib/utils"
@@ -97,7 +97,6 @@ function Input({
 }
 
 function GetStartedForm() {
-  const { lang } = useLang()
   const router = useRouter()
   const setUser = useUserStore((s) => s.setUser)
   const [mode, setMode] = React.useState<Mode>("up")
@@ -356,11 +355,10 @@ function GetStartedForm() {
           <p
             data-in
             className={cn(
-              "relative mt-5 hidden text-sm font-semibold text-foreground/55 lg:block",
-              langClass(lang)
+              "relative mt-5 hidden text-sm font-semibold text-foreground/55 lg:block"
             )}
           >
-            {TAGLINE[lang].join(" ")}
+            {TAGLINE.join(" ")}
           </p>
         </section>
 

@@ -8,7 +8,7 @@ import { ChartColumn, MessageSquareText, Package, Plus, Receipt, Truck, Users } 
 
 import { StepsStage } from "@/components/site/steps-stage"
 import { FeatureCarousel, type CarouselItem } from "@/components/ui/feature-carousel"
-import { JOB_SAY, langClass, useLang } from "@/lib/lang"
+import { JOB_SAY } from "@/lib/copy"
 import { cn } from "@/lib/utils"
 import { useUserStore } from "@/store/user-store"
 
@@ -143,11 +143,9 @@ const JOBS: CarouselItem[] = [
 ]
 
 export function Jobs() {
-  const { lang } = useLang()
   const items = JOBS.map((j) => ({
     ...j,
-    say: JOB_SAY[j.id][lang],
-    sayClass: lang === "en" ? undefined : cn(langClass(lang), "text-base leading-snug font-semibold sm:text-lg lg:text-xl"),
+    say: JOB_SAY[j.id],
   }))
   return (
     <section id="jobs" className="py-10 sm:py-16 lg:py-24">

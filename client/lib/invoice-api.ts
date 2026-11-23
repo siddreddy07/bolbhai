@@ -64,7 +64,7 @@ export async function deleteInvoice(id: string) {
 }
 
 /** Sales of one period (today, this week or this month), worked out by the server. */
-export type AnalyticsPeriod = {
+type AnalyticsPeriod = {
   label: string
   /** all sales in the period (paid and unpaid bills) */
   total: number

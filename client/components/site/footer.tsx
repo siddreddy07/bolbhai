@@ -7,7 +7,7 @@ import { useGSAP } from "@gsap/react"
 
 import { Logo } from "@/components/site/doodles"
 import { Mascot } from "@/components/site/mascot"
-import { BRAND } from "@/lib/lang"
+import { BRAND } from "@/lib/copy"
 
 // Only pages that exist. English is the only language for now, so there is no Languages column.
 const COLS: [string, [string, string][]][] = [

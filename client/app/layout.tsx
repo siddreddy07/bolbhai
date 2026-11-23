@@ -10,7 +10,6 @@ import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Loader } from "@/components/site/loader"
 import { ScrollFade } from "@/components/site/scroll-fade"
-import { LangProvider } from "@/lib/lang"
 import { cn } from "@/lib/utils"
 
 const display = Bricolage_Grotesque({
@@ -85,7 +84,7 @@ export default function RootLayout({
         <Loader />
         <ScrollFade />
         <ThemeProvider>
-          <LangProvider>{children}</LangProvider>
+          {children}
         </ThemeProvider>
       </body>
     </html>

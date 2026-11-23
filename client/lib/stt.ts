@@ -124,7 +124,7 @@ export function cancelRecording() {
 }
 
 /** One thing the shopkeeper asked for, with the ids of the shelf items that fit (the page fills in the rest from its saved inventory). */
-export type OrderItem = {
+type OrderItem = {
   query: string
   quantity: number | null
   unit: string | null

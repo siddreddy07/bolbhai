@@ -5,7 +5,7 @@ import gsap from "gsap"
 import { useGSAP } from "@gsap/react"
 import { Check, Mic, PenLine } from "lucide-react"
 
-import { SPOKEN, langClass, useLang } from "@/lib/lang"
+import { SPOKEN } from "@/lib/copy"
 import { cn } from "@/lib/utils"
 
 /**
@@ -23,7 +23,6 @@ const STEPS = [
 const BARS = 22
 
 export function StepsStage() {
-  const { lang } = useLang()
   const [step, setStep] = React.useState(0)
   const [armed, setArmed] = React.useState(0)
   const root = React.useRef<HTMLDivElement>(null)
@@ -177,8 +176,8 @@ export function StepsStage() {
                   ))}
                 </div>
               </div>
-              <p data-in className={cn("mx-auto w-fit rounded-2xl rounded-tl-sm bg-card px-3.5 py-2 text-sm font-semibold text-foreground sm:text-base", langClass(lang))}>
-                “{SPOKEN[lang]}”
+              <p data-in className={cn("mx-auto w-fit rounded-2xl rounded-tl-sm bg-card px-3.5 py-2 text-sm font-semibold text-foreground sm:text-base")}>
+                “{SPOKEN}”
               </p>
             </>
           )}

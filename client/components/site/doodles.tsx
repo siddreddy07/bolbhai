@@ -1,6 +1,6 @@
 import * as React from "react"
 
-import { BRAND } from "@/lib/lang"
+import { BRAND } from "@/lib/copy"
 
 type P = React.SVGProps<SVGSVGElement>
 

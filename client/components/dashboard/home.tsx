@@ -37,12 +37,11 @@ import {
   type Period,
   type SheetKey,
 } from "@/store/home-store"
-import { LISTENING, langClass, useLang, type Lang } from "@/lib/lang"
+import { LISTENING } from "@/lib/copy"
 import { useUserStore } from "@/store/user-store"
 import { cn } from "@/lib/utils"
 
 const inr = (n: number) => "₹" + n.toLocaleString("en-IN")
-const HELLO: Record<Lang, string> = { en: "Hello", te: "నమస్తే", hi: "नमस्ते" }
 
 // What the chart shows before the server's numbers arrive: empty bars.
 const zeros = (n: number) => Array.from({ length: n }, () => 0)
@@ -339,9 +338,11 @@ function Register({ value }: { value: number }) {
 }
 
 export function Home() {
-  const { lang } = useLang()
   const user = useUserStore((s) => s.user)
-  const owed = useKhata().totalDue
+  const owed = useKhata().bills.reduce(
+    (n, b) => (daysAgo(b.date) === 0 ? n + b.total : n),
+    0
+  ) // today's unpaid only
   const invoices = useHomeStore((s) => s.invoices)
   const stock = useHomeStore((s) => s.stock)
   const {
@@ -390,7 +391,7 @@ export function Home() {
   const max = Math.max(1, ...serie.bars)
   const open = sheet ? SHEETS[sheet] : null
   const root = React.useRef<HTMLElement>(null)
-  const phrase = LISTENING[lang].split(" ")
+  const phrase = LISTENING.split(" ")
 
   // entrance: one orchestrated moment
   useGSAP(
@@ -628,11 +629,10 @@ export function Home() {
         <p
           data-hello
           className={cn(
-            "mt-3 font-hand text-[1.6rem] leading-none text-signal sm:text-3xl [@media(max-height:760px)]:hidden md:[@media(min-height:900px)]:text-5xl",
-            langClass(lang)
+            "mt-3 font-hand text-[1.6rem] leading-none text-signal sm:text-3xl [@media(max-height:760px)]:hidden md:[@media(min-height:900px)]:text-5xl"
           )}
         >
-          {HELLO[lang]}, {user?.name?.split(" ")[0] ?? "there"}. Total sales{" "}
+          Hello, {user?.name?.split(" ")[0] ?? "there"}. Total sales{" "}
           {serie.label}:
         </p>
         <p
@@ -776,7 +776,7 @@ export function Home() {
                   ? `${invoices.filter((i) => daysAgo(i.date) === 0).length} today`
                   : t.key === "khata"
                     ? `${inr(owed)} due`
-                    : `${stock.filter((i) => i.qty < 5).length} out soon`}
+                    : `${stock.filter((i) => i.qty === 0).length} out · ${stock.filter((i) => i.qty > 0 && i.qty < 5).length} out soon`}
               </span>
             </span>
           </button>
@@ -794,8 +794,7 @@ export function Home() {
         {phase === "listening" && (
           <p
             className={cn(
-              "max-w-[24ch] text-center text-xl leading-snug font-bold sm:text-2xl md:[@media(min-height:900px)]:text-4xl",
-              langClass(lang)
+              "max-w-[24ch] text-center text-xl leading-snug font-bold sm:text-2xl md:[@media(min-height:900px)]:text-4xl"
             )}
           >
             {caption

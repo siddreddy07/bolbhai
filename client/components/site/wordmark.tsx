@@ -3,7 +3,7 @@
 import * as React from "react"
 
 import { Mascot } from "@/components/site/mascot"
-import { BRAND } from "@/lib/lang"
+import { BRAND } from "@/lib/copy"
 import { cn } from "@/lib/utils"
 
 /**

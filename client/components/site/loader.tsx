@@ -5,7 +5,7 @@ import gsap from "gsap"
 import { useGSAP } from "@gsap/react"
 
 import { Wordmark } from "@/components/site/wordmark"
-import { TAGLINE } from "@/lib/lang"
+import { TAGLINE } from "@/lib/copy"
 
 /**
  * Loading screen, driven by real readiness. If the page is already ready
@@ -189,7 +189,7 @@ export function Loader() {
             className="font-hand text-[1.9rem] leading-none whitespace-nowrap sm:text-5xl"
             style={{ color: "var(--hl)" }}
           >
-            {TAGLINE.en.join(" ")}
+            {TAGLINE.join(" ")}
           </p>
           <svg
             data-ld-pop

@@ -12,14 +12,7 @@ import {
   StockMock,
 } from "@/components/site/app-mock"
 import { HeroBackdrop } from "@/components/site/backdrop"
-import {
-  LISTENING,
-  SPOKEN,
-  TAGLINE,
-  langClass,
-  useLang,
-  type Lang,
-} from "@/lib/lang"
+import { LISTENING, SPOKEN, TAGLINE } from "@/lib/copy"
 import { cn } from "@/lib/utils"
 
 const BARS = 40
@@ -29,17 +22,12 @@ type Phase = "idle" | "listening" | "thinking" | "done"
 
 export function Hero() {
   const root = React.useRef<HTMLElement>(null)
-  const { lang } = useLang()
   const [phase, setPhase] = React.useState<Phase>("idle")
   const phaseRef = React.useRef<Phase>("idle")
   const amp = React.useRef(0)
   const tl = React.useRef<gsap.core.Timeline | null>(null)
   const entered = React.useRef(false)
-  const langRef = React.useRef(lang)
-  const runRef = React.useRef<((l: Lang, d?: number) => void) | null>(null)
-  React.useEffect(() => {
-    langRef.current = lang
-  }, [lang])
+  const runRef = React.useRef<((d?: number) => void) | null>(null)
 
   const setP = React.useCallback((p: Phase) => {
     phaseRef.current = p
@@ -64,7 +52,7 @@ export function Hero() {
   }, [])
 
   const run = React.useCallback(
-    (l: Lang, delay = 0) => {
+    (delay = 0) => {
       const el = root.current
       if (!el) return
       tl.current?.kill()
@@ -93,19 +81,18 @@ export function Hero() {
         defaults: { ease: "power3.out" },
         onComplete: () => {
           if (reduce) return
-          // loop in the chosen language only
-          runRef.current?.(langRef.current, 0.4)
+          runRef.current?.(0.4)
         },
       })
       t.call(() => {
         setP("listening")
-        say(LISTENING[l])
+        say(LISTENING)
         gsap.set(typed, { autoAlpha: 1 })
       })
         .to(amp, { current: 1, duration: 0.4 }, "<")
         // the line appears whole, no typing
         .to(typed, { autoAlpha: 0, duration: 0.15 }, 1)
-        .call(() => say(SPOKEN[l]))
+        .call(() => say(SPOKEN))
         .to(typed, { autoAlpha: 1, duration: 0.35 })
         .to({}, { duration: 1.5 })
         .call(() => setP("thinking"))
@@ -152,7 +139,7 @@ export function Hero() {
           { backgroundColor: "rgba(247,227,59,0)", duration: 1 },
           "+=0.2"
         )
-        // hold, then clear the desk for the next language
+        // hold, then clear the desk for the next round
         .to({}, { duration: 1.6 })
         .call(() => setP("idle"))
         .to(q("[data-slip]"), {
@@ -183,7 +170,7 @@ export function Hero() {
       reset()
       if (reduce) {
         gsap.set([header, ...q("[data-enter]")], { autoAlpha: 1 })
-        run(langRef.current)
+        run()
         entered.current = true
         return
       }
@@ -206,7 +193,7 @@ export function Hero() {
         .from(q("[data-stage]"), { y: 90, autoAlpha: 0, duration: 1.1 }, 0.9)
         .call(() => {
           entered.current = true
-          run(langRef.current, 0.3)
+          run(0.3)
         })
       const start = () => void e.play()
       if (
@@ -224,11 +211,6 @@ export function Hero() {
     },
     { scope: root }
   )
-
-  // Replay in the chosen language when it changes (after the first run)
-  React.useEffect(() => {
-    if (entered.current) run(lang, 0.15)
-  }, [lang, run])
 
   // Pause the loop while the hero is off screen or the tab is hidden
   React.useEffect(() => {
@@ -276,7 +258,7 @@ export function Hero() {
   const listening = phase === "listening"
   const status =
     phase === "listening"
-      ? LISTENING[lang]
+      ? LISTENING
       : phase === "thinking"
         ? "Understanding…"
         : phase === "done"
@@ -294,15 +276,14 @@ export function Hero() {
       <div className="relative mx-auto flex w-full max-w-[1100px] flex-col items-center px-5 text-center">
         <h1
           data-enter
-          aria-label={TAGLINE[lang].join(" ")}
+          aria-label={TAGLINE.join(" ")}
           className={cn(
-            "max-w-[18ch] text-[clamp(1.85rem,6.4vw,3rem)] leading-[1.05] font-extrabold lg:text-[clamp(3.5rem,6.2vw,5.6rem)] lg:leading-[1]",
-            langClass(lang)
+            "max-w-[18ch] text-[clamp(1.85rem,6.4vw,3rem)] leading-[1.05] font-extrabold lg:text-[clamp(3.5rem,6.2vw,5.6rem)] lg:leading-[1]"
           )}
           style={{ fontVariationSettings: '"wdth" 92' }}
         >
-          {TAGLINE[lang].map((line, li) => (
-            <span key={`${lang}-${li}`} className="block" aria-hidden="true">
+          {TAGLINE.map((line, li) => (
+            <span key={li} className="block" aria-hidden="true">
               {line.split(" ").map((w, i) => (
                 <span key={i}>
                   <span className="inline-block overflow-hidden pb-[0.1em] align-bottom">
@@ -344,13 +325,12 @@ export function Hero() {
               data-transcript
               className={cn(
                 "line-clamp-2 min-w-0 flex-1 text-left text-sm leading-snug font-medium sm:text-base",
-                langClass(lang),
                 phase === "listening" || phase === "thinking"
                   ? "text-foreground"
                   : "text-foreground/60"
               )}
             >
-              {SPOKEN[lang]}
+              {SPOKEN}
             </p>
             <div
               aria-hidden="true"

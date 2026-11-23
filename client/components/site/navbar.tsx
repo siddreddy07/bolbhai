@@ -15,8 +15,20 @@ import Link from "next/link"
 import { useTheme } from "next-themes"
 
 import { Logo } from "@/components/site/doodles"
-import { LANGS, langClass, useLang, type Lang } from "@/lib/lang"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+
+const LANGS = [
+  { id: "en", short: "EN", name: "English" },
+  { id: "te", short: "తె", name: "తెలుగు" },
+  { id: "hi", short: "हि", name: "हिन्दी" },
+] as const
+type Lang = (typeof LANGS)[number]["id"]
+const fontOf = (id: Lang) =>
+  id === "te" ? "font-te" : id === "hi" ? "font-hi" : ""
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import { useUserStore } from "@/store/user-store"
 
@@ -101,10 +113,9 @@ function Locked({
 
 /** One compact button; the three languages live in its menu. */
 function LangMenu() {
-  const { lang, setLang } = useLang()
   const [open, setOpen] = React.useState(false)
   const box = React.useRef<HTMLDivElement>(null)
-  const current = LANGS.find((l) => l.id === lang)!
+  const current = LANGS[0]
 
   React.useEffect(() => {
     if (!open) return
@@ -131,7 +142,7 @@ function LangMenu() {
         className="flex h-10 items-center gap-1.5 rounded-full px-3 text-sm font-semibold transition-colors hover:bg-foreground/10"
       >
         <Globe className="size-[18px]" />
-        <span className={cn("min-w-5", langClass(lang))}>{current.short}</span>
+        <span className="min-w-5">{current.short}</span>
         <ChevronDown
           className={cn("size-3.5 transition-transform", open && "rotate-180")}
         />
@@ -143,18 +154,17 @@ function LangMenu() {
           className="absolute top-12 right-0 w-44 overflow-hidden rounded-2xl border border-foreground/10 bg-card p-1.5 shadow-xl"
         >
           {LANGS.map((l) => (
-            <li key={l.id} role="option" aria-selected={lang === l.id}>
+            <li key={l.id} role="option" aria-selected={l.id === "en"}>
               {l.id === "en" ? (
                 <button
                   type="button"
                   onClick={() => {
-                    setLang(l.id)
                     setOpen(false)
                   }}
                   className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-[15px] font-medium transition-colors hover:bg-foreground/[0.07]"
                 >
                   {l.name}
-                  {lang === l.id && <Check className="size-4 text-signal" />}
+                  <Check className="size-4 text-signal" />
                 </button>
               ) : (
                 <Locked
@@ -162,7 +172,7 @@ function LangMenu() {
                   side="left"
                   className={cn(
                     "flex w-full items-center rounded-xl px-3 py-2.5 text-left text-[15px] font-medium",
-                    langClass(l.id)
+                    fontOf(l.id)
                   )}
                 >
                   {l.name}
@@ -178,7 +188,6 @@ function LangMenu() {
 
 /** Same choice as a row of three buttons, for the full-screen menu. */
 function LangRow() {
-  const { lang, setLang } = useLang()
   return (
     <div role="radiogroup" aria-label="Language" className="flex gap-2">
       {LANGS.map((l) =>
@@ -186,13 +195,10 @@ function LangRow() {
           <button
             key={l.id}
             role="radio"
-            aria-checked={lang === l.id}
-            onClick={() => setLang(l.id)}
+            aria-checked
             className={cn(
               "h-9 flex-1 rounded-full border text-[13px] font-semibold transition-colors",
-              lang === l.id
-                ? "border-foreground bg-foreground text-background"
-                : "border-foreground/20"
+              "border-foreground bg-foreground text-background"
             )}
           >
             {l.name}
@@ -204,7 +210,7 @@ function LangRow() {
             side="top"
             className={cn(
               "h-9 flex-1 rounded-full border border-foreground/20 text-[13px] font-semibold",
-              langClass(l.id)
+              fontOf(l.id)
             )}
           >
             {l.name}
