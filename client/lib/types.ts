@@ -17,6 +17,10 @@ export type Invoice = {
   items: BillLine[]
   payment: Payment
   paymentType: PaymentType
+  /** who the bill is for (when the bill list says so) */
+  customerId?: string | null
+  customerName?: string | null
+  customerPhone?: string | null
 }
 /** One thing asked for in an order, with the shelf items that fit it (taken from the saved inventory). */
 export type OrderLine = {

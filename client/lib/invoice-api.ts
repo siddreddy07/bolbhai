@@ -9,6 +9,9 @@ type InvoiceRow = {
   items: BillLine[]
   payment: Payment
   paymentType: PaymentType
+  customerId?: string | null
+  customerName?: string | null
+  customerPhone?: string | null
 }
 
 /** The stock of the products a bill change touched, as the server has it now (the shelf moves with the bill, on the server). */
@@ -21,6 +24,9 @@ const toInvoice = (r: InvoiceRow): Invoice => ({
   items: r.items,
   payment: r.payment,
   paymentType: r.paymentType,
+  customerId: r.customerId,
+  customerName: r.customerName,
+  customerPhone: r.customerPhone,
 })
 
 /**
@@ -46,11 +52,12 @@ export async function createInvoice(
   shopId: string,
   items: BillLine[],
   payment: Payment,
-  paymentType: PaymentType
+  paymentType: PaymentType,
+  customerId?: string
 ) {
   const { data } = await api.post<InvoiceRow & { stock: StockNow }>(
     `/api/invoices/shop/${shopId}`,
-    { items, payment, paymentType }
+    { items, payment, paymentType, customerId }
   )
   return { invoice: toInvoice(data), stock: data.stock }
 }
@@ -58,7 +65,12 @@ export async function createInvoice(
 /** PUT /api/invoices/:id: only what changed. */
 export async function updateInvoice(
   id: string,
-  changes: { items?: BillLine[]; payment?: Payment; paymentType?: PaymentType }
+  changes: {
+    items?: BillLine[]
+    payment?: Payment
+    paymentType?: PaymentType
+    customerId?: string | null
+  }
 ) {
   const { data } = await api.put<InvoiceRow & { stock: StockNow }>(
     `/api/invoices/${id}`,

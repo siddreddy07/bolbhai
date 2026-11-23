@@ -17,6 +17,7 @@ import {
   writeStockCache,
 } from "@/store/inventory-store"
 import { khataOf, packsFor } from "@/lib/bill"
+import type { Customer } from "@/lib/customer-api"
 import {
   createInvoice,
   deleteInvoice,
@@ -63,6 +64,9 @@ type HomeState = {
   savingBill: boolean
   /** how the new bill was paid (chosen on the slip before Done) */
   draftPayment: Payment
+  /** who the voice bill is for (optional) */
+  draftCustomer: Customer | null
+  setDraftCustomer: (c: Customer | null) => void
   draftPaymentType: PaymentType
   setDraftPayment: (payment: Payment, type: PaymentType) => void
   /** the "Add new bill" slip (a bill made by hand, for when the voice did not work) */
@@ -72,7 +76,8 @@ type HomeState = {
   saveNewBill: (
     lines: BillLine[],
     payment: Payment,
-    paymentType: PaymentType
+    paymentType: PaymentType,
+    customer?: Customer | null
   ) => Promise<string | null>
   /** close the slip and forget the order */
   dismiss: () => void
@@ -93,6 +98,8 @@ type HomeState = {
   /** change a line's quantity (0 removes it). Saved on the server a moment after the last change. */
   setBillQty: (billId: string, pid: string, quantity: number) => void
   /** paid or in the ledger, and cash or UPI. Saved at once. */
+  /** put a customer on a bill, or take them off (null). Saved at once. */
+  setBillCustomer: (billId: string, customer: Customer | null) => Promise<void>
   setBillPayment: (
     billId: string,
     payment: Payment,
@@ -180,6 +187,8 @@ export const useHomeStore = create<HomeState>((set, get) => ({
   billError: null,
   savingBill: false,
   draftPayment: "LEDGER", // every new bill starts as not paid
+  draftCustomer: null,
+  setDraftCustomer: (draftCustomer) => set({ draftCustomer }),
   draftPaymentType: "CASH",
   setDraftPayment: (draftPayment, draftPaymentType) =>
     set({ draftPayment, draftPaymentType }),
@@ -300,7 +309,7 @@ export const useHomeStore = create<HomeState>((set, get) => ({
     })),
   setSheet: (sheet) => set({ sheet }),
   setNewBillOpen: (newBillOpen) => set({ newBillOpen }),
-  saveNewBill: async (lines, payment, paymentType) => {
+  saveNewBill: async (lines, payment, paymentType, customer) => {
     const shopId = useShopStore.getState().shop?.id
     if (!shopId || !lines.length || get().savingBill) return null
     set({ savingBill: true })
@@ -310,12 +319,20 @@ export const useHomeStore = create<HomeState>((set, get) => ({
         shopId,
         lines,
         payment,
-        paymentType
+        paymentType,
+        customer?.id
       )
       applyStock(stock) // the shelf already moved on the server
       analyticsStale = true
       set((s) => ({
-        invoices: [bill, ...s.invoices],
+        invoices: [
+          {
+            ...bill,
+            customerName: customer?.name,
+            customerPhone: customer?.phone,
+          },
+          ...s.invoices,
+        ],
         billsShopId: s.billsShopId ?? shopId,
         newBillOpen: false,
       }))
@@ -446,6 +463,7 @@ export const useHomeStore = create<HomeState>((set, get) => ({
       transcript: "",
       draftPayment: "LEDGER",
       draftPaymentType: "CASH",
+      draftCustomer: null,
     })
   },
   pickMatch: (query, index) =>
@@ -455,7 +473,8 @@ export const useHomeStore = create<HomeState>((set, get) => ({
         null,
     })),
   saveOrderAsBill: async () => {
-    const { order, savingBill, draftPayment, draftPaymentType } = get()
+    const { order, savingBill, draftPayment, draftPaymentType, draftCustomer } =
+      get()
     const shopId = useShopStore.getState().shop?.id
     if (!order || !shopId || savingBill) return null
     // one line per product (the same product asked twice adds up). A shop's own item has no product id, so it cannot be on a bill yet.
@@ -480,18 +499,27 @@ export const useHomeStore = create<HomeState>((set, get) => ({
         shopId,
         [...lines].map(([pid, quantity]) => ({ pid, quantity })),
         draftPayment,
-        draftPaymentType
+        draftPaymentType,
+        draftCustomer?.id
       )
       applyStock(stock) // the shelf already moved on the server
       analyticsStale = true
       set((s) => ({
-        invoices: [bill, ...s.invoices],
+        invoices: [
+          {
+            ...bill,
+            customerName: draftCustomer?.name,
+            customerPhone: draftCustomer?.phone,
+          },
+          ...s.invoices,
+        ],
         billsShopId: s.billsShopId ?? shopId,
         phase: "idle",
         order: null,
         transcript: "",
         draftPayment: "LEDGER",
         draftPaymentType: "CASH",
+        draftCustomer: null,
       }))
       const count = bill.items.reduce((n, l) => n + l.quantity, 0)
       toast.success("Bill saved", {
@@ -593,6 +621,36 @@ export const useHomeStore = create<HomeState>((set, get) => ({
       }),
     }))
     scheduleBillSave(billId)
+  },
+  setBillCustomer: async (billId, customer) => {
+    if (get().deleteAsk) return
+    const before = get().invoices.find((b) => b.id === billId)
+    if (!before) return
+    const put = (c: Customer | null, id: string | null) =>
+      set((s) => ({
+        invoices: s.invoices.map((b) =>
+          b.id === billId
+            ? {
+                ...b,
+                customerId: id,
+                customerName: c?.name ?? null,
+                customerPhone: c?.phone ?? null,
+              }
+            : b
+        ),
+      }))
+    put(customer, customer?.id ?? null)
+    try {
+      await updateInvoice(billId, { customerId: customer?.id ?? null })
+    } catch {
+      // not saved: put it back
+      set((s) => ({
+        invoices: s.invoices.map((b) => (b.id === billId ? before : b)),
+      }))
+      toast.error("Could not change the customer", {
+        description: "It was put back as it was.",
+      })
+    }
   },
   setBillPayment: async (billId, payment, paymentType) => {
     if (get().deleteAsk) return

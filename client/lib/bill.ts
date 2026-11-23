@@ -87,6 +87,8 @@ export type KhataBill = {
   itemCount: number
   total: number
   items: LineInfo[]
+  customerName?: string | null
+  customerPhone?: string | null
 }
 
 /**
@@ -103,6 +105,8 @@ export function khataOf(invoices: Invoice[], stock: StockItem[]) {
       itemCount: i.items.reduce((n, l) => n + l.quantity, 0),
       total: invoiceTotal(i, stock),
       items: i.items.map((l) => lineInfo(l, stock)),
+      customerName: i.customerName,
+      customerPhone: i.customerPhone,
     }))
     .sort((a, b) => b.date - a.date)
   return {
