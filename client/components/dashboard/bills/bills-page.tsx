@@ -54,10 +54,10 @@ export function BillRow({
       <button
         type="button"
         onClick={onOpen}
-        className="flex w-full items-center gap-3 border-b border-foreground/10 py-3 text-left transition-colors hover:bg-foreground/[0.04] active:bg-foreground/5"
+        className="flex w-full items-center gap-2.5 border-b border-foreground/10 py-2.5 text-left transition-colors hover:bg-foreground/[0.04] active:bg-foreground/5 sm:gap-3 sm:py-3"
       >
-        <span className="grid size-10 shrink-0 place-items-center rounded-full bg-foreground/8">
-          <ReceiptText className="size-5" />
+        <span className="grid size-9 shrink-0 place-items-center rounded-full bg-foreground/8 sm:size-10">
+          <ReceiptText className="size-[18px] sm:size-5" />
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-[15px] font-semibold">
@@ -146,10 +146,6 @@ export function BillsPage() {
   const failed = known && ids === null
 
   const total = list.reduce((n, i) => n + invoiceTotal(i, stock), 0)
-  const unpaid = list.reduce(
-    (n, i) => (isPaid(i) ? n : n + invoiceTotal(i, stock)),
-    0
-  )
 
   // the last 7 days as buttons
   const week = Array.from({ length: 7 }, (_, n) => {
@@ -176,110 +172,105 @@ export function BillsPage() {
   return (
     <ListScreen
       title="Bills"
-      count={
-        searching
-          ? "Looking up a bill"
-          : "Pick a day, or find a bill by its number"
-      }
+      count={searching ? "Find a bill" : dayName}
       controls={
         <>
-          <SearchBox
-            value={q}
-            onChange={setQ}
-            placeholder="Find a bill by its number, like 3FA2"
-          />
+          {/* the search and the calendar sit side by side, the same height */}
+          <div className="flex items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <SearchBox
+                value={q}
+                onChange={setQ}
+                placeholder="Find a bill number, like 3FA2"
+              />
+            </div>
+            <Popover open={calendar} onOpenChange={setCalendar}>
+              <PopoverTrigger
+                aria-label="Pick a date"
+                className={cn(
+                  "grid size-11 shrink-0 place-items-center rounded-full border transition-colors",
+                  calendar
+                    ? "border-foreground bg-foreground text-background"
+                    : "border-foreground/15 bg-card hover:bg-foreground/6"
+                )}
+              >
+                <CalendarDays className="size-5" />
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-auto p-0">
+                <Calendar
+                  mode="single"
+                  selected={new Date(`${day}T00:00:00`)}
+                  defaultMonth={new Date(`${day}T00:00:00`)}
+                  onSelect={(d) => {
+                    if (!d) return
+                    setQ("") // picking a date leaves the search
+                    setDay(dayKey(d.getTime()))
+                    setCalendar(false)
+                  }}
+                  disabled={{ after: new Date(now) }}
+                  className="[--cell-size:--spacing(9)] sm:[--cell-size:--spacing(10)]"
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
           {!searching && (
-            <div className="flex items-center gap-1.5">
-              <div className="flex min-w-0 flex-1 [scrollbar-width:none] gap-1.5 overflow-x-auto">
-                {week.map((d) => (
-                  <button
-                    key={d.key}
-                    type="button"
-                    onClick={() => setDay(d.key)}
-                    aria-pressed={day === d.key}
-                    className={cn(
-                      "h-9 shrink-0 rounded-full border px-3.5 text-sm font-semibold transition-colors",
-                      day === d.key
-                        ? "border-foreground bg-foreground text-background"
-                        : "border-foreground/15 hover:bg-foreground/6"
-                    )}
-                  >
-                    {d.label}
-                  </button>
-                ))}
-              </div>
-              <Popover open={calendar} onOpenChange={setCalendar}>
-                <PopoverTrigger
-                  aria-label="Pick a date"
+            <div className="-mx-1 flex [scrollbar-width:none] gap-1.5 overflow-x-auto px-1 pb-0.5">
+              {week.map((d) => (
+                <button
+                  key={d.key}
+                  type="button"
+                  onClick={() => setDay(d.key)}
+                  aria-pressed={day === d.key}
                   className={cn(
-                    "grid size-9 shrink-0 place-items-center rounded-full border transition-colors",
-                    calendar
+                    "h-8 shrink-0 rounded-full border px-3 text-[13px] font-semibold transition-colors sm:h-9 sm:px-4 sm:text-sm",
+                    day === d.key
                       ? "border-foreground bg-foreground text-background"
                       : "border-foreground/15 hover:bg-foreground/6"
                   )}
                 >
-                  <CalendarDays className="size-[18px]" />
-                </PopoverTrigger>
-                <PopoverContent align="end" className="w-auto p-0">
-                  <Calendar
-                    mode="single"
-                    selected={new Date(`${day}T00:00:00`)}
-                    defaultMonth={new Date(`${day}T00:00:00`)}
-                    onSelect={(d) => {
-                      if (!d) return
-                      setDay(dayKey(d.getTime()))
-                      setCalendar(false)
-                    }}
-                    disabled={{ after: new Date(now) }}
-                  />
-                </PopoverContent>
-              </Popover>
+                  {d.label}
+                </button>
+              ))}
             </div>
           )}
         </>
       }
     >
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 pb-[max(1rem,env(safe-area-inset-bottom))]">
-        {/* this week and this month, as numbers only */}
-        {!searching && analytics && (
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            {(
-              [
-                ["This week", analytics.week],
-                ["This month", analytics.month],
-              ] as const
-            ).map(([label, p]) => (
-              <div
-                key={label}
-                className="rounded-2xl border border-foreground/10 px-3.5 py-2.5"
-              >
-                <p className="text-xs text-muted-foreground">{label}</p>
-                <p className="text-lg leading-tight font-extrabold tabular-nums">
-                  {inr(p.total)}
-                </p>
-                <p className="text-xs text-muted-foreground">{p.bills} bills</p>
-              </div>
-            ))}
+      {/* the day (or the search): this stays still, only the bills below it scroll */}
+      <div className="mt-2 rounded-2xl bg-foreground/6 px-3.5 py-3 sm:px-4 sm:py-3.5">
+        <div className="flex items-end justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate text-xs text-muted-foreground">
+              {searching ? `Starting with “${word.toUpperCase()}”` : "Sales"}
+            </p>
+            <p className="text-2xl leading-tight font-extrabold tabular-nums sm:text-3xl">
+              {inr(total)}
+            </p>
           </div>
-        )}
-
-        {/* the day (or the search) in one card */}
-        <div className="mt-3 rounded-2xl bg-foreground/[0.06] px-4 py-3.5">
-          <p className="text-sm font-semibold">
-            {searching
-              ? `Bills starting with “${word.toUpperCase()}”`
-              : dayName}
-          </p>
-          <p className="mt-0.5 text-3xl leading-none font-extrabold tabular-nums">
-            {inr(total)}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p className="shrink-0 pb-0.5 text-right text-xs text-muted-foreground">
             {list.length} {list.length === 1 ? "bill" : "bills"}
-            {unpaid > 0 && ` · ${inr(unpaid)} not paid`}
           </p>
         </div>
+        {!searching && analytics && (
+          <p className="mt-2 flex justify-between gap-2 border-t border-foreground/10 pt-2 text-xs text-muted-foreground">
+            <span>
+              Week{" "}
+              <b className="text-foreground tabular-nums">
+                {inr(analytics.week.total)}
+              </b>
+            </span>
+            <span>
+              Month{" "}
+              <b className="text-foreground tabular-nums">
+                {inr(analytics.month.total)}
+              </b>
+            </span>
+          </p>
+        )}
+      </div>
 
-        <ul className="mt-1">
+      <div className="mt-1 min-h-0 flex-1 overflow-y-auto overscroll-contain pb-2">
+        <ul>
           {list.map((i) => (
             <BillRow
               key={i.id}
@@ -290,20 +281,20 @@ export function BillsPage() {
           ))}
         </ul>
         {loading ? (
-          <p className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
+          <p className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
             <LoaderCircle className="size-4 animate-spin" /> Loading…
           </p>
         ) : failed ? (
-          <p className="py-10 text-center text-sm text-destructive">
+          <p className="py-8 text-center text-sm text-destructive">
             Could not load the bills. Check your connection.
           </p>
         ) : searching && !validWord ? (
-          <p className="py-10 text-center text-sm text-muted-foreground">
+          <p className="py-8 text-center text-sm text-muted-foreground">
             A bill number is letters A to F and digits, like 3FA2.
           </p>
         ) : (
           list.length === 0 && (
-            <p className="py-10 text-center text-sm text-muted-foreground">
+            <p className="py-8 text-center text-sm text-muted-foreground">
               {searching
                 ? "No bill with that number."
                 : "No bills on this day."}

@@ -7,6 +7,7 @@ import gsap from "gsap"
 import { useGSAP } from "@gsap/react"
 import { ArrowLeft, Search } from "lucide-react"
 
+import { BottomNav } from "@/components/dashboard/bottom-nav"
 import { Logo } from "@/components/site/doodles"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -46,7 +47,8 @@ export function ListScreen({
     <main
       ref={root}
       className={cn(
-        "relative mx-auto flex h-dvh max-w-[720px] flex-col px-4 pt-3 sm:px-8 sm:pt-5",
+        // the bottom is kept free for the tab bar, so the page ends where the bar starts and only the list scrolls
+        "relative mx-auto flex h-dvh max-w-[720px] flex-col overflow-hidden px-4 pt-3 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:px-8 sm:pt-5",
         wide && "lg:max-w-[1120px]"
       )}
     >
@@ -76,6 +78,7 @@ export function ListScreen({
         {controls}
       </div>
       {children}
+      <BottomNav />
     </main>
   )
 }

@@ -6,9 +6,9 @@ import { toast } from "sonner"
 
 import { InvoiceDrawer } from "@/components/dashboard/bills/invoice-slip"
 import {
-  Chips,
   ListScreen,
   SearchBox,
+  Segmented,
   inr,
 } from "@/components/dashboard/list-kit"
 import { billNumber, daysAgo, type KhataBill } from "@/lib/bill"
@@ -97,50 +97,33 @@ export function KhataPage() {
   const billsText = (bs: KhataBill[]) =>
     `${bs.length} unpaid ${bs.length === 1 ? "bill" : "bills"}`
 
-  // one bill
+  // one bill: its number and amount, the day and time under it, and a tick to mark it paid
   const billRow = (b: KhataBill) => {
     const days = daysAgo(b.date)
+    const when = `${
+      days === 0 ? "today" : days === 1 ? "yesterday" : `${days} days ago`
+    } · ${new Date(b.date).toLocaleTimeString("en-IN", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    })}`
     return (
       <li
         key={b.id}
-        className="flex items-center gap-2 rounded-xl bg-background px-1.5 py-2 ring-1 ring-foreground/10"
+        className="flex items-center gap-1.5 rounded-xl bg-background py-1 pr-1.5 pl-1 ring-1 ring-foreground/10"
       >
-        <button
-          type="button"
-          onClick={() => setView(b.id)}
-          className="-my-1 flex min-w-0 flex-1 items-center gap-2 rounded-xl px-2 py-1 text-left transition-colors hover:bg-foreground/[0.07] focus-visible:bg-foreground/[0.07] active:bg-foreground/10"
-        >
-          <span className="min-w-0 flex-1 truncate">
-            <span className="text-[15px] font-semibold">
-              Bill #{billNumber(b)}
-            </span>{" "}
-            <span className="text-xs text-muted-foreground">
-              ·{" "}
-              {days === 0
-                ? "today"
-                : days === 1
-                  ? "yesterday"
-                  : `${days} days ago`}
-              {" · "}
-              {new Date(b.date).toLocaleTimeString("en-IN", {
-                hour: "numeric",
-                minute: "2-digit",
-                hour12: true,
-              })}
-            </span>
-          </span>
-          <span className="font-bold tabular-nums">{inr(b.total)}</span>
-        </button>
         {askId === b.id ? (
           // ✓ confirms "paid by cash", ✗ cancels
-          <span className="flex shrink-0 items-center gap-1">
-            <span className="mr-1 text-xs font-semibold">Paid by cash?</span>
+          <>
+            <p className="min-w-0 flex-1 truncate pl-2 text-sm font-semibold">
+              #{billNumber(b)} paid by cash?
+            </p>
             <button
               type="button"
               aria-label="Yes, paid by cash"
               disabled={busy === b.id}
               onClick={() => settle(b, "CASH")}
-              className="grid size-8 place-items-center rounded-full bg-foreground text-background active:scale-95 disabled:opacity-50"
+              className="grid size-9 shrink-0 place-items-center rounded-full bg-foreground text-background active:scale-95 disabled:opacity-50"
             >
               <Check className="size-4" />
             </button>
@@ -148,22 +131,37 @@ export function KhataPage() {
               type="button"
               aria-label="Cancel"
               onClick={() => setAskId(null)}
-              className="grid size-8 place-items-center rounded-full border border-foreground/20 active:scale-95"
+              className="grid size-9 shrink-0 place-items-center rounded-full border border-foreground/20 active:scale-95"
             >
               <X className="size-4" />
             </button>
-          </span>
+          </>
         ) : (
-          <span className="flex shrink-0 items-center gap-1">
+          <>
+            <button
+              type="button"
+              onClick={() => setView(b.id)}
+              className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-foreground/[0.07] active:bg-foreground/10"
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-semibold">
+                  Bill #{billNumber(b)}
+                </span>
+                <span className="block truncate text-xs text-muted-foreground">
+                  {when}
+                </span>
+              </span>
+              <span className="font-bold tabular-nums">{inr(b.total)}</span>
+            </button>
             <button
               type="button"
               aria-label="Mark as paid"
               onClick={() => setAskId(b.id)}
-              className="grid size-8 place-items-center rounded-full border border-foreground/20 active:scale-95"
+              className="grid size-9 shrink-0 place-items-center rounded-full border border-foreground/20 active:scale-95"
             >
               <Check className="size-4" />
             </button>
-          </span>
+          </>
         )}
       </li>
     )
@@ -172,9 +170,9 @@ export function KhataPage() {
   const weekCard = (w: { t: number; label: string; bills: KhataBill[] }) => (
     <li key={w.t}>
       <details className="group rounded-xl bg-foreground/[0.05]">
-        <summary className="flex cursor-pointer list-none items-center gap-3 px-3 py-2.5">
+        <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2.5">
           <span className="min-w-0 flex-1">
-            <span className="block text-sm font-bold">Week {w.label}</span>
+            <span className="block text-sm font-bold">{w.label}</span>
             <span className="block text-xs text-muted-foreground">
               {billsText(w.bills)}
             </span>
@@ -184,7 +182,7 @@ export function KhataPage() {
           </span>
           <ChevronRight className="size-4 opacity-50 transition-transform group-open:rotate-90" />
         </summary>
-        <ul className="space-y-1.5 px-2 pb-2">{w.bills.map(billRow)}</ul>
+        <ul className="space-y-1.5 px-1.5 pb-1.5">{w.bills.map(billRow)}</ul>
       </details>
     </li>
   )
@@ -200,9 +198,11 @@ export function KhataPage() {
             onChange={setQ}
             placeholder="Search an item on a bill"
           />
-          <Chips
+          <Segmented
+            compact
             value={f}
             onChange={setF}
+            label="Show"
             options={[
               { id: "week", name: "Last 5 weeks" },
               { id: "month", name: "Last 5 months" },
@@ -211,9 +211,10 @@ export function KhataPage() {
         </>
       }
     >
-      <div className="mt-3">
+      {/* this stays still, only the weeks (or months) below it scroll */}
+      <div className="mt-2 rounded-2xl bg-foreground/6 px-3.5 py-3 sm:px-4 sm:py-3.5">
         <p className="text-xs text-muted-foreground">Total to collect</p>
-        <p className="text-3xl leading-none font-extrabold tabular-nums">
+        <p className="text-2xl leading-tight font-extrabold tabular-nums sm:text-3xl">
           {inr(totalDue)}
         </p>
         {inRange.length < count && (
@@ -225,28 +226,28 @@ export function KhataPage() {
         )}
       </div>
 
-      <ul className="mt-2 min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pr-1 pb-[max(1rem,env(safe-area-inset-bottom))]">
+      <ul className="mt-2 min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pb-2">
         {f === "week"
           ? weeksOf(list).map(weekCard)
           : months.map((m) => (
               <li key={m.t}>
                 {/* a month: bigger and bold, and its weeks are inside it */}
                 <details className="group rounded-2xl bg-foreground/[0.09]">
-                  <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-4">
+                  <summary className="flex cursor-pointer list-none items-center gap-2 px-3.5 py-3">
                     <span className="min-w-0 flex-1">
-                      <span className="block text-lg font-extrabold">
+                      <span className="block text-base font-extrabold sm:text-lg">
                         {m.label}
                       </span>
                       <span className="block text-xs text-muted-foreground">
                         {billsText(m.bills)}
                       </span>
                     </span>
-                    <span className="text-xl font-extrabold tabular-nums">
+                    <span className="text-lg font-extrabold tabular-nums sm:text-xl">
                       {inr(sum(m.bills))}
                     </span>
                     <ChevronRight className="size-5 opacity-60 transition-transform group-open:rotate-90" />
                   </summary>
-                  <ul className="space-y-2 px-2 pb-2">
+                  <ul className="space-y-1.5 px-1.5 pb-1.5">
                     {m.weeks.map(weekCard)}
                   </ul>
                 </details>

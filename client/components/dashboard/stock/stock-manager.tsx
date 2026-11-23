@@ -234,7 +234,7 @@ export function StockManager() {
       >
         <div
           ref={scroller}
-          className="mt-1 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 pb-28"
+          className="mt-1 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 pb-24"
         >
           <div
             className={cn(
@@ -265,7 +265,7 @@ export function StockManager() {
           )}
         </div>
 
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col items-center gap-2 px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <div className="pointer-events-none absolute inset-x-0 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] flex flex-col items-center gap-2 px-4">
           {soon && (
             <p
               role="status"
