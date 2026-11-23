@@ -161,7 +161,7 @@ function Form({ onClose }: { onClose: () => void }) {
                 Bol bhai, kya chahiye?
               </p>
             ) : (
-              <ul className="mt-3 border-t border-dashed border-[#1d2a22]/35 py-2">
+              <ul className="mt-2 max-h-[min(13rem,26dvh)] overflow-y-auto overscroll-contain border-t border-dashed border-[#1d2a22]/35 py-2">
                 {lines.map((l) => (
                   <li key={l.pid} className="flex items-center gap-2 py-1.5">
                     <span className="min-w-0 flex-1 font-sans text-[14px] leading-tight font-semibold">

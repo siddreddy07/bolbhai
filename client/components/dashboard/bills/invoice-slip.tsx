@@ -319,7 +319,7 @@ function Slip({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
     <div
       key="slip"
       ref={box}
-      className="max-h-[88dvh] overflow-y-auto overscroll-contain px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
+      className="max-h-[88dvh] overflow-y-auto overscroll-contain px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
     >
       <DrawerTitle className="sr-only">Bill #{billNumber(inv)}</DrawerTitle>
       <DrawerDescription className="sr-only">
@@ -329,7 +329,7 @@ function Slip({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
       <div className="mx-auto max-w-[420px]">
         {/* add an item to this bill: the same search as the stock page, on this shop's inventory */}
         {locked && (
-          <p className="mb-3 text-center text-[13px] font-medium opacity-70">
+          <p className="mb-2 text-center text-[13px] font-medium opacity-70">
             {online
               ? "Paid online. This bill can’t be changed."
               : isPaid(inv)
@@ -339,7 +339,7 @@ function Slip({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
         )}
         {shop && !locked && (
           <SearchBox<InventoryHit>
-            className="mb-3"
+            className="mb-1.5 [&_input]:h-9 [&_input]:text-sm"
             url="/api/inventory/search"
             params={{ shopId: shop.id }}
             cacheKey={stock.length}
@@ -365,12 +365,12 @@ function Slip({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
         )}
         {/* who the bill is for: can be added or changed while the bill can still be edited */}
         {!locked && (
-          <div className="mb-3">
+          <div className="mb-2 [&_input]:h-9 [&_input]:text-sm [&_button[aria-label^=Add]]:size-9">
             <CustomerPick value={customer} onChange={setCustomer} />
           </div>
         )}
         {locked && inv.customerName && (
-          <p className="mb-3 text-center text-[13px] font-medium">
+          <p className="mb-2 text-center text-[13px] font-medium">
             For {inv.customerName}
             {inv.customerPhone ? ` · ${inv.customerPhone}` : ""}
           </p>
@@ -378,9 +378,9 @@ function Slip({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
 
         <div data-slip className="drop-shadow-[0_14px_24px_rgb(0_0_0/0.45)]">
           <div aria-hidden="true" className="zig-t paper h-3" />
-          <div className="paper paper-grain relative px-5 pt-1 pb-5">
+          <div className="paper paper-grain relative px-4 pt-1 pb-3">
             <div className="text-center">
-              <p className="font-hand text-3xl leading-none">
+              <p className="font-hand text-2xl leading-none">
                 {shop?.name ?? "Your shop"}
               </p>
               <p className="mt-1 font-mono text-[11px] opacity-60">
@@ -398,14 +398,14 @@ function Slip({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
                 Bol bhai, kya chahiye?
               </p>
             ) : (
-              <ul className="mt-3 border-t border-dashed border-[#1d2a22]/35 py-2">
+              <ul className="mt-2 max-h-[min(13rem,26dvh)] overflow-y-auto overscroll-contain border-t border-dashed border-[#1d2a22]/35 py-2">
                 {inv.items.map((line) => {
                   const l = lineInfo(line, stock)
                   return (
                     <li
                       key={l.pid}
                       data-li
-                      className="flex items-center gap-2 py-1.5"
+                      className="flex items-center gap-2 py-1"
                     >
                       <span className="min-w-0 flex-1 font-sans text-[14px] leading-tight font-semibold">
                         {l.name}
@@ -459,9 +459,9 @@ function Slip({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
               </ul>
             )}
 
-            <div className="relative flex items-end justify-between border-t-2 border-dashed border-[#1d2a22]/45 pt-3">
+            <div className="relative flex items-end justify-between border-t-2 border-dashed border-[#1d2a22]/45 pt-2">
               <span className="font-mono text-sm font-bold">total</span>
-              <span className="font-mono text-4xl leading-none font-extrabold tracking-tight tabular-nums">
+              <span className="font-mono text-2xl leading-none font-extrabold sm:text-3xl tracking-tight tabular-nums">
                 {inr(invoiceTotal(inv, stock))}
               </span>
               <span
@@ -484,7 +484,7 @@ function Slip({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
 
         {/* paid or not, and how: saved when Done is pressed */}
         {!online && (
-          <div className="mt-4 grid grid-cols-2 gap-2">
+          <div className="mt-3 grid grid-cols-2 gap-2">
             <Segmented
               compact
               value={payment}
@@ -507,41 +507,39 @@ function Slip({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
           </p>
         )}
 
-        {!isPaid(inv) && !paid && (
-          <Button
-            variant="outline"
-            disabled={paying || asking}
-            onClick={async () => {
-              setPaying(true)
-              try {
-                window.location.assign((await payLink(inv.id)).url)
-              } catch {
-                setPaying(false)
-                useHomeStore.setState({
-                  billError: "Could not open the payment page",
-                })
-              }
-            }}
-            className="mt-4 h-12 w-full rounded-full text-base"
-          >
-            {paying ? <Loader2 className="animate-spin" /> : <CreditCard />}
-            {paying ? "Opening…" : "Pay now"}
-          </Button>
-        )}
-
-        <div
-          className={`mt-4 grid gap-2 ${isPaid(inv) ? "grid-cols-1" : "grid-cols-2"}`}
-        >
-          <Button onClick={done} className="h-12 rounded-full text-base">
+        {/* one row: Pay now (while unpaid), Done, Delete */}
+        <div className="mt-2.5 flex gap-2">
+          {!isPaid(inv) && !paid && (
+            <Button
+              variant="outline"
+              disabled={paying || asking}
+              onClick={async () => {
+                setPaying(true)
+                try {
+                  window.location.assign((await payLink(inv.id)).url)
+                } catch {
+                  setPaying(false)
+                  useHomeStore.setState({
+                    billError: "Could not open the payment page",
+                  })
+                }
+              }}
+              className="h-10 flex-1 rounded-full text-sm"
+            >
+              {paying ? <Loader2 className="animate-spin" /> : <CreditCard />}
+              {paying ? "Opening…" : "Pay now"}
+            </Button>
+          )}
+          <Button onClick={done} className="h-10 flex-1 rounded-full text-sm">
             Done
           </Button>
           {!isPaid(inv) && (
             <Button
               variant="ghost"
               onClick={() => swap(true)}
-              className="h-12 rounded-full text-base text-destructive hover:text-destructive"
+              className="h-10 rounded-full px-3 text-sm text-destructive hover:text-destructive"
             >
-              Delete bill
+              Delete
             </Button>
           )}
         </div>
