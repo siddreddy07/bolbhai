@@ -6,7 +6,6 @@ import { useGSAP } from "@gsap/react"
 import { Check } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { CustomerPick } from "@/components/dashboard/bills/customer-pick"
 import { LISTENING } from "@/lib/copy"
 import { useHomeStore } from "@/store/home-store"
 import { cn } from "@/lib/utils"
@@ -29,8 +28,6 @@ export function VoiceArea() {
     draftPayment,
     draftPaymentType,
     setDraftPayment,
-    draftCustomer,
-    setDraftCustomer,
   } = useHomeStore()
   const root = React.useRef<HTMLElement>(null)
   const phrase = LISTENING.split(" ")
@@ -123,7 +120,6 @@ export function VoiceArea() {
             />
             <p data-line className="font-hand text-2xl leading-none opacity-70">
               Your order
-              {draftCustomer ? ` · for ${draftCustomer.name}` : ""}
             </p>
             {order?.length ? (
               <ul
@@ -178,10 +174,6 @@ export function VoiceArea() {
             )}
             {order?.length ? (
               <div data-line className="mt-3 grid gap-1.5">
-                <CustomerPick
-                  value={draftCustomer}
-                  onChange={setDraftCustomer}
-                />
                 <div
                   role="radiogroup"
                   aria-label="Payment"
