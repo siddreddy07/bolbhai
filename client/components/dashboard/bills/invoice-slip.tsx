@@ -14,6 +14,7 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer"
 import { CustomerPick } from "@/components/dashboard/bills/customer-pick"
+import type { Customer } from "@/lib/customer-api"
 import { SearchBox } from "@/components/ui/search-box"
 import {
   billNumber,
@@ -92,13 +93,29 @@ function Slip({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
   const [paymentType, setPaymentType] = React.useState<PaymentType>(
     inv.paymentType
   )
+  // who the bill is for: a draft too, saved with Done
+  const [customer, setCustomer] = React.useState<Customer | null>(
+    inv.customerId
+      ? {
+          id: inv.customerId,
+          shopId: inv.shopId,
+          name: inv.customerName ?? "Customer",
+          phone: inv.customerPhone ?? "",
+        }
+      : null
+  )
   const paid = payment === "PAID"
   const locked = isLocked(inv) // saved state, so ticking Paid does not lock it until Done
   const stamp = STAMP[payment]
   const changed = payment !== inv.payment || paymentType !== inv.paymentType
+  const customerChanged = (customer?.id ?? null) !== (inv.customerId ?? null)
   const done = () => {
     if (asking) return
-    if (changed) void setBillPayment(inv.id, payment, paymentType)
+    // the customer first: once the bill is marked paid it can no longer be edited
+    void (async () => {
+      if (customerChanged) await setBillCustomer(inv.id, customer)
+      if (changed) await setBillPayment(inv.id, payment, paymentType)
+    })()
     onClose()
   }
 
@@ -343,19 +360,7 @@ function Slip({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
         {/* who the bill is for: can be added or changed while the bill can still be edited */}
         {!locked && (
           <div className="mb-3">
-            <CustomerPick
-              value={
-                inv.customerId
-                  ? {
-                      id: inv.customerId,
-                      shopId: inv.shopId,
-                      name: inv.customerName ?? "Customer",
-                      phone: inv.customerPhone ?? "",
-                    }
-                  : null
-              }
-              onChange={(c) => void setBillCustomer(inv.id, c)}
-            />
+            <CustomerPick value={customer} onChange={setCustomer} />
           </div>
         )}
         {locked && inv.customerName && (
@@ -375,9 +380,9 @@ function Slip({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
               <p className="mt-1 font-mono text-[11px] opacity-60">
                 bill #{billNumber(inv)} · {when(inv)}
               </p>
-              {inv.customerName && (
+              {(locked ? inv.customerName : customer?.name) && (
                 <p className="mt-1.5 font-hand text-2xl leading-none">
-                  for {inv.customerName}
+                  for {locked ? inv.customerName : customer?.name}
                 </p>
               )}
             </div>
