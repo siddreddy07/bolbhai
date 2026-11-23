@@ -235,32 +235,6 @@ function EditorForm({
             />
           </Field>
         </div>
-
-        {/* quick add, and the level that triggers the low-stock warning */}
-        <div data-fld className="grid grid-cols-[auto_1fr] items-end gap-2.5">
-          <div className="flex gap-1.5">
-            {[5, 10, 25].map((v) => (
-              <button
-                key={v}
-                type="button"
-                onClick={() => set("qty", String(qty + v))}
-                className="h-10 rounded-lg border border-foreground/20 px-3 text-sm font-semibold active:bg-foreground/10"
-              >
-                +{v}
-              </button>
-            ))}
-          </div>
-          <Field label="Keep around (low-stock warning)">
-            <input
-              inputMode="numeric"
-              value={d.max}
-              onChange={(e) =>
-                set("max", e.target.value.replace(/\D/g, "").slice(0, 5))
-              }
-              className={inputCls}
-            />
-          </Field>
-        </div>
       </div>
 
       <div data-fld className="mt-3.5 flex gap-2">
