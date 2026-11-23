@@ -1,9 +1,9 @@
 import type { Request, Response } from "express";
+import { ownsShop } from "../middleware/auth.middleware.js";
 import { idSchema } from "../schemas/id.schema.js";
 import { getInvoice, updateInvoice } from "../services/invoice.service.js";
 import { getInventory } from "../services/inventory.service.js";
 import { getCustomer, saveTransaction } from "../services/customer.service.js";
-import { getShopById } from "../services/shop.service.js";
 import { createPaymentLink, readPayment, readWebhook } from "../services/stripe.service.js";
 
 // POST /api/invoices/:id/pay-link  ->  { url, total }: the Stripe page to send the customer to for this bill
@@ -12,7 +12,7 @@ export async function payLink(req: Request, res: Response) {
     const id = idSchema.safeParse(req.params.id);
     if (!id.success) return res.status(400).json({ message: "Invalid id" });
     const invoice = await getInvoice(id.data);
-    if (!invoice || !(await getShopById(invoice.shopId, req.user!.id)))
+    if (!invoice || !ownsShop(req, invoice.shopId))
       return res.status(404).json({ message: "Invoice not found" });
     if (invoice.payment === "PAID") return res.status(409).json({ message: "This bill is already paid" });
 
@@ -40,16 +40,36 @@ export async function payLink(req: Request, res: Response) {
   }
 }
 
-// GET /api/stripe/session/:sessionId (no login: the customer who just paid opens it). The receipt for the success page.
+// A payment that Stripe says is paid: save it with the bill and the customer on it, and mark the bill paid.
+// Safe to run twice (the success page AND the webhook both call it): the transaction is saved once.
+async function settle(p: { invoiceId: string | null; transactionId: string | null; amount: number }) {
+  const invoice = p.invoiceId ? await getInvoice(p.invoiceId) : null;
+  if (!invoice || !p.transactionId) return;
+  await saveTransaction({
+    shopId: invoice.shopId,
+    invoiceId: invoice.id,
+    customerId: invoice.customerId,
+    transactionId: p.transactionId,
+    subtotal: p.amount,
+  });
+  if (invoice.payment !== "PAID") await updateInvoice(invoice.id, { payment: "PAID", paymentType: "UPI" });
+}
+
+// GET /api/stripe/session/:sessionId (no login: the customer who just paid opens it).
+// The receipt for the success page. What it says comes from Stripe itself, so a paid one is saved right here too:
+// the bill turns paid even when the webhook is not connected (like on your own computer).
 export async function paymentReceipt(req: Request, res: Response) {
   try {
-    res.json(await readPayment(String(req.params.sessionId)));
+    const receipt = await readPayment(String(req.params.sessionId));
+    if (receipt.paid)
+      await settle(receipt).catch((e) => console.error("Could not save the payment:", e)); // still show the receipt
+    res.json(receipt);
   } catch {
     res.status(404).json({ message: "Payment not found" });
   }
 }
 
-// POST /api/stripe/webhook: Stripe tells us a payment went through. This, not the success page, marks the bill paid.
+// POST /api/stripe/webhook: Stripe tells us a payment went through (the safety net when the customer closes the page early).
 export async function stripeWebhook(req: Request, res: Response) {
   let event;
   try {
@@ -60,20 +80,12 @@ export async function stripeWebhook(req: Request, res: Response) {
   try {
     if (event.type === "checkout.session.completed" && event.data.object.payment_status === "paid") {
       const session = event.data.object;
-      const invoiceId = session.metadata?.invoiceId;
-      const invoice = invoiceId ? await getInvoice(invoiceId) : null;
-      if (invoice) {
-        const payment = session.payment_intent;
-        // the payment is saved with the bill, the customer on it and Stripe's transaction id
-        await saveTransaction({
-          shopId: invoice.shopId,
-          invoiceId: invoice.id,
-          customerId: invoice.customerId,
-          transactionId: typeof payment === "string" ? payment : (payment?.id ?? session.id),
-          subtotal: (session.amount_total ?? 0) / 100,
-        });
-        if (invoice.payment !== "PAID") await updateInvoice(invoice.id, { payment: "PAID", paymentType: "UPI" });
-      }
+      const payment = session.payment_intent;
+      await settle({
+        invoiceId: session.metadata?.invoiceId ?? null,
+        transactionId: typeof payment === "string" ? payment : (payment?.id ?? session.id),
+        amount: (session.amount_total ?? 0) / 100,
+      });
     }
     res.json({ received: true });
   } catch (error) {

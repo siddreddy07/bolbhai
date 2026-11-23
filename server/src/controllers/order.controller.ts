@@ -1,8 +1,8 @@
 import type { Request, Response } from "express";
+import { ownsShop } from "../middleware/auth.middleware.js";
 import { runOrder } from "../agent/bolbhai.graph.js";
 import { checkModel } from "../ai/model.js";
 import { idSchema } from "../schemas/id.schema.js";
-import { getShopById } from "../services/shop.service.js";
 
 // POST /api/orders/confirm   body = { shopId, text }   the items are found on THIS shop's shelf
 // The shopkeeper checked (and maybe fixed) the transcript and pressed Confirm: now the order graph runs on it.
@@ -16,7 +16,7 @@ export async function confirmOrder(req: Request, res: Response) {
     return res.status(400).json({ message: "That is too long" });
 
   // only the owner may order from a shop
-  if (!(await getShopById(shopId.data, req.user!.id)))
+  if (!ownsShop(req, shopId.data))
     return res.status(404).json({ message: "Shop not found" });
 
   // check the AI first, so a down model gives a clear answer and not a slow failure

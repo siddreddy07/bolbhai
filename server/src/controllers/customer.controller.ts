@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import { ownsShop } from "../middleware/auth.middleware.js";
 import { z } from "zod";
 import { idSchema } from "../schemas/id.schema.js";
 import {
@@ -13,7 +14,6 @@ import {
   searchCustomers,
   updateCustomer,
 } from "../services/customer.service.js";
-import { getShopById } from "../services/shop.service.js";
 
 const PHONE_TAKEN = "A customer with this phone number already exists";
 
@@ -26,7 +26,7 @@ async function ownCustomer(req: Request, res: Response) {
     return null;
   }
   const customer = await getCustomer(id.data);
-  if (!customer || !(await getShopById(customer.shopId, req.user!.id))) {
+  if (!customer || !ownsShop(req, customer.shopId)) {
     res.status(404).json({ message: "Customer not found" });
     return null;
   }
@@ -42,7 +42,7 @@ export async function addCustomer(req: Request, res: Response) {
     if (!body.success)
       return res.status(400).json({ message: z.prettifyError(body.error) });
 
-    if (!(await getShopById(shopId.data, req.user!.id)))
+    if (!ownsShop(req, shopId.data))
       return res.status(404).json({ message: "Shop not found" });
     if (await customerByPhone(shopId.data, body.data.phone))
       return res.status(409).json({ message: PHONE_TAKEN });
@@ -59,7 +59,7 @@ export async function listCustomers(req: Request, res: Response) {
     const shopId = idSchema.safeParse(req.params.shopId);
     if (!shopId.success) return res.status(400).json({ message: "Invalid id" });
 
-    if (!(await getShopById(shopId.data, req.user!.id)))
+    if (!ownsShop(req, shopId.data))
       return res.status(404).json({ message: "Shop not found" });
     const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
     res.json(await searchCustomers(shopId.data, q));
