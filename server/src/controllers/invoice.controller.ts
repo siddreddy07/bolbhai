@@ -92,7 +92,7 @@ export async function readAnalytics(req: Request, res: Response) {
   }
 }
 
-// POST /api/invoices/shop/:shopId   body = { items: [{ pid, quantity }], date?, transactionId? }
+// POST /api/invoices/shop/:shopId   body = { items: [{ pid, quantity }], date? }
 export async function addInvoice(req: Request, res: Response) {
   try {
     const shopId = idSchema.safeParse(req.params.shopId);
@@ -123,7 +123,7 @@ export async function readInvoice(req: Request, res: Response) {
   }
 }
 
-// PUT /api/invoices/:id   body = any of { items, date, transactionId }
+// PUT /api/invoices/:id   body = any of { items, payment, paymentType, date }
 export async function editInvoice(req: Request, res: Response) {
   try {
     const body = updateInvoiceSchema.safeParse(req.body);

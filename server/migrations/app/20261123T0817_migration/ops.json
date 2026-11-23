@@ -1,0 +1,52 @@
+[
+  {
+    "id": "dropColumn.invoices.transactionId",
+    "label": "Drop column \"transactionId\" from \"invoices\"",
+    "operationClass": "destructive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "transactionId",
+        "table": "invoices"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"transactionId\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "invoices",
+          "transactionId"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "column \"transactionId\" on \"invoices\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "drop column \"transactionId\"",
+        "sql": "ALTER TABLE \"public\".\"invoices\" DROP COLUMN \"transactionId\""
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"transactionId\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "invoices",
+          "transactionId"
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "column \"transactionId\" on \"invoices\""
+        }
+      }
+    ]
+  }
+]

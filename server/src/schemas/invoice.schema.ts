@@ -13,8 +13,6 @@ export const invoiceSchema = z.object({
   paymentType: z.enum(["CASH", "UPI"]).default("CASH"),
   // when the bill was made (leave it out for "now")
   date: z.iso.datetime().optional(),
-  // the payment id, once it is paid
-  transactionId: z.string().trim().min(1).max(100).nullable().optional(),
 });
 
 // Editing: send only what changes.
@@ -24,7 +22,6 @@ export const updateInvoiceSchema = z.object({
   payment: z.enum(["PAID", "LEDGER"]).optional(),
   paymentType: z.enum(["CASH", "UPI"]).optional(),
   date: invoiceSchema.shape.date,
-  transactionId: invoiceSchema.shape.transactionId,
 });
 
 export type InvoiceInput = z.infer<typeof invoiceSchema>;

@@ -23,9 +23,9 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'7cdf7dbc115d0ae8257b672e0ab471b4510143de6dcc1f5dfd4542480afafa5c'>;
+  StorageHashBase<'ee2fa86c1924a75d5921323b385d0aab9bb09c560b11b666df933e44e5900222'>;
 export type ExecutionHash =
-  ExecutionHashBase<'b8227bec2a7449ead378099bda5123c16011e167fcc413381c40cfd570db6b88'>;
+  ExecutionHashBase<'80c749e0549256402a43544433a7a010db52e36edf62cf73bf8e152d671b343e'>;
 export type ProfileHash =
   ProfileHashBase<'3916f444a8a17ad749191acf9e08dad97d1a327b88c2f1d45d12f240296aa8b2'>;
 
@@ -331,6 +331,20 @@ export type StorageColumnInputTypes = ColumnTypesFromStorage<
 >;
 
 export namespace Models {
+  export type public_customer_transactions = {
+    createdAt: FieldOutputTypes['public']['customer_transactions']['createdAt'];
+    customerId: FieldOutputTypes['public']['customer_transactions']['customerId'];
+    id: FieldOutputTypes['public']['customer_transactions']['id'];
+    invoiceId: FieldOutputTypes['public']['customer_transactions']['invoiceId'];
+    paymentStatus: FieldOutputTypes['public']['customer_transactions']['paymentStatus'];
+    shopId: FieldOutputTypes['public']['customer_transactions']['shopId'];
+    status: FieldOutputTypes['public']['customer_transactions']['status'];
+    subtotal: FieldOutputTypes['public']['customer_transactions']['subtotal'];
+    updatedAt: FieldOutputTypes['public']['customer_transactions']['updatedAt'];
+    invoice: public_invoices;
+    shop: public_shops;
+    readonly [RelationKeys]?: 'invoice' | 'shop';
+  };
   export type public_invoices = {
     date: FieldOutputTypes['public']['invoices']['date'];
     id: FieldOutputTypes['public']['invoices']['id'];
@@ -338,9 +352,9 @@ export namespace Models {
     payment: FieldOutputTypes['public']['invoices']['payment'];
     paymentType: FieldOutputTypes['public']['invoices']['paymentType'];
     shopId: FieldOutputTypes['public']['invoices']['shopId'];
-    transactionId: FieldOutputTypes['public']['invoices']['transactionId'];
     shop: public_shops;
-    readonly [RelationKeys]?: 'shop';
+    transactions: public_customer_transactions[];
+    readonly [RelationKeys]?: 'shop' | 'transactions';
   };
   export type public_products = {
     barcode: FieldOutputTypes['public']['products']['barcode'];
@@ -383,7 +397,8 @@ export namespace Models {
     inventory: public_shop_inventory[];
     invoices: public_invoices[];
     owner: public_users;
-    readonly [RelationKeys]?: 'inventory' | 'invoices' | 'owner';
+    transactions: public_customer_transactions[];
+    readonly [RelationKeys]?: 'inventory' | 'invoices' | 'owner' | 'transactions';
   };
   export type public_users = {
     createdAt: FieldOutputTypes['public']['users']['createdAt'];
@@ -399,6 +414,7 @@ export namespace Models {
 
 export declare const models: {
   public: {
+    customer_transactions: Models.public_customer_transactions;
     invoices: Models.public_invoices;
     products: Models.public_products;
     shop_inventory: Models.public_shop_inventory;
@@ -425,6 +441,109 @@ type ContractBase = Omit<
         readonly kind: 'postgres-schema';
         readonly entries: {
           readonly table: {
+            readonly customer_transactions: {
+              columns: {
+                readonly createdAt: {
+                  readonly dataType: 'pg/timestamptz';
+                  readonly codecId: 'pg/timestamptz-date@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                  readonly typeParams: { readonly precision: 3 };
+                  readonly many: false;
+                };
+                readonly customerId: {
+                  readonly dataType: 'pg/uuid';
+                  readonly codecId: 'pg/uuid@1';
+                  readonly nullable: true;
+                  readonly many: false;
+                };
+                readonly id: {
+                  readonly dataType: 'pg/uuid';
+                  readonly codecId: 'pg/uuid@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly invoiceId: {
+                  readonly dataType: 'pg/uuid';
+                  readonly codecId: 'pg/uuid@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly paymentStatus: {
+                  readonly dataType: 'pg/text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly shopId: {
+                  readonly dataType: 'pg/uuid';
+                  readonly codecId: 'pg/uuid@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly status: {
+                  readonly dataType: 'pg/text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly subtotal: {
+                  readonly dataType: 'pg/numeric';
+                  readonly codecId: 'pg/numeric@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly updatedAt: {
+                  readonly dataType: 'pg/timestamptz';
+                  readonly codecId: 'pg/timestamptz-date@1';
+                  readonly nullable: false;
+                  readonly typeParams: { readonly precision: 3 };
+                  readonly many: false;
+                };
+              };
+              primaryKey: { readonly columns: readonly ['id'] };
+              uniques: readonly [{ readonly columns: readonly ['id', 'invoiceId'] }];
+              indexes: readonly [
+                {
+                  readonly name: 'customer_transactions_invoiceId_idx_d5c4f70e';
+                  readonly prefix: 'customer_transactions_invoiceId_idx';
+                  readonly columns: readonly ['invoiceId'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'customer_transactions_shopId_idx_e9207c6b';
+                  readonly prefix: 'customer_transactions_shopId_idx';
+                  readonly columns: readonly ['shopId'];
+                  readonly unique: false;
+                },
+              ];
+              foreignKeys: readonly [
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'customer_transactions';
+                    readonly columns: readonly ['shopId'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'shops';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'customer_transactions';
+                    readonly columns: readonly ['invoiceId'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'invoices';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+              ];
+            };
             readonly invoices: {
               columns: {
                 readonly date: {
@@ -471,12 +590,6 @@ type ContractBase = Omit<
                   readonly dataType: 'pg/uuid';
                   readonly codecId: 'pg/uuid@1';
                   readonly nullable: false;
-                  readonly many: false;
-                };
-                readonly transactionId: {
-                  readonly dataType: 'pg/text';
-                  readonly codecId: 'pg/text@1';
-                  readonly nullable: true;
                   readonly many: false;
                 };
               };
@@ -850,6 +963,10 @@ type ContractBase = Omit<
   readonly target: 'postgres';
   readonly targetFamily: 'sql';
   readonly roots: {
+    readonly customer_transactions: {
+      readonly namespace: 'public' & NamespaceId;
+      readonly model: 'customer_transactions';
+    };
     readonly invoices: { readonly namespace: 'public' & NamespaceId; readonly model: 'invoices' };
     readonly products: { readonly namespace: 'public' & NamespaceId; readonly model: 'products' };
     readonly shop_inventory: {
@@ -863,6 +980,95 @@ type ContractBase = Omit<
     readonly namespaces: {
       readonly public: {
         readonly models: {
+          readonly customer_transactions: {
+            readonly fields: {
+              readonly createdAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-date@1';
+                  readonly typeParams: { readonly precision: 3 };
+                };
+              };
+              readonly customerId: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/uuid@1' };
+              };
+              readonly id: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/uuid@1' };
+              };
+              readonly invoiceId: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/uuid@1' };
+              };
+              readonly paymentStatus: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly shopId: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/uuid@1' };
+              };
+              readonly status: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly subtotal: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/numeric@1' };
+              };
+              readonly updatedAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-date@1';
+                  readonly typeParams: { readonly precision: 3 };
+                };
+              };
+            };
+            readonly relations: {
+              readonly invoice: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'invoices';
+                };
+                readonly cardinality: 'N:1';
+                readonly nullable: false;
+                readonly on: {
+                  readonly localFields: readonly ['invoiceId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+              readonly shop: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'shops';
+                };
+                readonly cardinality: 'N:1';
+                readonly nullable: false;
+                readonly on: {
+                  readonly localFields: readonly ['shopId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+            };
+            readonly storage: {
+              readonly table: 'customer_transactions';
+              readonly namespaceId: 'public';
+              readonly fields: {
+                readonly createdAt: { readonly column: 'createdAt' };
+                readonly customerId: { readonly column: 'customerId' };
+                readonly id: { readonly column: 'id' };
+                readonly invoiceId: { readonly column: 'invoiceId' };
+                readonly paymentStatus: { readonly column: 'paymentStatus' };
+                readonly shopId: { readonly column: 'shopId' };
+                readonly status: { readonly column: 'status' };
+                readonly subtotal: { readonly column: 'subtotal' };
+                readonly updatedAt: { readonly column: 'updatedAt' };
+              };
+            };
+          };
           readonly invoices: {
             readonly fields: {
               readonly date: {
@@ -893,10 +1099,6 @@ type ContractBase = Omit<
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/uuid@1' };
               };
-              readonly transactionId: {
-                readonly nullable: true;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
-              };
             };
             readonly relations: {
               readonly shop: {
@@ -911,6 +1113,17 @@ type ContractBase = Omit<
                   readonly targetFields: readonly ['id'];
                 };
               };
+              readonly transactions: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'customer_transactions';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['invoiceId'];
+                };
+              };
             };
             readonly storage: {
               readonly table: 'invoices';
@@ -922,7 +1135,6 @@ type ContractBase = Omit<
                 readonly payment: { readonly column: 'payment' };
                 readonly paymentType: { readonly column: 'paymentType' };
                 readonly shopId: { readonly column: 'shopId' };
-                readonly transactionId: { readonly column: 'transactionId' };
               };
             };
           };
@@ -1180,6 +1392,17 @@ type ContractBase = Omit<
                   readonly targetFields: readonly ['id'];
                 };
               };
+              readonly transactions: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'customer_transactions';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['shopId'];
+                };
+              };
             };
             readonly storage: {
               readonly table: 'shops';
@@ -1330,6 +1553,43 @@ type ContractBase = Omit<
     readonly executionHash: ExecutionHash;
     readonly mutations: {
       readonly defaults: readonly [
+        {
+          readonly onCreate: {
+            readonly id: 'timestampNow';
+            readonly kind: 'generator';
+            readonly params: { readonly precision: 3 };
+          };
+          readonly ref: {
+            readonly entry: 'customer_transactions';
+            readonly field: 'createdAt';
+            readonly namespace: 'public';
+          };
+        },
+        {
+          readonly onCreate: { readonly id: 'uuidv4'; readonly kind: 'generator' };
+          readonly ref: {
+            readonly entry: 'customer_transactions';
+            readonly field: 'id';
+            readonly namespace: 'public';
+          };
+        },
+        {
+          readonly onCreate: {
+            readonly id: 'timestampNow';
+            readonly kind: 'generator';
+            readonly params: { readonly precision: 3 };
+          };
+          readonly onUpdate: {
+            readonly id: 'timestampNow';
+            readonly kind: 'generator';
+            readonly params: { readonly precision: 3 };
+          };
+          readonly ref: {
+            readonly entry: 'customer_transactions';
+            readonly field: 'updatedAt';
+            readonly namespace: 'public';
+          };
+        },
         {
           readonly onCreate: {
             readonly id: 'timestampNow';

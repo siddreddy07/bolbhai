@@ -15,7 +15,6 @@ type InvoiceRow = {
   items: unknown;
   payment: string;
   paymentType: string;
-  transactionId: string | null;
 };
 
 // What leaves the server for one invoice.
@@ -27,7 +26,6 @@ function publicInvoice(row: InvoiceRow) {
     items: row.items as Line[],
     payment: row.payment as "PAID" | "LEDGER",
     paymentType: row.paymentType as "CASH" | "UPI",
-    transactionId: row.transactionId,
   };
 }
 
@@ -85,12 +83,9 @@ export async function createInvoice(shopId: string, data: InvoiceInput) {
     .build();
   const [created] = await db.query(plan);
 
-  // the optional fields that do not touch the stock
-  if (data.date || data.transactionId) {
-    await invoices.where({ id: created.id }).update({
-      ...(data.date ? { date: new Date(data.date) } : {}),
-      ...(data.transactionId ? { transactionId: data.transactionId } : {}),
-    });
+  // the optional date does not touch the stock
+  if (data.date) {
+    await invoices.where({ id: created.id }).update({ date: new Date(data.date) });
   }
   return {
     invoice: (await getInvoice(created.id))!,
@@ -113,7 +108,7 @@ export async function getInvoices(shopId: string, filter: InvoiceFilter = {}) {
   const unpaid = filter.unpaid ? 1 : 0;
   const limit = q ? 30 : unpaid ? 500 : 300; // never send everything
   const plan = db.raw.sql`
-    SELECT id::text AS id, "shopId"::text AS shop_id, date::text AS date, items::text AS items, payment, "paymentType" AS payment_type, "transactionId" AS transaction_id
+    SELECT id::text AS id, "shopId"::text AS shop_id, date::text AS date, items::text AS items, payment, "paymentType" AS payment_type
     FROM invoices
     WHERE "shopId" = ${shopId}::uuid
       AND (${day}::text = '' OR (date AT TIME ZONE 'Asia/Kolkata')::date = NULLIF(${day}::text, '')::date)
@@ -129,7 +124,6 @@ export async function getInvoices(shopId: string, filter: InvoiceFilter = {}) {
       items: "pg/text@1",
       payment: "pg/text@1",
       payment_type: "pg/text@1",
-      transaction_id: { codecId: "pg/text@1", nullable: true },
     })
     .build();
 
@@ -141,7 +135,6 @@ export async function getInvoices(shopId: string, filter: InvoiceFilter = {}) {
     items: JSON.parse(r.items) as Line[],
     payment: r.payment as "PAID" | "LEDGER",
     paymentType: r.payment_type as "CASH" | "UPI",
-    transactionId: r.transaction_id,
   }));
 }
 
@@ -285,9 +278,6 @@ export async function updateInvoice(id: string, data: UpdateInvoiceInput) {
   const rest = {
     ...(data.payment ? { payment: data.payment } : {}),
     ...(data.paymentType ? { paymentType: data.paymentType } : {}),
-    ...(data.transactionId !== undefined
-      ? { transactionId: data.transactionId }
-      : {}),
     ...(data.date ? { date: new Date(data.date) } : {}),
   };
   if (Object.keys(rest).length) await invoices.where({ id }).update(rest);

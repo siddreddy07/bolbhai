@@ -1,0 +1,99 @@
+[
+  {
+    "id": "table.customer_transactions",
+    "label": "Create table \"customer_transactions\"",
+    "summary": "Creates table \"customer_transactions\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "customer_transactions"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"customer_transactions\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"customer_transactions\""
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "table \"customer_transactions\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"customer_transactions\"",
+        "sql": "CREATE TABLE \"public\".\"customer_transactions\" (\n  \"createdAt\" timestamptz(3) DEFAULT (now()) NOT NULL,\n  \"customerId\" uuid,\n  \"id\" uuid NOT NULL,\n  \"invoiceId\" uuid NOT NULL,\n  \"paymentStatus\" text NOT NULL,\n  \"shopId\" uuid NOT NULL,\n  \"status\" text NOT NULL,\n  \"subtotal\" numeric NOT NULL,\n  \"updatedAt\" timestamptz(3) NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"customer_transactions\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3))) AS \"result\"",
+        "params": [
+          "\"public\".\"customer_transactions\"",
+          "r",
+          "p"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "table \"customer_transactions\""
+        }
+      }
+    ]
+  },
+  {
+    "id": "unique.customer_transactions.customer_transactions_id_invoiceId_key",
+    "label": "Add unique constraint on \"customer_transactions\" (id, invoiceId)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "customer_transactions_id_invoiceId_key",
+        "table": "customer_transactions"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"customer_transactions_id_invoiceId_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "customer_transactions_id_invoiceId_key",
+          "public",
+          "\"public\".\"customer_transactions\""
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "constraint \"customer_transactions_id_invoiceId_key\" on \"customer_transactions\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"customer_transactions_id_invoiceId_key\"",
+        "sql": "ALTER TABLE \"public\".\"customer_transactions\" ADD CONSTRAINT \"customer_transactions_id_invoiceId_key\" UNIQUE (\"id\", \"invoiceId\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify unique constraint \"customer_transactions_id_invoiceId_key\" exists on (id, invoiceId)",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3) AND \"c\".\"contype\" = $4 AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"c\".\"conkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"c\".\"conrelid\" AND key_attribute.attnum = key_column.attnum) = ($5)::jsonb)) AS \"result\"",
+        "params": [
+          "customer_transactions_id_invoiceId_key",
+          "public",
+          "\"public\".\"customer_transactions\"",
+          "u",
+          "[\"id\",\"invoiceId\"]"
+        ]
+      }
+    ]
+  }
+]

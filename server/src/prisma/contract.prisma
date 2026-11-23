@@ -36,6 +36,7 @@ model shops {
   ownerId   Uuid
   inventory shop_inventory[]
   invoices  invoices[]
+  transactions customer_transactions[]
   createdAt DateTime           @default(now()) @onCreate(now())
   updatedAt temporal.UpdatedAt
 }
@@ -87,9 +88,29 @@ model invoices {
   items         Json
   payment       PaymentStatus @default(PAID)
   paymentType   PaymentType   @default(CASH)
-  // the payment id, if there is one (optional)
-  transactionId String?
+  transactions  customer_transactions[]
 
   // the bills lists and the analytics always ask for one shop's bills by date
   @@index([shopId, date])
+}
+
+
+// One money record per sale to a customer: which shop, which customer (if known), which bill, and how much.
+// `id` and `invoiceId` together are one key (a record is found, and kept unique, by the pair).
+model customer_transactions {
+  id            Uuid               @id @onCreate(uuid())
+  shop          shops              @relation(fields: [shopId], references: [id])
+  shopId        Uuid
+  customerId    Uuid?
+  invoice       invoices           @relation(fields: [invoiceId], references: [id])
+  invoiceId     Uuid
+
+  subtotal      Decimal
+  paymentStatus String
+  status        String
+
+  createdAt     DateTime           @default(now()) @onCreate(now())
+  updatedAt     temporal.UpdatedAt
+
+  @@unique([id, invoiceId])
 }
