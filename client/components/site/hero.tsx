@@ -4,6 +4,7 @@ import * as React from "react"
 import gsap from "gsap"
 import { useGSAP } from "@gsap/react"
 import { Mic, Package, Receipt, Users } from "lucide-react"
+import Link from "next/link"
 
 import {
   DashboardMock,
@@ -14,6 +15,7 @@ import {
 import { HeroBackdrop } from "@/components/site/backdrop"
 import { LISTENING, SPOKEN, TAGLINE } from "@/lib/copy"
 import { cn } from "@/lib/utils"
+import { useUserStore } from "@/store/user-store"
 
 const BARS = 40
 const inr = (n: number) => "₹" + Math.round(n).toLocaleString("en-IN")
@@ -21,6 +23,7 @@ const inr = (n: number) => "₹" + Math.round(n).toLocaleString("en-IN")
 type Phase = "idle" | "listening" | "thinking" | "done"
 
 export function Hero() {
+  const user = useUserStore((s) => s.user)
   const root = React.useRef<HTMLElement>(null)
   const [phase, setPhase] = React.useState<Phase>("idle")
   const phaseRef = React.useRef<Phase>("idle")
@@ -299,11 +302,21 @@ export function Hero() {
         <p
           data-enter
           data-sub
-          className="mt-3 max-w-[46ch] text-sm leading-snug text-foreground/75 sm:mt-5 sm:text-base sm:leading-relaxed lg:text-lg"
+          className="mt-3 max-w-[40ch] text-base leading-snug font-medium text-foreground/80 sm:mt-5 sm:max-w-[46ch] sm:leading-relaxed lg:text-lg"
         >
-          Say the order out loud, in English. Stock, bills and your khata update
-          themselves.
+          Just say the items your customer needs. BolBhai creates the invoice,
+          updates your stock, and collects the payment or adds it to your khata
+          (ledger).
         </p>
+        {/* phones have no Start button in the header, so the first screen gets one */}
+        <Link
+          data-enter
+          data-sub
+          href={user ? "/dashboard" : "/get-started"}
+          className="mb-4 inline-flex h-11 items-center justify-center rounded-full bg-foreground px-7 text-base font-semibold text-background transition-all active:scale-[.97] sm:hidden"
+        >
+          {user ? "Go to shop" : "Start free"}
+        </Link>
 
         {/* The try-out: voice pill */}
         <div
