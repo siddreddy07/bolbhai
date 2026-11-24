@@ -302,11 +302,16 @@ export function Hero() {
         <p
           data-enter
           data-sub
-          className="mt-3 max-w-[40ch] text-base leading-snug font-medium text-foreground/80 sm:mt-5 sm:max-w-[46ch] sm:leading-relaxed lg:text-lg"
+          className="mt-3 max-w-[52ch] text-[13px] leading-snug font-medium text-balance text-foreground/80 min-[400px]:text-sm sm:mt-5 sm:text-base sm:leading-relaxed lg:text-lg"
         >
-          Just say the items your customer needs. BolBhai creates the invoice,
-          updates your stock, and collects the payment or adds it to your khata
-          (ledger).
+          <span aria-hidden="true" className="text-[1.6em] leading-none font-extrabold text-signal">
+            “
+          </span>
+          Voice billing for shop owners: say the order, and stock, bills and
+          khata (ledger) update themselves.
+          <span aria-hidden="true" className="text-[1.6em] leading-none font-extrabold text-signal">
+            ”
+          </span>
         </p>
         {/* phones have no Start button in the header, so the first screen gets one */}
         <Link
