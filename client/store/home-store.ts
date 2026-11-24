@@ -387,6 +387,10 @@ export const useHomeStore = create<HomeState>((set, get) => ({
     set({ finding: true, orderError: null })
     try {
       const found = await confirmOrder(shopId, transcript)
+      if (!found.length)
+        return set({
+          orderError: "Didn’t catch a product. Try “1 kg atta, 2 bread”",
+        })
       // the graph only sends ids: everything else comes from the saved inventory
       if (get().stockShopId !== shopId || !get().stock.length)
         await get().loadStock(shopId)
