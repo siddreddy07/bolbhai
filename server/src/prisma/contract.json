@@ -677,13 +677,6 @@
                   }
                 }
               },
-              "customName": {
-                "nullable": true,
-                "type": {
-                  "codecId": "pg/text@1",
-                  "kind": "scalar"
-                }
-              },
               "id": {
                 "nullable": false,
                 "type": {
@@ -716,13 +709,6 @@
                 "nullable": false,
                 "type": {
                   "codecId": "pg/numeric@1",
-                  "kind": "scalar"
-                }
-              },
-              "unit": {
-                "nullable": true,
-                "type": {
-                  "codecId": "pg/text@1",
                   "kind": "scalar"
                 }
               },
@@ -776,9 +762,6 @@
                 "createdAt": {
                   "column": "createdAt"
                 },
-                "customName": {
-                  "column": "customName"
-                },
                 "id": {
                   "column": "id"
                 },
@@ -793,9 +776,6 @@
                 },
                 "stock": {
                   "column": "stock"
-                },
-                "unit": {
-                  "column": "unit"
                 },
                 "updatedAt": {
                   "column": "updatedAt"
@@ -1589,11 +1569,6 @@
                     "precision": 3
                   }
                 },
-                "customName": {
-                  "codecId": "pg/text@1",
-                  "dataType": "pg/text",
-                  "nullable": true
-                },
                 "id": {
                   "codecId": "pg/uuid@1",
                   "dataType": "pg/uuid",
@@ -1622,11 +1597,6 @@
                     "value": "0"
                   },
                   "nullable": false
-                },
-                "unit": {
-                  "codecId": "pg/text@1",
-                  "dataType": "pg/text",
-                  "nullable": true
                 },
                 "updatedAt": {
                   "codecId": "pg/timestamptz-date@1",
@@ -1901,7 +1871,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "6be9db0e6183bdb1d49277156c7c36e05d5b50937d1ed1a626246f096b45ca1c"
+    "storageHash": "5ae254307e6fd02f6d99c7002b4bc18114e1ac45276130d9309253ec3af24fa3"
   },
   "execution": {
     "executionHash": "ecb4e2a40ac148a43f91259a636fdafdcf2740174cf057fdae433fde3d219d6c",

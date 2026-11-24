@@ -42,19 +42,16 @@ model shops {
   updatedAt temporal.UpdatedAt
 }
 
-// What one shop sells: a catalog product (productId) or its own item (customName), with the shop's price and stock.
+// What one shop sells: a catalog product, with the shop's price and stock. Name, brand and pack unit come from the product.
 model shop_inventory {
   id           Uuid               @id @onCreate(uuid())
   shop         shops              @relation(fields: [shopId], references: [id])
   shopId       Uuid
   product      products?          @relation(fields: [productId], references: [id])
   productId    Uuid?
-  // For products that are not in the shared catalog
-  customName   String?
   // Shop-specific values
   sellingPrice Decimal
   stock        Decimal            @default(0)
-  unit         String?
   createdAt    DateTime           @default(now()) @onCreate(now())
   updatedAt    temporal.UpdatedAt
 

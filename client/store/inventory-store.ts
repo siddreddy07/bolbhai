@@ -22,7 +22,6 @@ type InventoryRow = {
   size: string | null
   category: string | null
   stock: number
-  unit: string | null
   price: number
 }
 
@@ -110,7 +109,7 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
       productId: row.productId,
       name: row.brand ? `${row.brand} ${row.name}` : row.name,
       category: (row.category && CATEGORY[row.category]) || "other",
-      unit: row.unit ?? "pcs",
+      unit: "pcs", // stock is counted in pieces
       size: row.size,
       qty: row.stock,
       max: Math.max(20, row.stock), // what a full shelf looks like, for the low-stock alert

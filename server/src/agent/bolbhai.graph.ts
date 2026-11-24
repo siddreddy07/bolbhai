@@ -47,7 +47,8 @@ function pickPacks(state: typeof RequestState.State) {
     quantity: item.quantity ?? null,
     unit: item.unit ?? null,
     options: pickRows(
-      state.searchResults[i] ?? [],
+      // the pack unit (g, kg, l) comes from the product
+      (state.searchResults[i] ?? []).map((r) => ({ ...r, unit: r.packUnit })),
       item.quantity ?? 0,
       item.unit ?? null,
       5,

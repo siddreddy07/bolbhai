@@ -23,7 +23,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'6be9db0e6183bdb1d49277156c7c36e05d5b50937d1ed1a626246f096b45ca1c'>;
+  StorageHashBase<'5ae254307e6fd02f6d99c7002b4bc18114e1ac45276130d9309253ec3af24fa3'>;
 export type ExecutionHash =
   ExecutionHashBase<'ecb4e2a40ac148a43f91259a636fdafdcf2740174cf057fdae433fde3d219d6c'>;
 export type ProfileHash =
@@ -390,13 +390,11 @@ export namespace Models {
   };
   export type public_shop_inventory = {
     createdAt: FieldOutputTypes['public']['shop_inventory']['createdAt'];
-    customName: FieldOutputTypes['public']['shop_inventory']['customName'];
     id: FieldOutputTypes['public']['shop_inventory']['id'];
     productId: FieldOutputTypes['public']['shop_inventory']['productId'];
     sellingPrice: FieldOutputTypes['public']['shop_inventory']['sellingPrice'];
     shopId: FieldOutputTypes['public']['shop_inventory']['shopId'];
     stock: FieldOutputTypes['public']['shop_inventory']['stock'];
-    unit: FieldOutputTypes['public']['shop_inventory']['unit'];
     updatedAt: FieldOutputTypes['public']['shop_inventory']['updatedAt'];
     product: public_products | null;
     shop: public_shops;
@@ -857,12 +855,6 @@ type ContractBase = Omit<
                   readonly typeParams: { readonly precision: 3 };
                   readonly many: false;
                 };
-                readonly customName: {
-                  readonly dataType: 'pg/text';
-                  readonly codecId: 'pg/text@1';
-                  readonly nullable: true;
-                  readonly many: false;
-                };
                 readonly id: {
                   readonly dataType: 'pg/uuid';
                   readonly codecId: 'pg/uuid@1';
@@ -895,12 +887,6 @@ type ContractBase = Omit<
                     readonly kind: 'literal';
                     readonly value: DefaultLiteralValue<'pg/numeric@1', '0'>;
                   };
-                  readonly many: false;
-                };
-                readonly unit: {
-                  readonly dataType: 'pg/text';
-                  readonly codecId: 'pg/text@1';
-                  readonly nullable: true;
                   readonly many: false;
                 };
                 readonly updatedAt: {
@@ -1494,10 +1480,6 @@ type ContractBase = Omit<
                   readonly typeParams: { readonly precision: 3 };
                 };
               };
-              readonly customName: {
-                readonly nullable: true;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
-              };
               readonly id: {
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/uuid@1' };
@@ -1517,10 +1499,6 @@ type ContractBase = Omit<
               readonly stock: {
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/numeric@1' };
-              };
-              readonly unit: {
-                readonly nullable: true;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
               };
               readonly updatedAt: {
                 readonly nullable: false;
@@ -1562,13 +1540,11 @@ type ContractBase = Omit<
               readonly namespaceId: 'public';
               readonly fields: {
                 readonly createdAt: { readonly column: 'createdAt' };
-                readonly customName: { readonly column: 'customName' };
                 readonly id: { readonly column: 'id' };
                 readonly productId: { readonly column: 'productId' };
                 readonly sellingPrice: { readonly column: 'sellingPrice' };
                 readonly shopId: { readonly column: 'shopId' };
                 readonly stock: { readonly column: 'stock' };
-                readonly unit: { readonly column: 'unit' };
                 readonly updatedAt: { readonly column: 'updatedAt' };
               };
             };

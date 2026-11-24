@@ -1,0 +1,102 @@
+[
+  {
+    "id": "dropColumn.shop_inventory.customName",
+    "label": "Drop column \"customName\" from \"shop_inventory\"",
+    "operationClass": "destructive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "customName",
+        "table": "shop_inventory"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"customName\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "shop_inventory",
+          "customName"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "column \"customName\" on \"shop_inventory\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "drop column \"customName\"",
+        "sql": "ALTER TABLE \"public\".\"shop_inventory\" DROP COLUMN \"customName\""
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"customName\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "shop_inventory",
+          "customName"
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "column \"customName\" on \"shop_inventory\""
+        }
+      }
+    ]
+  },
+  {
+    "id": "dropColumn.shop_inventory.unit",
+    "label": "Drop column \"unit\" from \"shop_inventory\"",
+    "operationClass": "destructive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "unit",
+        "table": "shop_inventory"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"unit\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "shop_inventory",
+          "unit"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "column \"unit\" on \"shop_inventory\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "drop column \"unit\"",
+        "sql": "ALTER TABLE \"public\".\"shop_inventory\" DROP COLUMN \"unit\""
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"unit\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "shop_inventory",
+          "unit"
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "column \"unit\" on \"shop_inventory\""
+        }
+      }
+    ]
+  }
+]
