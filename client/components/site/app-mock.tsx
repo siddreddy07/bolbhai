@@ -128,7 +128,7 @@ export function DashboardMock({ className }: { className?: string }) {
               <div
                 key={label as string}
                 className={cn(
-                  "relative rounded-[0.8em] px-[0.8em] pt-[1em] pb-[0.8em]",
+                  "relative w-24 rounded-[0.8em] px-[0.8em] pt-[1em] pb-[0.8em]",
                   tone as string
                 )}
               >
