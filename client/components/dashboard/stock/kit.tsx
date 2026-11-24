@@ -21,8 +21,6 @@ export const CATS: { id: CatId; name: string; group: string; icon: LucideIcon; t
   { id: "other", name: "Other", group: "Other", icon: Package, tone: "#dcdcd4" },
 ]
 export const CAT = Object.fromEntries(CATS.map((c) => [c.id, c])) as Record<CatId, (typeof CATS)[number]>
-export const UNITS = ["bags", "kg", "L", "packs", "pcs", "boxes", "tins"]
-
 /** fewer than 5 left (0 is "Out", 1 to 4 is "Out soon") */
 export const LOW_AT = 5
 export const isLow = (i: Pick<StockItem, "qty">) => i.qty < LOW_AT

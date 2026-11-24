@@ -5,7 +5,7 @@ import gsap from "gsap"
 import { useGSAP } from "@gsap/react"
 import { ChevronLeft, Minus, Plus, Trash2 } from "lucide-react"
 
-import { CAT, CATS, UNITS } from "@/components/dashboard/stock/kit"
+import { CAT, CATS } from "@/components/dashboard/stock/kit"
 import { Button } from "@/components/ui/button"
 import {
   Drawer,
@@ -37,7 +37,7 @@ export type Draft = {
 export const blank = (category: CatId = "cereals"): Draft => ({
   name: "",
   category,
-  unit: "bags",
+  unit: "pcs",
   qty: "10",
   max: "40",
   price: "",
@@ -74,6 +74,8 @@ function Field({
 const inputCls =
   "h-10 w-full rounded-lg border border-foreground/20 bg-background px-3 text-base outline-none transition-[border-color,box-shadow] placeholder:text-foreground/35 focus:border-foreground focus:shadow-[0_0_0_3px_color-mix(in_oklab,var(--hl)_55%,transparent)]"
 const selectCls = "h-10 w-full rounded-lg"
+// a field that cannot be changed (editing an item that came from the catalog)
+const lockedCls = "disabled:cursor-not-allowed disabled:bg-foreground/5 disabled:text-foreground/60"
 
 function EditorForm({
   draft,
@@ -139,7 +141,7 @@ function EditorForm({
         <DrawerDescription className="sr-only">
           {isNew
             ? "Type the name, set the count."
-            : "Change anything, then tap Save."}
+            : "Change the count, then tap Save."}
         </DrawerDescription>
       </DrawerHeader>
 
@@ -151,7 +153,8 @@ function EditorForm({
               onChange={(e) => set("name", e.target.value)}
               placeholder="Toor dal 1 kg"
               aria-invalid={!!err}
-              className={inputCls}
+              disabled={!isNew}
+              className={cn(inputCls, lockedCls)}
             />
           </Field>
           {err && (
@@ -167,8 +170,9 @@ function EditorForm({
               value={d.category}
               onValueChange={(v) => v && set("category", v as CatId)}
               items={CATS.map((c) => ({ value: c.id, label: c.name }))}
+              disabled={!isNew}
             >
-              <SelectTrigger className={selectCls}>
+              <SelectTrigger className={cn(selectCls, lockedCls)}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -180,60 +184,6 @@ function EditorForm({
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Counted in">
-            <Select
-              value={d.unit}
-              onValueChange={(v) => v && set("unit", v)}
-              items={UNITS.map((u) => ({ value: u, label: u }))}
-            >
-              <SelectTrigger className={selectCls}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {UNITS.map((u) => (
-                  <SelectItem key={u} value={u}>
-                    {u}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-        </div>
-
-        {/* the numbers: how many, and the price */}
-        <div data-fld className="grid grid-cols-2 gap-2.5">
-          <div className="grid gap-1">
-            <span className="text-xs font-semibold text-muted-foreground">
-              In stock
-            </span>
-            <div className="flex h-10 items-center justify-between rounded-lg border border-foreground/20">
-              <button
-                type="button"
-                aria-label="One less"
-                onClick={() => set("qty", String(Math.max(0, qty - 1)))}
-                className={step}
-              >
-                <Minus className="size-4" />
-              </button>
-              <input
-                inputMode="numeric"
-                aria-label="Quantity"
-                value={d.qty}
-                onChange={(e) =>
-                  set("qty", e.target.value.replace(/\D/g, "").slice(0, 5))
-                }
-                className="h-10 w-full min-w-0 bg-transparent text-center text-lg font-extrabold tabular-nums outline-none"
-              />
-              <button
-                type="button"
-                aria-label="One more"
-                onClick={() => set("qty", String(qty + 1))}
-                className={step}
-              >
-                <Plus className="size-4" />
-              </button>
-            </div>
-          </div>
           <Field label="Price (₹)">
             <input
               inputMode="numeric"
@@ -242,9 +192,44 @@ function EditorForm({
                 set("price", e.target.value.replace(/\D/g, "").slice(0, 6))
               }
               placeholder="0"
-              className={inputCls}
+              disabled={!isNew}
+              className={cn(inputCls, lockedCls)}
             />
           </Field>
+        </div>
+
+        {/* the count: the one thing that can always be changed */}
+        <div data-fld className="grid gap-1">
+          <span className="text-xs font-semibold text-muted-foreground">
+            In stock
+          </span>
+          <div className="flex h-10 items-center justify-between rounded-lg border border-foreground/20">
+            <button
+              type="button"
+              aria-label="One less"
+              onClick={() => set("qty", String(Math.max(0, qty - 1)))}
+              className={step}
+            >
+              <Minus className="size-4" />
+            </button>
+            <input
+              inputMode="numeric"
+              aria-label="Quantity"
+              value={d.qty}
+              onChange={(e) =>
+                set("qty", e.target.value.replace(/\D/g, "").slice(0, 5))
+              }
+              className="h-10 w-full min-w-0 bg-transparent text-center text-lg font-extrabold tabular-nums outline-none"
+            />
+            <button
+              type="button"
+              aria-label="One more"
+              onClick={() => set("qty", String(qty + 1))}
+              className={step}
+            >
+              <Plus className="size-4" />
+            </button>
+          </div>
         </div>
       </div>
 
