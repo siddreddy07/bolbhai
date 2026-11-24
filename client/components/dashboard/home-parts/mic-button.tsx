@@ -6,7 +6,15 @@ import { useGSAP } from "@gsap/react"
 import { FilePlus2, Mic } from "lucide-react"
 
 import { MicBars } from "@/components/dashboard/mic-bars"
+import { WordRotate } from "@/components/ui/word-rotate"
 import { useHomeStore } from "@/store/home-store"
+
+// what the line under the mic says while it waits, one after the other
+const IDLE_WORDS = [
+  "Tap and say the items",
+  "Record customer items",
+  "Create bills by voice",
+]
 
 /** The mic lives where the thumb already is. */
 export function MicButton() {
@@ -54,6 +62,19 @@ export function MicButton() {
             <Mic className="size-[calc(var(--u)*2.5)]" />
           )}
         </button>
+        {/* a handwritten hint on the left of the mic, only while it waits */}
+        {phase === "idle" && !micError && (
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute top-1/2 right-[calc(50%+var(--u)*3.9)] flex -translate-y-1/2 -rotate-6 items-center gap-0.5 font-hand text-xl leading-none whitespace-nowrap text-foreground/75"
+          >
+            Start here
+            <svg width="26" height="20" viewBox="0 0 26 20" fill="none" className="mt-3 shrink-0">
+              <path d="M2 3 C 11 1, 19 5, 23 13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              <path d="M17.5 12.5 L23.2 14 L24 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </span>
+        )}
         {/* a bill made by hand, for when the voice did not work */}
         <button
           type="button"
@@ -64,11 +85,24 @@ export function MicButton() {
           className="absolute top-1/2 left-[calc(50%+var(--u)*5)] grid size-[calc(var(--u)*3.4)] -translate-y-1/2 place-items-center rounded-full border border-foreground/15 bg-card text-foreground transition-transform active:scale-90 disabled:opacity-40"
         >
           <FilePlus2 className="size-[calc(var(--u)*1.5)]" />
+          <span className="absolute top-full left-1/2 mt-0.5 -translate-x-1/2 text-[11px] leading-none font-semibold whitespace-nowrap text-muted-foreground">
+            Manual
+          </span>
         </button>
       </div>
-      <p className="-mt-1 text-sm font-semibold text-muted-foreground">
-        {micError ?? (phase === "listening" ? "Tap to stop" : "Tap and say it")}
-      </p>
+      {micError || phase !== "idle" ? (
+        <p className="-mt-1 py-1 text-sm leading-5 font-semibold text-muted-foreground">
+          {micError ?? (phase === "listening" ? "Tap to stop" : "Tap and say it")}
+        </p>
+      ) : (
+        <div className="-mt-1">
+          <WordRotate
+            words={IDLE_WORDS}
+            duration={2600}
+            className="text-sm leading-5 font-semibold text-muted-foreground"
+          />
+        </div>
+      )}
     </div>
   )
 }
