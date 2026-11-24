@@ -18,7 +18,7 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Other pages"
-      className="fixed inset-x-0 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 mx-auto grid h-14 w-[min(86vw,19rem)] grid-cols-2 rounded-full border border-foreground/10 bg-background/60 p-1 shadow-[0_10px_30px_-12px_rgb(16_48_31/0.4)] backdrop-blur-xl backdrop-saturate-150"
+      className="fixed inset-x-0 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 mx-auto grid h-14 w-[min(94vw,26rem)] grid-cols-2 rounded-full border border-foreground/10 bg-background/60 p-1 shadow-[0_10px_30px_-12px_rgb(16_48_31/0.4)] backdrop-blur-xl backdrop-saturate-150"
     >
       {others.map(({ href, name, Icon }) => (
         <Link
