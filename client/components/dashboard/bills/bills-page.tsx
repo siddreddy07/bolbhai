@@ -19,6 +19,7 @@ import { billNumber, dayKey, daysAgo, invoiceTotal, isPaid } from "@/lib/bill"
 import { useHomeStore } from "@/store/home-store"
 import type { Invoice, StockItem } from "@/lib/types"
 import { cn } from "@/lib/utils"
+import { useMounted } from "@/lib/use-mounted"
 import { useShopStore } from "@/store/shop-store"
 
 /** "3:45 pm" for today's bills, "12 Nov, 3:45 pm" for older ones */
@@ -86,7 +87,13 @@ export function BillRow({
   )
 }
 
+/** The dates and the day buttons depend on the clock, so the page is drawn in the browser only (no server / browser mismatch). */
 export function BillsPage() {
+  const mounted = useMounted()
+  return mounted ? <BillsView /> : null
+}
+
+function BillsView() {
   const invoices = useHomeStore((s) => s.invoices)
   const stock = useHomeStore((s) => s.stock)
   const analytics = useHomeStore((s) => s.analytics)

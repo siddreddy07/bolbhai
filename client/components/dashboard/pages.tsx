@@ -15,6 +15,7 @@ import {
 import { billNumber, daysAgo, type KhataBill } from "@/lib/bill"
 import { useHomeStore, useKhata } from "@/store/home-store"
 import { payLink } from "@/lib/invoice-api"
+import { useMounted } from "@/lib/use-mounted"
 import { useShopStore } from "@/store/shop-store"
 
 /* ================================================================== */
@@ -23,7 +24,13 @@ import { useShopStore } from "@/store/shop-store"
 
 type KFilter = "week" | "month"
 
+/** The days and weeks depend on the clock, so the page is drawn in the browser only (no server / browser mismatch). */
 export function KhataPage() {
+  const mounted = useMounted()
+  return mounted ? <KhataView /> : null
+}
+
+function KhataView() {
   const setView = useHomeStore((s) => s.setViewInvoice)
   const setPayment = useHomeStore((s) => s.setBillPayment)
   const { bills, count, totalDue } = useKhata()
