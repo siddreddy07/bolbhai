@@ -126,7 +126,6 @@ function Form({ onClose }: { onClose: () => void }) {
             url="/api/inventory/search"
             params={{ shopId: shop.id }}
             cacheKey={stock.length}
-            logLabel="inventory search"
             placeholder="Search an item to add"
             autoFocus
             clearOnSelect

@@ -54,8 +54,6 @@ export type SearchBoxProps<T> = {
   onValueChange?: (text: string) => void
   /** change this to forget remembered answers (e.g. after the data behind the route changed) */
   cacheKey?: string | number
-  /** when set, every search logs to the console as `[label] "text" -> API hit | cache hit` */
-  logLabel?: string
 }
 
 // answers already fetched, shared by every box; key = route + params + text
@@ -117,7 +115,6 @@ export function SearchBox<T>({
   value,
   onValueChange,
   cacheKey,
-  logLabel,
 }: SearchBoxProps<T>) {
   const id = React.useId()
   const root = React.useRef<HTMLDivElement>(null)
@@ -138,9 +135,9 @@ export function SearchBox<T>({
   const [retry, setRetry] = React.useState(0)
 
   // the latest props, so the fetch effect does not restart when a parent re-renders with new functions
-  const live = React.useRef({ pick, params, logLabel })
+  const live = React.useRef({ pick, params })
   React.useEffect(() => {
-    live.current = { pick, params, logLabel }
+    live.current = { pick, params }
   })
 
   const extra = JSON.stringify(params ?? {})
@@ -163,16 +160,8 @@ export function SearchBox<T>({
   // hit the route (unless the answer is already remembered)
   React.useEffect(() => {
     if (!ready) return
-    if (cache.has(key)) {
-      if (live.current.logLabel)
-        console.log(
-          `[${live.current.logLabel}] "${clean}" -> cache hit (no API call)`
-        )
-      return
-    }
+    if (cache.has(key)) return
     const ctrl = new AbortController()
-    if (live.current.logLabel)
-      console.log(`[${live.current.logLabel}] "${clean}" -> API hit (${url})`)
     api
       .get(url, {
         params: { ...live.current.params, [param]: clean },

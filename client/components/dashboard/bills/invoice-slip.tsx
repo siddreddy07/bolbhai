@@ -343,7 +343,6 @@ function Slip({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
             url="/api/inventory/search"
             params={{ shopId: shop.id }}
             cacheKey={stock.length}
-            logLabel="inventory search"
             placeholder="Add an item to this bill"
             clearOnSelect
             getKey={(i) => i.id}
