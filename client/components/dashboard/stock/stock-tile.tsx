@@ -79,7 +79,7 @@ export function StockTile({
               <span className="font-bold tabular-nums">{inr(item.price)}</span>
               {(out || low) && (
                 <span className="font-bold text-red-500">
-                  {out ? "Out" : "Out soon"}
+                  {out ? "Out" : "soon"}
                 </span>
               )}
             </span>

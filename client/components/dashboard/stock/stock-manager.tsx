@@ -188,7 +188,6 @@ export function StockManager() {
                   url="/api/inventory/search"
                   params={{ shopId: stockShopId ?? undefined }}
                   cacheKey={stock.length}
-                  logLabel="inventory search"
                   value={q}
                   onValueChange={setQ}
                   getKey={(i) => i.id}
@@ -205,7 +204,7 @@ export function StockManager() {
                     setQ(i.name)
                     scroller.current?.scrollTo({ top: 0 })
                   }}
-                  placeholder="Search an item"
+                  placeholder="Item from your shop"
                 />
               </div>
               <button
@@ -287,9 +286,9 @@ export function StockManager() {
               type="button"
               disabled={busy}
               onClick={() => setPickerOpen(true)}
-              className="pointer-events-auto flex h-14 items-center gap-2 rounded-full bg-foreground px-7 text-base font-semibold text-background shadow-[0_16px_36px_-12px_rgb(0_0_0/0.6)] transition-transform active:scale-95 disabled:opacity-50"
+              className="pointer-events-auto flex h-14 items-center gap-2 rounded-full bg-foreground px-3 sm:px-7 text-[14px] sm:text-base font-semibold text-background shadow-[0_16px_36px_-12px_rgb(0_0_0/0.6)] transition-transform active:scale-95 disabled:opacity-50"
             >
-              <Plus className="size-5" /> Add item
+              <Plus className="size-5" /> Add item to inventory
             </button>
             <button
               type="button"
