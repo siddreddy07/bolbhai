@@ -10,8 +10,8 @@ export type CarouselItem = {
   id: string
   label: string
   icon: LucideIcon
-  /** what the shopkeeper says */
-  say: string
+  /** what the shopkeeper says: only for the jobs that are done by voice */
+  say?: string
   /** optional classes for the spoken line (e.g. a script font) */
   sayClass?: string
   description: string
@@ -193,7 +193,7 @@ export function FeatureCarousel({
                 )}
               >
                 <div>
-                  <p className={cn("opacity-70", it.sayClass ?? "font-hand text-xl leading-none sm:text-2xl lg:text-3xl")}>“{it.say}”</p>
+                  {it.say && <p className={cn("opacity-70", it.sayClass ?? "font-hand text-xl leading-none sm:text-2xl lg:text-3xl")}>“{it.say}”</p>}
                   <h3 className="mt-2 text-xl font-extrabold sm:text-2xl lg:text-3xl">{it.label}</h3>
                   <p className="mt-1 text-sm leading-snug opacity-75 sm:text-[15px] lg:text-base">{it.description}</p>
                 </div>

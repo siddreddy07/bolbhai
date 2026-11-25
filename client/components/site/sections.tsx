@@ -4,12 +4,11 @@ import { Illo } from "@/components/site/illo"
 import * as React from "react"
 import Link from "next/link"
 import gsap from "gsap"
-import { ChartColumn, MessageSquareText, Package, Plus, Receipt, Truck, Users } from "lucide-react"
+import { ChartColumn, Package, Plus, Receipt, Users } from "lucide-react"
 
 import { WatchDemo } from "@/components/site/demo-video"
 import { StepsStage } from "@/components/site/steps-stage"
 import { FeatureCarousel, type CarouselItem } from "@/components/ui/feature-carousel"
-import { JOB_SAY } from "@/lib/copy"
 import { cn } from "@/lib/utils"
 import { useUserStore } from "@/store/user-store"
 
@@ -20,50 +19,11 @@ const wrap = "mx-auto w-full max-w-[1120px] px-5 sm:px-8"
 const row = "flex justify-between text-sm"
 const JOBS: CarouselItem[] = [
   {
-    id: "stock",
-    label: "Stock",
-    icon: Package,
-    say: "20 bags of rice came in",
-    description: "Add what arrives, see what is left, get a nudge before you run out.",
-    tone: "bg-sky",
-    visual: (
-      <>
-        <div className="flex justify-between text-sm font-semibold">
-          <span>Rice 25 kg</span>
-          <span className="tabular-nums">20 → 60 bags</span>
-        </div>
-        <div className="mt-3 h-3 overflow-hidden rounded-full bg-[#10301f]/10">
-          <div className="h-full origin-left rounded-full bg-[#10301f] [animation:loop-fill_3.4s_cubic-bezier(.3,.7,.2,1)_infinite]" />
-        </div>
-      </>
-    ),
-  },
-  {
-    id: "purchases",
-    label: "Purchases",
-    icon: Truck,
-    say: "bought 30 bags of sugar",
-    description: "Record what you buy from suppliers and see what you owe them.",
-    tone: "bg-card text-foreground",
-    visual: (
-      <div className="space-y-1.5">
-        <div className={row}>
-          <span>Sugar 50 kg × 30</span>
-          <b className="tabular-nums">₹1,02,000</b>
-        </div>
-        <div className={cn(row, "text-[#55675b]")}>
-          <span>Sri Rama Traders</span>
-          <span>due Friday</span>
-        </div>
-      </div>
-    ),
-  },
-  {
     id: "bills",
     label: "Bills",
     icon: Receipt,
     say: "make a bill for Ramesh",
-    description: "Invoices write themselves from what you said, ready to print or share.",
+    description: "Say the items and the invoice writes itself. Check it and press Done.",
     tone: "bg-hl text-[#10301f]",
     visual: (
       <div className="space-y-1.5">
@@ -88,11 +48,28 @@ const JOBS: CarouselItem[] = [
     ),
   },
   {
+    id: "stock",
+    label: "Stock",
+    icon: Package,
+    description: "Add what arrives with a tap, see what is left, and spot what is running low.",
+    tone: "bg-sky",
+    visual: (
+      <>
+        <div className="flex justify-between text-sm font-semibold">
+          <span>Rice 25 kg</span>
+          <span className="tabular-nums">20 → 60 bags</span>
+        </div>
+        <div className="mt-3 h-3 overflow-hidden rounded-full bg-[#10301f]/10">
+          <div className="h-full origin-left rounded-full bg-[#10301f] [animation:loop-fill_3.4s_cubic-bezier(.3,.7,.2,1)_infinite]" />
+        </div>
+      </>
+    ),
+  },
+  {
     id: "khata",
     label: "Khata",
     icon: Users,
-    say: "Ramesh paid two thousand",
-    description: "Know who owes what. Payments update the account the moment you say them.",
+    description: "See who owes what, by week and month. Mark it paid or send a pay link.",
     tone: "bg-mint",
     visual: (
       <div className="flex items-baseline justify-between">
@@ -106,10 +83,9 @@ const JOBS: CarouselItem[] = [
   },
   {
     id: "reports",
-    label: "Reports",
+    label: "Sales",
     icon: ChartColumn,
-    say: "show me today's sales",
-    description: "See the day at a glance: sales, top items, who bought what.",
+    description: "Today, this week and this month, on a graph you can tap.",
     tone: "bg-card text-foreground",
     visual: (
       <div className="flex h-14 items-end gap-2">
@@ -127,35 +103,17 @@ const JOBS: CarouselItem[] = [
       </div>
     ),
   },
-  {
-    id: "ask",
-    label: "Ask anything",
-    icon: MessageSquareText,
-    say: "how much rice is left?",
-    description: "Ask a question about your shop and get the answer, not a spreadsheet.",
-    tone: "bg-sky",
-    visual: (
-      <div className="space-y-1.5 text-sm">
-        <p className="w-fit rounded-xl bg-[#10301f]/10 px-3 py-1.5">How much rice is left?</p>
-        <p className="ml-auto w-fit rounded-xl bg-[#10301f] px-3 py-1.5 text-[#fffef8]">35 bags in stock</p>
-      </div>
-    ),
-  },
 ]
 
 export function Jobs() {
-  const items = JOBS.map((j) => ({
-    ...j,
-    say: JOB_SAY[j.id],
-  }))
   return (
     <section id="jobs" className="py-10 sm:py-16 lg:py-24">
       <div className={wrap}>
         <h2 data-reveal className="max-w-[18ch] text-[1.55rem] leading-[1.05] font-extrabold sm:text-[2rem] lg:text-[clamp(2.6rem,4.6vw,3.8rem)] lg:leading-[1]">
-          Every job in your shop. Now you just say it.
+          Say the bill. See the rest.
         </h2>
         <div data-reveal className="mt-5 sm:mt-8 lg:mt-10">
-          <FeatureCarousel items={items} />
+          <FeatureCarousel items={JOBS} />
         </div>
       </div>
     </section>
