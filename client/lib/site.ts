@@ -6,7 +6,7 @@ export const SITE_URL =
 export const SITE_NAME = "BolBhai"
 export const SITE_TITLE = "BolBhai: don't type, bol de bhai"
 export const SITE_DESCRIPTION =
-  "Speak in Telugu, Hindi or English. BolBhai updates stock, writes invoices and tracks customer credit for shopkeepers and wholesalers."
+  "Say the order in English and BolBhai writes the invoice. Stock, sales and khata (ledger) in one place for shopkeepers and wholesalers."
 
 // the pages search engines may list (the dashboard and invoice pages are private)
 export const PUBLIC_PAGES = [
